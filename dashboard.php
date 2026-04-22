@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['usuario_id'])) {
-    header("Location: index.php");
+    header("Location: index");
     exit;
 }
 ?>
@@ -17,7 +17,7 @@ if (!isset($_SESSION['usuario_id'])) {
 <nav class="navbar navbar-dark bg-dark mb-4">
     <div class="container">
         <span class="navbar-brand">Panel de Control</span>
-        <a href="logout.php" class="btn btn-outline-light btn-sm">Salir</a>
+        <a href="logout" class="btn btn-outline-light btn-sm">Salir</a>
     </div>
 </nav>
 

@@ -7,7 +7,7 @@ $(document).ready(function() {
         const datos = $(this).serialize();
 
         $.ajax({
-            url: 'includes/auth.php', // Ruta actualizada
+            url: 'includes/auth', // Ruta actualizada
             type: 'POST',
             data: datos,
             dataType: 'json',
@@ -17,7 +17,7 @@ $(document).ready(function() {
             },
             success: function(res) {
                 if(res.status === 'success') {
-                    window.location.href = 'dashboard.php';
+                    window.location.href = 'dashboard';
                 } else {
                     mensajeDiv.removeClass('d-none alert-success').addClass('alert-danger').text(res.message);
                     btn.prop('disabled', false).text('Entrar');
