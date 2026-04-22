@@ -1,0 +1,10 @@
+# Ignorar configuración de base de datos con contraseñas reales
+# (Si usas un archivo diferente para producción)
+# config/conexion.php
+
+# Ignorar archivos temporales o de sistema
+.DS_Store
+Thumbs.db
+
+# Ignorar carpetas de uploads si no quieres que tus fotos de prueba se suban
+assets/img/uploads/*
