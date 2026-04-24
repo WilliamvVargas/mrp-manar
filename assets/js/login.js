@@ -7,12 +7,16 @@ $(document).ready(function() {
         $('.form-control').removeClass('is-invalid is-valid');
         $('.invalid-feedback').text('');
 
+        console.log($('#form-login').serialize())
+
         $.ajax({
             url: 'includes/auth',
             type: 'POST',
             data: $('#form-login').serialize(),
             dataType: 'json',
             success: function(res) {
+
+                console.log(res)
 
                 if (res.status === 'error') {
                     $.each(res.errors, function(campo, mensaje) {
@@ -40,7 +44,9 @@ $(document).ready(function() {
                 }
 
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error("Error del servidor:", error);
+                console.error("Respuesta cruda:", xhr.responseText);
                 alert("Error crítico en el servidor.");
             }
         });

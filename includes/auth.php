@@ -4,13 +4,22 @@
     header('Content-Type: application/json');
     session_start();
 
+    $tokenPost = $_POST['csrf_token'] ?? '';
+    $tokenSession = $_SESSION['csrf_token'] ?? '';
+
+    if (empty($tokenPost) || !hash_equals($tokenSession, $tokenPost)) {
+        $response['errors']['auth'] = "Sesión inválida o token expirado. Por favor, recarga la página.";
+        echo json_encode($response);
+        exit; // Ahora sí salimos, pero enviando el mensaje de error primero
+    }
+    
     require_once '../config/conexion.php'; 
     require_once 'funciones_validacion.php';
 
     $response = ['status' => 'error', 'errors' => []];
 
-    $userPost = $_POST['usuario'] ?? '';
-    $passPost = $_POST['password'] ?? '';
+    $userPost = trim($_POST['usuario'] ?? '');
+    $passPost = trim($_POST['password'] ?? '');
 
     //Validación usuario
     $response['errors'] = validarDatosUsuario($userPost, $passPost);
@@ -28,6 +37,7 @@
 
                 $_SESSION['usuario_id'] = $userDb['id'];
                 $_SESSION['usuario_nombre'] = $userPost;
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
                 $response['status'] = 'success';
             } else {
