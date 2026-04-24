@@ -1,32 +1,49 @@
 $(document).ready(function() {
-    $('#formLogin').on('submit', function(e) {
+
+    $('#form-login').on('submit', function(e) {
         e.preventDefault();
         
-        const btn = $('#btnEnviar');
-        const mensajeDiv = $('#mensaje');
-        const datos = $(this).serialize();
+        // Limpiar estados previos
+        $('.form-control').removeClass('is-invalid is-valid');
+        $('.invalid-feedback').text('');
 
         $.ajax({
-            url: 'includes/auth', // Ruta actualizada
+            url: 'includes/auth',
             type: 'POST',
-            data: datos,
+            data: $('#form-login').serialize(),
             dataType: 'json',
-            beforeSend: function() {
-                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Verificando...');
-                mensajeDiv.addClass('d-none');
-            },
             success: function(res) {
-                if(res.status === 'success') {
+
+                if (res.status === 'error') {
+                    $.each(res.errors, function(campo, mensaje) {
+                        
+                        let input = $('#' + campo);
+
+                        if (input.length > 0) {
+
+                            input.addClass('is-invalid');
+                            input.parent().find('.invalid-feedback').text(mensaje);
+                        } 
+                        else {
+
+                            $('#alert-container').html(`
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i> ${mensaje}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            `);
+                        }
+                    });
+                } 
+                else {
                     window.location.href = 'dashboard';
-                } else {
-                    mensajeDiv.removeClass('d-none alert-success').addClass('alert-danger').text(res.message);
-                    btn.prop('disabled', false).text('Entrar');
                 }
+
             },
             error: function() {
-                mensajeDiv.removeClass('d-none').addClass('alert-danger').text('Error de comunicación con el servidor.');
-                btn.prop('disabled', false).text('Entrar');
+                alert("Error crítico en el servidor.");
             }
         });
     });
+
 });

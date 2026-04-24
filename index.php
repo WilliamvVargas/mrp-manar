@@ -10,23 +10,26 @@
         <div class="card shadow-sm" style="width: 100%; max-width: 400px;">
             <div class="card-body p-4">
                 <h3 class="text-center mb-4">Iniciar Sesión</h3>
-                <div id="mensaje" class="alert d-none"></div>
-                <form id="formLogin">
+                <div id="alert-container"></div>
+                <form id="form-login">
                     <div class="mb-3">
                         <label class="form-label">Usuario</label>
-                        <input type="text" name="usuario" class="form-control" required>
+                        <input type="text" id="usuario" name="usuario" class="form-control">
+                        <div class="invalid-feedback"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Contraseña</label>
-                        <input type="password" name="password" class="form-control" required>
+                        <input type="password" id="password" name="password" class="form-control">
+                        <div class="invalid-feedback"></div>
                     </div>
-                    <button type="submit" id="btnEnviar" class="btn btn-primary w-100">Entrar</button>
+                    <button id="btn-login" class="btn btn-primary w-100">Entrar</button>
                 </form>
             </div>
         </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/login.js"></script>
 </body>
 </html>
