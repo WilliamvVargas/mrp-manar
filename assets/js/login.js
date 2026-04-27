@@ -7,8 +7,6 @@ $(document).ready(function() {
         $('.form-control').removeClass('is-invalid is-valid');
         $('.invalid-feedback').text('');
 
-        console.log($('#form-login').serialize())
-
         $.ajax({
             url: 'includes/auth',
             type: 'POST',
@@ -32,7 +30,7 @@ $(document).ready(function() {
 
                             $('#alert-container').html(`
                                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                    <i class="bi bi-exclamation-triangle-fill me-2"></i> ${mensaje}
+                                    ${mensaje}
                                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                 </div>
                             `);

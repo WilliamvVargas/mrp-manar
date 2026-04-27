@@ -6,11 +6,12 @@
 
     $tokenPost = $_POST['csrf_token'] ?? '';
     $tokenSession = $_SESSION['csrf_token'] ?? '';
+    $response = ['status' => 'error', 'errors' => []];
 
     if (empty($tokenPost) || !hash_equals($tokenSession, $tokenPost)) {
-        $response['errors']['auth'] = "Sesión inválida o token expirado. Por favor, recarga la página.";
+        $response['errors']['auth'] = "Sesión inválida o token expirado. <br>Por favor, recarga la página.";
         echo json_encode($response);
-        exit; // Ahora sí salimos, pero enviando el mensaje de error primero
+        exit;
     }
     
     require_once '../config/conexion.php'; 
