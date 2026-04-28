@@ -11,8 +11,7 @@ $(document).ready(function() {
         $('.invalid-feedback').text('');
         $('#alert-container').empty();
 
-        btnSubmit.prop('disabled', true);
-        btnSubmit.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cargando...');
+        setBtnLoading(btnSubmit, 'Validando...');
 
         $.ajax({
             url: 'includes/auth',
@@ -44,8 +43,7 @@ $(document).ready(function() {
                         mostrarAlertaGeneral("Error de Acceso", erroresGenerales);
                     }
 
-                    btnSubmit.prop('disabled', false);
-                    btnSubmit.html(btnOriginalText);
+                    resetBtnLoading(btnSubmit);
                 } 
                 else {
                     window.location.href = 'dashboard';
@@ -53,8 +51,7 @@ $(document).ready(function() {
 
             },
             error: function(xhr, status, error) {
-                btnSubmit.prop('disabled', false);
-                btnSubmit.html(btnOriginalText);
+                resetBtnLoading(btnSubmit);
                 mostrarAlertaGeneral("Error Crítico", "No se pudo establecer conexión con el servidor. Inténtelo más tarde.");
             }
         });

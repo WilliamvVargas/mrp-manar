@@ -26,3 +26,26 @@ function mostrarAlertaGeneral(titulo, mensajes, tipo = 'danger') {
         </div>
     `);
 }
+
+/**
+ * Deshabilita un botón y le pone un spinner
+ * @param {jQuery} btn - El objeto jQuery del botón
+ * @param {string} textoCarga - Texto a mostrar junto al spinner
+ */
+function setBtnLoading(btn, textoCarga = 'Cargando...') {
+    btn.data('original-text', btn.html());
+    btn.prop('disabled', true);
+    btn.html(`<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${textoCarga}`);
+}
+
+/**
+ * Habilita el botón y restaura su texto original
+ * @param {jQuery} btn - El objeto jQuery del botón
+ */
+function resetBtnLoading(btn) {
+    const originalText = btn.data('original-text');
+    btn.prop('disabled', false);
+    if (originalText) {
+        btn.html(originalText);
+    }
+}
