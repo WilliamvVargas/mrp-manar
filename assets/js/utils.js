@@ -13,7 +13,7 @@ function mostrarAlertaGeneral(titulo, mensajes, tipo = 'danger') {
     if(tipo === 'success') icono = 'bi-check-circle-fill';
     if(tipo === 'warning') icono = 'bi-exclamation-triangle-fill';
 
-    $('#alert-container').html(`
+    const alertaHTML = `
         <div class="alert alert-${tipo} alert-dismissible fade show p-4" role="alert">
             <div class="d-flex align-items-center justify-content-center mb-2">
                 <i class="bi ${icono} fs-5 me-2"></i>
@@ -24,7 +24,13 @@ function mostrarAlertaGeneral(titulo, mensajes, tipo = 'danger') {
             </ul>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-    `);
+    `;
+
+    $('#alert-container')
+        .hide()
+        .html(alertaHTML)
+        .stop(true, true)
+        .slideDown(400);
 }
 
 /**

@@ -57,4 +57,17 @@ $(document).ready(function() {
         });
     });
 
+    $('#form-login input').on('input', function() {
+
+        if ($('#alert-container').is(':visible')) {
+            $('#alert-container').slideUp(300);
+        }
+
+        $(this).removeClass('is-invalid');
+    });
+
+    $('#alert-container').on('click', '.btn-close', function() {
+        $(this).closest('#alert-container').slideUp(300);
+    });
+
 });
