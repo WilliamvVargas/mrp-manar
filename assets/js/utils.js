@@ -1,3 +1,18 @@
+$(document).ready(function() {
+
+    // Cierre manual con efecto persiana
+    $('#alert-container').on('click', '.btn-close', function(e) {
+        const alerta = $(this).closest('.alert');
+        
+        $('#alert-container').slideUp(400, function() {
+            $(this).empty().show(); 
+        });
+
+    });
+
+});
+
+
 /**
  * Muestra una alerta de Bootstrap estandarizada
  * @param {string} titulo 
@@ -22,7 +37,7 @@ function mostrarAlertaGeneral(titulo, mensajes, tipo = 'danger') {
             <ul class="mb-0 small d-inline-block text-start">
                 ${cuerpoHTML}
             </ul>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close" aria-label="Close"></button>
         </div>
     `;
 
@@ -55,3 +70,4 @@ function resetBtnLoading(btn) {
         btn.html(originalText);
     }
 }
+
