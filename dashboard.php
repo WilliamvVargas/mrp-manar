@@ -11,15 +11,11 @@ if (!isset($_SESSION['usuario_id'])) {
     <meta charset="UTF-8">
     <title>Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
 <body>
 
-<nav class="navbar navbar-dark bg-dark mb-4">
-    <div class="container">
-        <span class="navbar-brand">Panel de Control</span>
-        <a href="logout" class="btn btn-outline-light btn-sm">Salir</a>
-    </div>
-</nav>
+<?php include 'includes/navbar.php'; ?>
 
 <div class="container">
     <div class="row">

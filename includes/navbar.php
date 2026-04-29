@@ -1,0 +1,36 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="dashboard">Panel de Control</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle <?php echo (basename($_SERVER['PHP_SELF']) == 'usuarios.php') ? 'active' : ''; ?>" 
+                       href="#" id="navbarAdmin" role="button" data-bs-toggle="dropdown">
+                        Administración
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'usuarios.php') ? 'active' : ''; ?>" href="usuarios">
+                                <i class="bi bi-people me-2"></i>Usuarios
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item disabled" href="#">Configuración</a></li>
+                    </ul>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center">
+                <span class="navbar-text me-3 small">
+                    <strong><?= htmlspecialchars($_SESSION['usuario_nombre']) ?></strong>
+                </span>
+                <a href="logout" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-box-arrow-right"></i> Salir
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
