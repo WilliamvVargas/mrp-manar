@@ -57,4 +57,48 @@ $(document).ready(function() {
         });
     }
 
+    $('#form-usuario').on('submit', function(e) {
+        e.preventDefault();
+        
+        const btn = $('#btnGuardar');
+        const errorContainer = $('#modal-error-container');
+        setBtnLoading(btn, 'Guardando...');
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=registrar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    // CASO EXITOSO: Todo a la raíz
+                    resetBtnLoading(btn);
+                    $('#modalUsuario').modal('hide');
+                    $('#form-usuario')[0].reset();
+                    listarUsuarios();
+                    
+                    // Usamos tu función global para la raíz
+                    mostrarAlertaGeneral("¡Hecho!", res.message, "success");
+                } else {
+                    // CASO ERROR: Se queda en el modal
+                    resetBtnLoading(btn);
+                    
+                    // Creamos una alerta local estilo Bootstrap
+                    const alerta = `
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            ${res.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>`;
+                    
+                    errorContainer.html(alerta);
+                }
+            },
+            error: function() {
+                resetBtnLoading(btn);
+                errorContainer.html('<div class="alert alert-danger">Error crítico en el servidor.</div>');
+            }
+        });
+    });
+
 });

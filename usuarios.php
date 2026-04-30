@@ -22,7 +22,7 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-primary">Listado de Usuarios</h5>
-            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalUsuario">
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalUsuarioCrear">
                 <i class="bi bi-plus-lg"></i> Agregar Usuario
             </button>
         </div>
@@ -44,6 +44,8 @@
         </div>
     </div>
 </div>
+
+<?php include 'modals/modal_usuarios_crear.php'; ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
