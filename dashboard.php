@@ -1,9 +1,5 @@
-<?php
-session_start();
-if (!isset($_SESSION['usuario_id'])) {
-    header("Location: index");
-    exit;
-}
+<?php 
+    require_once 'includes/auth.php'; 
 ?>
 <!DOCTYPE html>
 <html lang="es">

@@ -14,7 +14,7 @@ $(document).ready(function() {
         setBtnLoading(btnSubmit, 'Validando...');
 
         $.ajax({
-            url: 'includes/auth',
+            url: 'controllers/login_controller',
             type: 'POST',
             data: $('#form-login').serialize(),
             dataType: 'json',
@@ -46,7 +46,7 @@ $(document).ready(function() {
                     resetBtnLoading(btnSubmit);
                 } 
                 else {
-                    window.location.href = 'dashboard';
+                    window.location.href = res.redirect;
                 }
 
             },
