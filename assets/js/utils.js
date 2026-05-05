@@ -1,51 +1,109 @@
-$(document).ready(function() {
-
-    // Cierre manual con efecto persiana
-    $('#alert-container').on('click', '.btn-close', function(e) {
-        const alerta = $(this).closest('.alert');
-        
-        $('#alert-container').slideUp(400, function() {
-            $(this).empty().show(); 
-        });
-
+/** Trigger para cerrar mensajes con el boton cerrar*/
+$(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
+    e.preventDefault();
+    
+    const $contenedor = $(this).closest('[id*="mensajes"]');
+    
+    $contenedor.slideUp(400, function() {
+        $(this).html('').show();
     });
-
 });
+
+/**
+ * Inicializa la escucha de eventos en los inputs para ocultar la alerta general
+ * @param {string} selectorForm - ID del formulario
+ * @param {string} selectorMensajes - ID del contenedor de alertas
+ */
+function activarLimpiezaMensajeAlEscribir(selectorForm, selectorMensajes) {
+
+    $(selectorForm).on('input', 'input, select, textarea', function() {
+        const $contenedor = $(selectorMensajes);
+        
+        if ($contenedor.is(':visible')) {
+            $contenedor.slideUp(300);
+        }
+    });
+}
 
 
 /**
- * Muestra una alerta de Bootstrap estandarizada
- * @param {string} titulo 
- * @param {string|array} mensajes 
- * @param {string} tipo (danger, success, warning, info)
+ * Muestra un mensaje estructurado con icono, título y animación dentro de un contenedor
+ * @param {string} contenedor - Selector del div (ej: '#modal-mensajes')
+ * @param {string} titulo - Título corto
+ * @param {string} mensaje - Descripción detallada
+ * @param {string} tipo - 'success', 'danger', 'warning', 'info'
  */
-function mostrarAlertaGeneral(titulo, mensajes, tipo = 'danger') {
-    let listaMensajes = Array.isArray(mensajes) ? mensajes : [mensajes];
-    let cuerpoHTML = listaMensajes.map(m => `<li>${m}</li>`).join('');
+function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger') {
+    const iconos = {
+        'success': 'bi-check-circle-fill',
+        'danger': 'bi-exclamation-octagon-fill',
+        'warning': 'bi-exclamation-triangle-fill',
+        'info': 'bi-info-circle-fill'
+    };
 
-    // Definir icono según el tipo
-    let icono = 'bi-exclamation-octagon-fill';
-    if(tipo === 'success') icono = 'bi-check-circle-fill';
-    if(tipo === 'warning') icono = 'bi-exclamation-triangle-fill';
+    const icono = iconos[tipo] || iconos['danger'];
 
-    const alertaHTML = `
+    const html = `
         <div class="alert alert-${tipo} alert-dismissible fade show p-4" role="alert">
             <div class="d-flex align-items-center justify-content-center mb-2">
                 <i class="bi ${icono} fs-5 me-2"></i>
                 <h6 class="alert-heading m-0 text-center fw-bold">${titulo}</h6>
             </div>
             <ul class="mb-0 small d-inline-block text-start">
-                ${cuerpoHTML}
+                ${mensaje}
             </ul>
             <button type="button" class="btn-close" aria-label="Close"></button>
         </div>
     `;
 
-    $('#alert-container')
-        .hide()
-        .html(alertaHTML)
-        .stop(true, true)
-        .slideDown(400);
+    $(contenedor)
+    .stop(true, true)
+    .hide()
+    .html(html)
+    .fadeIn({
+        duration: 400,
+        queue: false
+    }).css('display', 'none').slideDown(400);
+}
+
+
+/**
+ * Limpia los estados de validación de Bootstrap en un formulario
+ * @param {string} selectorForm - El ID o clase del formulario (ej: '#form-usuario')
+ */
+function limpiarErroresFormulario(selectorForm) {
+    const form = $(selectorForm);
+    
+    form.find('.form-control, .form-select').removeClass('is-invalid');
+    form.find('.invalid-feedback').text('');
+
+    $('[id*="error-general"]').html(''); 
+}
+
+
+
+
+/**
+ * Limpia validaciones, mensajes y opcionalmente resetea el formulario
+ * @param {string} selectorForm - ID del formulario (ej: '#form-usuario')
+ * @param {string} selectorMensajes - ID del contenedor de alertas (ej: '#modal-mensajes')
+ * @param {boolean} resetInputs - Si es true, borra los valores de los inputs
+ */
+function limpiarFormularioCompleto(selectorForm, selectorMensajes, resetInputs = false) {
+    const form = $(selectorForm);
+    
+    form.find('.form-control, .form-select').removeClass('is-invalid');
+    form.find('.invalid-feedback').text('');
+    
+    const $mensajes = $(selectorMensajes);
+    $mensajes.slideUp(300, function() {
+        $(this).html('').show(); 
+    });
+
+    if (resetInputs) {
+        form[0].reset();
+        form.find('input[type="hidden"]').val('');
+    }
 }
 
 /**

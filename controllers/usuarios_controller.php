@@ -1,6 +1,7 @@
 <?php
 session_start();
-require_once '../config/conexion.php'; // Subimos un nivel para llegar a includes
+require_once '../config/conexion.php';
+require_once '../includes/funciones_validacion.php';
 
 // Verificamos sesión por seguridad
 if (!isset($_SESSION['usuario_id'])) {
@@ -40,45 +41,42 @@ if ($action === 'registrar') {
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    // 1. Validación de campos vacíos
-    if (empty($usuario) || empty($password) || empty($confirm_password)) {
-        echo json_encode(['status' => 'error', 'message' => 'Todos los campos son obligatorios.']);
-        exit;
-    }
+    $errores = validarDatosUsuario($usuario, $password, $confirm_password, true);
 
-    // 2. Validación de coincidencia de contraseñas
-    if ($password !== $confirm_password) {
-        echo json_encode(['status' => 'error', 'message' => 'Las contraseñas no coinciden.']);
-        exit;
-    }
-
-    // 3. Validación de longitud mínima (opcional, pero recomendada)
-    if (strlen($password) < 6) {
-        echo json_encode(['status' => 'error', 'message' => 'La contraseña debe tener al menos 6 caracteres.']);
+    if (!empty($errores)) {
+        echo json_encode([
+            'status' => 'error',
+            'type' => 'fields',
+            'errors' => $errores
+        ]);
         exit;
     }
 
     try {
-        // 4. Validación de usuario duplicado (usando tu estructura UNIQUE)
-        $check = $conexion->prepare("SELECT id FROM usuarios WHERE usuario = ?");
+  
+        $check = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ?");
         $check->execute([$usuario]);
         
         if ($check->rowCount() > 0) {
-            echo json_encode(['status' => 'error', 'message' => 'El nombre de usuario ya existe.']);
+            echo json_encode([
+                'status' => 'error', 
+                'type' => 'fields', 
+                'errors' => ['usuario' => 'Este nombre de usuario ya está en uso.']
+            ]);
             exit;
         }
 
-        // 5. Todo OK -> Proceder al INSERT
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $sql = "INSERT INTO usuarios (usuario, password_hash) VALUES (?, ?)";
-        $stmt = $conexion->prepare($sql);
+        $stmt = $pdo->prepare("INSERT INTO usuarios (usuario, password_hash) VALUES (?, ?)");
         
         if ($stmt->execute([$usuario, $password_hash])) {
-            echo json_encode(['status' => 'success', 'message' => 'Usuario creado correctamente.']);
+            echo json_encode(['status' => 'success', 'message' => 'Usuario creado con éxito']);
         }
 
-    } catch (PDOException $e) {
-        echo json_encode(['status' => 'error', 'message' => 'Error de base de datos: ' . $e->getMessage()]);
+    } 
+    catch (PDOException $e) {
+        echo json_encode(['status' => 'error', 'type' => 'general', 'message' => 'Error: ' . $e->getMessage()]);
     }
     exit;
+
 }

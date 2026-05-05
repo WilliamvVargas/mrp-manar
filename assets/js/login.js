@@ -1,5 +1,7 @@
 $(document).ready(function() {
 
+    activarLimpiezaMensajeAlEscribir('#form-login', '#modal-mensajes');
+
     $('#form-login').on('submit', function(e) {
 
         e.preventDefault();
@@ -7,9 +9,7 @@ $(document).ready(function() {
         const btnSubmit = $('#btn-login')
         const btnOriginalText = btnSubmit.html();
         
-        $('.form-control').removeClass('is-invalid is-valid');
-        $('.invalid-feedback').text('');
-        $('#alert-container').empty();
+        limpiarFormularioCompleto('#form-login', '#alert-container', false);
 
         setBtnLoading(btnSubmit, 'Validando...');
 
@@ -40,7 +40,7 @@ $(document).ready(function() {
                     });
 
                     if (erroresGenerales.length > 0) {
-                        mostrarAlertaGeneral("Error de Acceso", erroresGenerales);
+                        mostrarMensajeFormulario('#modal-mensajes', 'Error de Acceso', erroresGenerales, 'danger');
                     }
 
                     resetBtnLoading(btnSubmit);
@@ -52,18 +52,9 @@ $(document).ready(function() {
             },
             error: function(xhr, status, error) {
                 resetBtnLoading(btnSubmit);
-                mostrarAlertaGeneral("Error Crítico", "No se pudo establecer conexión con el servidor. Inténtelo más tarde.");
+                mostrarMensajeFormulario('#modal-mensajes', 'Error Crítico', "No se pudo establecer conexión con el servidor. Inténtelo más tarde.", 'danger');
             }
         });
-    });
-
-    $('#form-login input').on('input', function() {
-
-        if ($('#alert-container').is(':visible')) {
-            $('#alert-container').slideUp(400);
-        }
-
-        $(this).removeClass('is-invalid');
     });
 
 

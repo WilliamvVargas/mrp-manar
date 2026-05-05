@@ -21,8 +21,8 @@
         <div class="card shadow-sm" style="width: 100%; max-width: 400px;">
             <div class="card-body p-4">
                 <h3 class="text-center mb-4">Iniciar Sesión</h3>
-                <div id="alert-container"></div>
                 <form id="form-login">
+                    <div id="modal-mensajes"></div>
                     <input type="hidden" id="csrf_token" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                     <div class="mb-3">
                         <label class="form-label">Usuario</label>

@@ -51,17 +51,18 @@ $(document).ready(function() {
 
                 } 
                 else {
-                    mostrarAlertaGeneral("Error", response.message, "danger");
+                    mostrarMensajeFormulario('#alert-container', 'Error de Sistema', 'critico', 'danger');
                 }
             }
         });
     }
 
+    activarLimpiezaMensajeAlEscribir('#form-usuario', '#modal-messages');
+
     $('#form-usuario').on('submit', function(e) {
         e.preventDefault();
-        
+
         const btn = $('#btnGuardar');
-        const errorContainer = $('#modal-error-container');
         setBtnLoading(btn, 'Guardando...');
 
         $.ajax({
@@ -70,33 +71,46 @@ $(document).ready(function() {
             data: $(this).serialize(),
             dataType: 'json',
             success: function(res) {
+
+                console.log(res)
+                resetBtnLoading(btn);
+                limpiarFormularioCompleto('#form-usuario', '#modal-mensajes', false);
+            
+
                 if (res.status === 'success') {
-                    // CASO EXITOSO: Todo a la raíz
-                    resetBtnLoading(btn);
-                    $('#modalUsuario').modal('hide');
-                    $('#form-usuario')[0].reset();
+
+                    limpiarFormularioCompleto('#form-usuario', '#modal-mensajes', true);
                     listarUsuarios();
-                    
-                    // Usamos tu función global para la raíz
-                    mostrarAlertaGeneral("¡Hecho!", res.message, "success");
-                } else {
-                    // CASO ERROR: Se queda en el modal
-                    resetBtnLoading(btn);
-                    
-                    // Creamos una alerta local estilo Bootstrap
-                    const alerta = `
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            ${res.message}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>`;
-                    
-                    errorContainer.html(alerta);
+                    mostrarMensajeFormulario('#modal-mensajes', '¡Operación Exitosa!', res.message, 'success');
+                } 
+                else {
+
+                    if (res.type === 'fields') {
+                        
+                        $.each(res.errors, function(campo, mensaje) {
+                            const input = $(`[name="${campo}"]`);
+                            input.addClass('is-invalid');
+                            $(`#error-${campo}`).text(mensaje);
+                        });
+                    } 
+                    else {
+                       mostrarMensajeFormulario('#modal-mensajes', 'Atención', res.message, 'danger');
+                    }
                 }
             },
-            error: function() {
+            error: function(jqXHR, textStatus, errorThrown) {
                 resetBtnLoading(btn);
-                errorContainer.html('<div class="alert alert-danger">Error crítico en el servidor.</div>');
+                let mensajeError = "Ocurrió un error crítico en el servidor.";
+        
+                if (textStatus === 'timeout') {
+                    mensajeError = "El servidor está tardando demasiado en responder.";
+                } else if (jqXHR.status === 404) {
+                    mensajeError = "No se encontró el controlador del servidor.";
+                } else if (jqXHR.status === 500) {
+                    mensajeError = "Error interno del servidor (500). Revisa los logs.";
+                }
+
+                mostrarMensajeFormulario('#modal-mensajes', 'Error de Sistema', mensajeError, 'danger');
             }
         });
     });
