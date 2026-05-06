@@ -10,6 +10,28 @@ $(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
 });
 
 /**
+ * Activa la funcionalidad de mostrar/ocultar contraseña
+ * @param {string} selectorBtn - ID del botón que hace el toggle (ej: '#togglePassword')
+ * @param {string} selectorInput - ID del input de contraseña (ej: '#password')
+ * @param {string} selectorIcon - ID del icono dentro del botón (ej: '#iconEye')
+ */
+function activarTogglePassword(selectorBtn, selectorInput, selectorIcon) {
+    $(selectorBtn).on('click', function() {
+        const input = $(selectorInput);
+        const icon = $(selectorIcon);
+
+        // Cambiamos el tipo de input
+        if (input.attr('type') === 'password') {
+            input.attr('type', 'text');
+            icon.removeClass('bi-eye').addClass('bi-eye-slash');
+        } else {
+            input.attr('type', 'password');
+            icon.removeClass('bi-eye-slash').addClass('bi-eye');
+        }
+    });
+}
+
+/**
  * Inicializa la escucha de eventos en los inputs para ocultar la alerta general
  * @param {string} selectorForm - ID del formulario
  * @param {string} selectorMensajes - ID del contenedor de alertas
@@ -66,23 +88,6 @@ function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger') 
     }).css('display', 'none').slideDown(400);
 }
 
-
-/**
- * Limpia los estados de validación de Bootstrap en un formulario
- * @param {string} selectorForm - El ID o clase del formulario (ej: '#form-usuario')
- */
-function limpiarErroresFormulario(selectorForm) {
-    const form = $(selectorForm);
-    
-    form.find('.form-control, .form-select').removeClass('is-invalid');
-    form.find('.invalid-feedback').text('');
-
-    $('[id*="error-general"]').html(''); 
-}
-
-
-
-
 /**
  * Limpia validaciones, mensajes y opcionalmente resetea el formulario
  * @param {string} selectorForm - ID del formulario (ej: '#form-usuario')
@@ -93,7 +98,7 @@ function limpiarFormularioCompleto(selectorForm, selectorMensajes, resetInputs =
     const form = $(selectorForm);
     
     form.find('.form-control, .form-select').removeClass('is-invalid');
-    form.find('.invalid-feedback').text('');
+    form.find('.invalid-feedback').text('').removeClass('d-block');
     
     const $mensajes = $(selectorMensajes);
     $mensajes.slideUp(300, function() {
@@ -103,6 +108,10 @@ function limpiarFormularioCompleto(selectorForm, selectorMensajes, resetInputs =
     if (resetInputs) {
         form[0].reset();
         form.find('input[type="hidden"]').val('');
+
+        //Se restauran por defecto los iconos de los ojos
+        form.find('input[name*="password"], input[type="text"][id*="password"]').attr('type', 'password');
+        form.find('.bi-eye-slash').removeClass('bi-eye-slash').addClass('bi-eye');
     }
 }
 

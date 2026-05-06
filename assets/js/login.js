@@ -1,6 +1,7 @@
 $(document).ready(function() {
 
     activarLimpiezaMensajeAlEscribir('#form-login', '#modal-mensajes');
+    activarTogglePassword('#togglePassword', '#password', '#iconEye');
 
     $('#form-login').on('submit', function(e) {
 

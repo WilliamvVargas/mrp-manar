@@ -26,12 +26,17 @@
                     <input type="hidden" id="csrf_token" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                     <div class="mb-3">
                         <label class="form-label">Usuario</label>
-                        <input type="text" id="usuario" name="usuario" class="form-control">
+                        <input type="text" id="usuario" name="usuario" class="form-control" placeholder="Ingrese su nombre de usuario">
                         <div class="invalid-feedback"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Contraseña</label>
-                        <input type="password" id="password" name="password" class="form-control">
+                        <div class="input-group">
+                            <input type="password" name="password" id="password" class="form-control" placeholder="Ingrese su contraseña" autocomplete="new-password">
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <i class="bi bi-eye" id="iconEye"></i>
+                            </button>
+                        </div>
                         <div class="invalid-feedback"></div>
                     </div>
                     <button id="btn-login" class="btn btn-primary w-100">Entrar</button>

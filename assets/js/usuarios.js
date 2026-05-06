@@ -1,5 +1,9 @@
 $(document).ready(function() {
+
     listarUsuarios();
+    activarLimpiezaMensajeAlEscribir('#form-usuario', '#modal-mensajes');
+    activarTogglePassword('#togglePassword', '#password', '#iconEye');
+    activarTogglePassword('#togglePasswordConfirm', '#confirm_password', '#iconEyeConfirm');
 
     function listarUsuarios() {
         $.ajax({
@@ -81,7 +85,7 @@ $(document).ready(function() {
 
                     limpiarFormularioCompleto('#form-usuario', '#modal-mensajes', true);
                     listarUsuarios();
-                    mostrarMensajeFormulario('#modal-mensajes', '¡Operación Exitosa!', res.message, 'success');
+                    mostrarMensajeFormulario('#modal-mensajes', 'Trabajo realizado', res.message, 'success');
                 } 
                 else {
 
@@ -90,7 +94,9 @@ $(document).ready(function() {
                         $.each(res.errors, function(campo, mensaje) {
                             const input = $(`[name="${campo}"]`);
                             input.addClass('is-invalid');
-                            $(`#error-${campo}`).text(mensaje);
+                            let feedback = input.closest('.mb-3').find('.invalid-feedback');
+                            feedback.text(mensaje);
+                            feedback.addClass('d-block');
                         });
                     } 
                     else {
