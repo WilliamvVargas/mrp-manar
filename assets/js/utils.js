@@ -1,3 +1,13 @@
+//configura todas las llamadas ajax con codigo 401 a retornar al login
+$.ajaxSetup({
+    statusCode: {
+        401: function() {
+            window.location.href = "index?error=session_expired";
+        }
+    }
+});
+
+
 /** Trigger para cerrar mensajes con el boton cerrar*/
 $(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
     e.preventDefault();

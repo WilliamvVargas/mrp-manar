@@ -1,13 +1,7 @@
 <?php
-session_start();
+require_once '../includes/auth.php';
 require_once '../config/conexion.php';
 require_once '../includes/funciones_validacion.php';
-
-// Verificamos sesión por seguridad
-if (!isset($_SESSION['usuario_id'])) {
-    echo json_encode(['status' => 'error', 'message' => 'Sesión no autorizada']);
-    exit;
-}
 
 $action = $_GET['action'] ?? '';
 

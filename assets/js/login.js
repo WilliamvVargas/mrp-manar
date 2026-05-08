@@ -1,7 +1,26 @@
 $(document).ready(function() {
 
+    //configuracion de formulario
     activarLimpiezaMensajeAlEscribir('#form-login', '#modal-mensajes');
     activarTogglePassword('#togglePassword', '#password', '#iconEye');
+
+    //validar si se retorno al login porque la session se cerro
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('error') === 'session_expired') {
+        
+        setTimeout(function() {
+            mostrarMensajeFormulario(
+                '#modal-mensajes', 
+                'Sesión Finalizada', 
+                'Su sesión ha expirado por inactividad. Por favor, ingrese sus credenciales nuevamente.', 
+                'warning' 
+            );
+            
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 200);
+    }
+
 
     $('#form-login').on('submit', function(e) {
 
