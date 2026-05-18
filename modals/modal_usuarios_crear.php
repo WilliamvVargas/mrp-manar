@@ -11,6 +11,8 @@
                 <div class="modal-body">
                     
                     <input type="hidden" name="id" id="usuario_id">
+                    <input type="hidden" name="csrf_token" id="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    
                     <div class="mensaje-wrapper" style="min-height: 10px; transition: all 0.3s ease;">
                         <div id="modal-mensajes"></div>
                     </div>

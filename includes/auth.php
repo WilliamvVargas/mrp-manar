@@ -23,4 +23,23 @@
         exit;
     }
 
+    //Validacion token CSRF en caso que quiera manipular un registro.
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+        $tokenRecibido = $_POST['csrf_token'] ?? '';
+        $tokenSesion = $_SESSION['csrf_token'] ?? '';
+
+        if (empty($tokenRecibido) || $tokenRecibido !== $tokenSesion) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            
+            echo json_encode([
+                'status' => 'csrf_error',
+                'success' => false,
+                'message' => 'Error de seguridad: Solicitud no autorizada (CSRF inválido).'
+            ]);
+            exit;
+        }
+    }
+
 ?>
