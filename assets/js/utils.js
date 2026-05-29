@@ -65,7 +65,7 @@ function activarLimpiezaMensajeAlEscribir(selectorForm, selectorMensajes) {
  * @param {string} mensaje - Descripción detallada
  * @param {string} tipo - 'success', 'danger', 'warning', 'info'
  */
-function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger') {
+function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger', duracion = 400) {
     const iconos = {
         'success': 'bi-check-circle-fill',
         'danger': 'bi-exclamation-octagon-fill',
@@ -93,9 +93,9 @@ function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger') 
     .hide()
     .html(html)
     .fadeIn({
-        duration: 400,
+        duration: duracion,
         queue: false
-    }).css('display', 'none').slideDown(400);
+    }).css('display', 'none').slideDown(duracion);
 }
 
 /**

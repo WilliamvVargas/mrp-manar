@@ -1,16 +1,15 @@
 <?php require_once __DIR__ . '/../config/config.php'; ?>
 
-<div class="modal fade" id="modalUsuarioCrear" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalUsuarioCrear" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalTitle"><i class="bi bi-person-plus me-2"></i>Nuevo Usuario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="form-usuario">
+            <form id="form-usuario" novalidate>
                 <div class="modal-body">
                     
-                    <input type="hidden" name="id" id="usuario_id">
                     <input type="hidden" name="csrf_token" id="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                     
                     <div class="mensaje-wrapper" style="min-height: 10px; transition: all 0.3s ease;">
@@ -52,7 +51,7 @@
 
                 </div>
                 <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     <button type="submit" class="btn btn-primary" id="btnGuardar">
                         <i class="bi bi-save me-1"></i> Guardar Usuario
                     </button>

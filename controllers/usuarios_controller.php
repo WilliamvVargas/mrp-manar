@@ -6,13 +6,15 @@ require_once '../includes/funciones_validacion.php';
 $action = $_GET['action'] ?? '';
 
 if ($action === 'listar') {
+
     try {
 
-        $sql = "SELECT id, usuario, 
-                DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') as fecha 
+        $sql = "SELECT id, 
+                       usuario, 
+                       DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') as fecha 
                 FROM usuarios ORDER BY id DESC";
         
-        $stmt = $pdo->prepare($sql);
+        $stmt = $pdo->prepare("$sql");
         $stmt->execute();
         $usuarios = $stmt->fetchAll();
 
@@ -25,6 +27,41 @@ if ($action === 'listar') {
             'status' => 'error',
             'message' => 'Error: ' . $e->getMessage()
         ]);
+    }
+    exit;
+}
+
+if ($action === 'obtener') {
+
+    $id = intval($_GET['id'] ?? 0);
+
+    try {
+
+        $sql = "SELECT id, 
+                       usuario 
+                FROM usuarios 
+                WHERE id = ?";
+        $stmt = $pdo->prepare("$sql");
+        $stmt->execute([$id]);
+        $usuario = $stmt->fetch();
+
+        if ($usuario) {
+            echo json_encode([
+                'status' => 'success',
+                'data' => $usuario
+            ]);
+        } else {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Usuario no encontrado.'
+            ]);
+        }
+
+    } catch (PDOException $e) {
+        echo json_encode([
+            'status' => 'error', 
+            'message' => 'Error: ' . $e->getMessage()]
+        );
     }
     exit;
 }

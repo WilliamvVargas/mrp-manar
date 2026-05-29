@@ -122,3 +122,42 @@ $(document).ready(function() {
     });
 
 });
+
+$(document).on('click', '.btn-editar', function() {
+
+    const idUsuario = $(this).data('id');
+
+    console.log(idUsuario)
+
+    // Limpiamos errores o mensajes previos en el formulario de edición
+    limpiarFormularioCompleto('#form-editar-usuario', '#modal-mensajes-editar', true);
+    
+
+    $.ajax({
+        url: 'controllers/usuarios_controller.php?action=obtener',
+        type: 'GET',
+        data: { id: idUsuario },
+        dataType: 'json',
+        success: function(response) {
+            console.log(response);
+
+            if (response.status === 'success') {
+
+                $('#id_usuario_editar').val(response.data.id);
+                $('#usuario_editar').val(response.data.usuario);
+                
+            } else {
+                // Si tienes un contenedor general de alertas en la página principal
+                mostrarMensajeFormulario('#modal-mensajes-editar', 'Atención', response.message, 'danger', 0);
+            }
+        },
+        error: function() {
+            mostrarMensajeFormulario('#modal-mensajes-editar', 'Error de Sistema', 'No se pudieron recuperar los datos del usuario.', 'danger', 0);
+        },
+        complete: function() {
+            $('#modalUsuarioEditar').modal('show');
+        }
+    });
+
+
+});
