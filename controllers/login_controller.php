@@ -23,7 +23,7 @@
     $passPost = trim($_POST['password'] ?? '');
 
     //Validación usuario
-    $response['errors'] = validarDatosUsuario($userPost, $passPost);
+    $response['errors'] = validarDatosUsuario($userPost, $passPost, '', 'login');
 
     if (empty($response['errors'])) {
 
@@ -62,6 +62,9 @@
             $response['errors']['db'] = "Error de base de datos.";
         }
 
+    }
+    else{
+        $response['type'] = 'fields';
     }
 
     echo json_encode($response);

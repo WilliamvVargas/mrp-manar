@@ -3,7 +3,7 @@ require_once '../includes/auth.php';
 require_once '../config/conexion.php';
 require_once '../includes/funciones_validacion.php';
 
-$action = $_GET['action'] ?? '';
+$action = $_REQUEST['action'] ?? '';
 
 if ($action === 'listar') {
 
@@ -67,12 +67,14 @@ if ($action === 'obtener') {
 }
 
 if ($action === 'registrar') {
-    
+
+    time_nanosleep(0, 500000000);
+
     $usuario = trim($_POST['usuario'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    $errores = validarDatosUsuario($usuario, $password, $confirm_password, true);
+    $errores = validarDatosUsuario($usuario, $password, $confirm_password, 'registro');
 
     if (!empty($errores)) {
         echo json_encode([
@@ -110,4 +112,64 @@ if ($action === 'registrar') {
     }
     exit;
 
+}
+
+if ($action === 'editar') {
+
+    time_nanosleep(0, 500000000);
+
+    $id = intval($_POST['id_usuario'] ?? 0);
+    $usuario = trim($_POST['usuario'] ?? '');
+
+
+    $errores = validarDatosUsuario($usuario, '', '', 'edicion');
+
+    if (!empty($errores)) {
+        echo json_encode([
+            'status' => 'error',
+            'type' => 'fields',
+            'errors' => $errores
+        ]);
+        exit;
+    }
+
+    try {
+
+        $check = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ? AND id != ?");
+        $check->execute([$usuario, $id]);
+        
+        if ($check->rowCount() > 0) {
+            echo json_encode([
+                'status' => 'error', 
+                'type' => 'fields', 
+                'errors' => ['usuario' => 'Este nombre de usuario ya está en uso por otra cuenta.']
+            ]);
+            exit;
+        }
+
+        // Actualizamos estrictamente el campo usuario
+        $stmt = $pdo->prepare("UPDATE usuarios SET usuario = ? WHERE id = ?");
+        $stmt->execute([$usuario, $id]);
+
+        if ($stmt->rowCount() > 0) {
+            echo json_encode([
+                'status' => 'success', 
+                'message' => 'Usuario actualizado con éxito.'
+            ]);
+        } 
+        else {
+            echo json_encode([
+                'status' => 'no_changes', 
+                'message' => 'No se realizaron cambios.'
+            ]);
+        }
+
+    } catch (PDOException $e) {
+        echo json_encode([
+            'status' => 'error', 
+            'type' => 'general', 
+            'message' => 'Error: ' . $e->getMessage()
+        ]);
+    }
+    exit;
 }

@@ -52,7 +52,9 @@ $(document).ready(function() {
 
                         if (input.length > 0) {
                             input.addClass('is-invalid');
-                            input.parent().find('.invalid-feedback').text(mensaje);
+                            let feedback = input.closest('.mb-3').find('.invalid-feedback');
+                            feedback.text(mensaje);
+                            feedback.addClass('d-block');
                         } 
                         else {
                             erroresGenerales.push(mensaje);

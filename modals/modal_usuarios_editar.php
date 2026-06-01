@@ -7,7 +7,7 @@
                 <h5 class="modal-title" id="modalEditTitle"><i class="bi bi-pencil-square me-2"></i>Editar Usuario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="form-editar-usuario" novalidate>
+            <form id="form-usuario-editar" novalidate>
                 <div class="modal-body">
                     
                     <input type="hidden" name="csrf_token" id="csrf_token_editar" value="<?php echo $_SESSION['csrf_token']; ?>">
@@ -18,7 +18,7 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Nombre de Usuario</label>
+                        <label class="form-label fw-bold" for="usuario_editar">Nombre de Usuario</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
                             <input type="text" class="form-control" name="usuario" id="usuario_editar" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" autocomplete="off" required>
@@ -26,12 +26,11 @@
                         </div>
                     </div>
 
-
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-warning" id="btnActualizar">
-                        <i class="bi bi-check-circle me-1"></i> Actualizar Usuario
+                    <button type="submit" class="btn btn-primary" id="btnActualizar">
+                        <i class="bi bi-save me-1"></i> Actualizar Usuario
                     </button>
                 </div>
             </form>

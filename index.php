@@ -25,12 +25,12 @@
                     <div id="modal-mensajes"></div>
                     <input type="hidden" id="csrf_token" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                     <div class="mb-3">
-                        <label class="form-label">Usuario</label>
+                        <label class="form-label" for="usuario">Usuario</label>
                         <input type="text" id="usuario" name="usuario" class="form-control" placeholder="Ingrese su nombre de usuario">
                         <div class="invalid-feedback"></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Contraseña</label>
+                        <label class="form-label" for="password">Contraseña</label>
                         <div class="input-group">
                             <input type="password" name="password" id="password" class="form-control" placeholder="Ingrese su contraseña" autocomplete="new-password">
                             <button class="btn btn-outline-secondary" type="button" id="togglePassword">

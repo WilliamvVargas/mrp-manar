@@ -17,7 +17,7 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Nombre de Usuario</label>
+                        <label class="form-label fw-bold" for="input_usuario">Nombre de Usuario</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
                             <input type="text" class="form-control" name="usuario" id="input_usuario" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>">
@@ -25,7 +25,7 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Contraseña</label>
+                        <label class="form-label fw-bold" for="password">Contraseña</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-key"></i></span>
                             <input type="password" class="form-control" name="password" id="password" placeholder="Mínimo <?php echo PASS_MIN_LENGTH;?> caracteres y máximo de <?php echo PASS_MAX_LENGTH;?> caracteres" maxlength="<?php echo PASS_MAX_LENGTH;?>" autocomplete="new-password">
@@ -38,7 +38,7 @@
 
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Repetir Contraseña</label>
+                        <label class="form-label fw-bold" for="confirm_password">Repetir Contraseña</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
                             <input type="password" class="form-control" name="confirm_password" id="confirm_password" placeholder="Reingrese la contraseña" maxlength="<?php echo PASS_MAX_LENGTH;?>" autocomplete="new-password">

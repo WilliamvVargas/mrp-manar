@@ -117,7 +117,7 @@ function limpiarFormularioCompleto(selectorForm, selectorMensajes, resetInputs =
 
     if (resetInputs) {
         form[0].reset();
-        form.find('input[type="hidden"]').val('');
+        form.find('input[type="hidden"]:not([name="csrf_token"])').val('');
 
         //Se restauran por defecto los iconos de los ojos
         form.find('input[name*="password"], input[type="text"][id*="password"]').attr('type', 'password');

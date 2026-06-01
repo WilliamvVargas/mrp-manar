@@ -2,6 +2,7 @@ $(document).ready(function() {
 
     listarUsuarios();
     activarLimpiezaMensajeAlEscribir('#form-usuario', '#modal-mensajes');
+    activarLimpiezaMensajeAlEscribir('#form-usuario-editar', '#modal-mensajes-editar');
     activarTogglePassword('#togglePassword', '#password', '#iconEye');
     activarTogglePassword('#togglePasswordConfirm', '#confirm_password', '#iconEyeConfirm');
 
@@ -74,20 +75,23 @@ $(document).ready(function() {
             type: 'POST',
             data: $(this).serialize(),
             dataType: 'json',
+            beforeSend: function() {
+                
+            },
             success: function(res) {
 
                 console.log(res)
                 resetBtnLoading(btn);
-                limpiarFormularioCompleto('#form-usuario', '#modal-mensajes', false);
-            
 
                 if (res.status === 'success') {
 
                     limpiarFormularioCompleto('#form-usuario', '#modal-mensajes', true);
                     listarUsuarios();
-                    mostrarMensajeFormulario('#modal-mensajes', 'Trabajo realizado', res.message, 'success');
+                    mostrarMensajeFormulario('#modal-mensajes', 'Éxito', res.message, 'success');
                 } 
                 else {
+
+                    limpiarFormularioCompleto('#form-usuario', '#modal-mensajes', false);
 
                     if (res.type === 'fields') {
                         
@@ -121,6 +125,68 @@ $(document).ready(function() {
         });
     });
 
+
+    $('#form-usuario-editar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn = $('#btnActualizar');
+        setBtnLoading(btn, 'Actualizando...');
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=editar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            beforeSend: function() {
+
+            },
+            success: function(res) {
+
+                limpiarFormularioCompleto('#form-usuario-editar', '#modal-mensajes-editar', false);
+
+                if (res.status === 'success') {
+                    listarUsuarios();
+                    mostrarMensajeFormulario('#modal-mensajes-editar', 'Éxito', res.message, 'success');
+                }
+                else if (res.status === 'no_changes') {
+                    mostrarMensajeFormulario('#modal-mensajes-editar', 'Atención', res.message, 'warning');
+                }
+                else {
+                    
+                    if (res.type === 'fields') {
+                        // Resaltar errores específicos de validación con tus clases inválidas
+                        $.each(res.errors, function(campo, mensaje) {
+                            const input = $(`#form-usuario-editar [name="${campo}"]`);
+                            input.addClass('is-invalid');
+                            let feedback = input.closest('.mb-3').find('.invalid-feedback');
+                            feedback.text(mensaje);
+                            feedback.addClass('d-block');
+                        });
+                    } else {
+                        mostrarMensajeFormulario('#modal-mensajes-editar', 'Atención', res.message, 'danger');
+                    }
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                let mensajeError = "Ocurrió un error crítico en el servidor al actualizar.";
+        
+                if (textStatus === 'timeout') {
+                    mensajeError = "El servidor está tardando demasiado en responder.";
+                } else if (jqXHR.status === 403) {
+                    mensajeError = "Su sesión expiró o la solicitud no es válida (Token CSRF inválido).";
+                } else if (jqXHR.status === 500) {
+                    mensajeError = "Error interno del servidor (500). Revisa los logs.";
+                }
+
+                mostrarMensajeFormulario('#modal-mensajes-editar', 'Error de Sistema', mensajeError, 'danger');
+            },
+            complete: function() {
+                resetBtnLoading(btn); 
+            }
+        });
+
+    });
+
 });
 
 $(document).on('click', '.btn-editar', function() {
@@ -129,9 +195,7 @@ $(document).on('click', '.btn-editar', function() {
 
     console.log(idUsuario)
 
-    // Limpiamos errores o mensajes previos en el formulario de edición
-    limpiarFormularioCompleto('#form-editar-usuario', '#modal-mensajes-editar', true);
-    
+    limpiarFormularioCompleto('#form-usuario-editar', '#modal-mensajes-editar', true);
 
     $.ajax({
         url: 'controllers/usuarios_controller.php?action=obtener',
