@@ -4,10 +4,10 @@
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalEditTitle"><i class="bi bi-pencil-square me-2"></i>Editar Usuario</h5>
+                <h5 class="modal-title" id="modalTitleEdit"><i class="bi bi-pencil-square me-2"></i>Editar Usuario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="form-usuario-editar" novalidate>
+            <form id="form-usuario-editar" class="form-validado-estatico" novalidate>
                 <div class="modal-body">
                     
                     <input type="hidden" name="csrf_token" id="csrf_token_editar" value="<?php echo $_SESSION['csrf_token']; ?>">
@@ -21,15 +21,15 @@
                         <label class="form-label fw-bold" for="usuario_editar">Nombre de Usuario</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control" name="usuario" id="usuario_editar" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" autocomplete="off" required>
-                            <div class="invalid-feedback" id="error-edit-usuario"></div>
+                            <input type="text" class="form-control" name="usuario" id="usuario_editar" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" autocomplete="off" required>     
                         </div>
+                        <div class="invalid-feedback" id="error-edit-usuario"></div>
                     </div>
 
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary" id="btnActualizar">
+                    <button type="submit" class="btn btn-primary btn-o" id="btnActualizar">
                         <i class="bi bi-save me-1"></i> Actualizar Usuario
                     </button>
                 </div>

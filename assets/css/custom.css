@@ -1,0 +1,16 @@
+/* Mejora inputs y detalle de errores */
+
+.form-validado-estatico .invalid-feedback {
+    display: block !important;
+    margin-top: 0.75rem;
+    visibility: hidden;
+    height: 0;
+    opacity: 0;
+    transition: height 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.form-validado-estatico .invalid-feedback.d-block {
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: 2rem; 
+}

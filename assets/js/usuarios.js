@@ -30,8 +30,11 @@ $(document).ready(function() {
                                 <td><strong>${user.usuario}</strong></td>
                                 <td>${user.fecha}</td>
                                 <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-warning btn-editar" data-id="${user.id}">
+                                    <button class="btn btn-sm btn-outline-dark btn-editar" data-id="${user.id}">
                                         <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-dark btn-password" data-id="${user.id}">
+                                        <i class="bi bi-key"></i>
                                     </button>
                                     <button class="btn btn-sm btn-outline-danger btn-eliminar" data-id="${user.id}">
                                         <i class="bi bi-trash"></i>
@@ -223,5 +226,12 @@ $(document).on('click', '.btn-editar', function() {
         }
     });
 
+
+});
+
+
+$(document).on('click', '.btn-password', function() {
+
+    $('#modalUsuarioPassword').modal('show');
 
 });

@@ -4,10 +4,10 @@
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalTitle"><i class="bi bi-person-plus me-2"></i>Nuevo Usuario</h5>
+                <h5 class="modal-title" id="modalTitleCreate"><i class="bi bi-person-plus me-2"></i>Nuevo Usuario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="form-usuario" novalidate>
+            <form id="form-usuario" class="form-validado-estatico" novalidate>
                 <div class="modal-body">
                     
                     <input type="hidden" name="csrf_token" id="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
@@ -21,8 +21,8 @@
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
                             <input type="text" class="form-control" name="usuario" id="input_usuario" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>">
-                            <div class="invalid-feedback" id="error-usuario"></div>
                         </div>
+                        <div class="invalid-feedback" id="error-usuario"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold" for="password">Contraseña</label>
