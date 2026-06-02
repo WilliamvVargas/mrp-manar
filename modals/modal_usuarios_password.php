@@ -4,18 +4,18 @@
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalTitlePassword"><i class="bi bi-person-plus me-2"></i>Editar Password</h5>
+                <h5 class="modal-title" id="modalTitlePassword"><i class="bi bi-key-fill me-2"></i>Cambiar Password</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="form-usuario-password" class="form-validado-estatico" novalidate>
                 <div class="modal-body">
                     
                     <input type="hidden" name="csrf_token" id="csrf_token_password" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    <input type="hidden" name="id_usuario" id="id_usuario_password_editar">
                     
                     <div class="mensaje-wrapper" style="min-height: 10px; transition: all 0.3s ease;">
                         <div id="modal-mensajes-password"></div>
                     </div>
-                    
 
                     <div class="mb-3">
                         <label class="form-label fw-bold" for="password-editar">Contraseña</label>
@@ -28,7 +28,6 @@
                         </div>
                         <div class="invalid-feedback" id="error-password-editar"></div>
                     </div>
-
 
                     <div class="mb-3">
                         <label class="form-label fw-bold" for="confirm_password_editar">Repetir Contraseña</label>
@@ -46,7 +45,7 @@
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     <button type="submit" class="btn btn-primary" id="btnEditarPassword">
-                        <i class="bi bi-save me-1"></i> Guardar Usuario
+                        <i class="bi bi-save me-1"></i> Cambiar Password
                     </button>
                 </div>
             </form>

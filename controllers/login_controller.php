@@ -23,7 +23,7 @@
     $passPost = trim($_POST['password'] ?? '');
 
     //Validación usuario
-    $response['errors'] = validarDatosUsuario($userPost, $passPost, '', 'login');
+    $response['errors'] = validarDatosLogin($userPost, $passPost);
 
     if (empty($response['errors'])) {
 

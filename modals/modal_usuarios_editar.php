@@ -4,7 +4,7 @@
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalTitleEdit"><i class="bi bi-pencil-square me-2"></i>Editar Usuario</h5>
+                <h5 class="modal-title" id="modalTitleEdit"><i class="bi bi-pencil-fill me-2"></i>Editar Usuario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="form-usuario-editar" class="form-validado-estatico" novalidate>

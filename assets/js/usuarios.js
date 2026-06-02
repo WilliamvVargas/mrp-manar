@@ -99,7 +99,7 @@ $(document).ready(function() {
                     if (res.type === 'fields') {
                         
                         $.each(res.errors, function(campo, mensaje) {
-                            const input = $(`[name="${campo}"]`);
+                            const input = $(`#form-usuario [name="${campo}"]`);
                             input.addClass('is-invalid');
                             let feedback = input.closest('.mb-3').find('.invalid-feedback');
                             feedback.text(mensaje);
@@ -190,6 +190,34 @@ $(document).ready(function() {
 
     });
 
+    $('#form-usuario-password').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn = $('#btnEditarPassword');
+        setBtnLoading(btn, 'Actualizando...');
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=cambiar_password',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            beforeSend: function() {
+
+            },
+            success: function(res) {
+
+                console.log(res)
+
+            },
+            complete: function() {
+                resetBtnLoading(btn); 
+            }
+
+        });
+
+
+    });
+
 });
 
 $(document).on('click', '.btn-editar', function() {
@@ -231,6 +259,9 @@ $(document).on('click', '.btn-editar', function() {
 
 
 $(document).on('click', '.btn-password', function() {
+
+    const idUsuario = $(this).data('id');
+    $('#id_usuario_password_editar').val(idUsuario);
 
     $('#modalUsuarioPassword').modal('show');
 

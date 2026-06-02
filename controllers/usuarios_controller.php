@@ -74,7 +74,7 @@ if ($action === 'registrar') {
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    $errores = validarDatosUsuario($usuario, $password, $confirm_password, 'registro');
+    $errores = validarDatosNuevoUsuario($usuario, $password, $confirm_password);
 
     if (!empty($errores)) {
         echo json_encode([
@@ -122,7 +122,7 @@ if ($action === 'editar') {
     $usuario = trim($_POST['usuario'] ?? '');
 
 
-    $errores = validarDatosUsuario($usuario, '', '', 'edicion');
+    $errores = validarUsuario($usuario);
 
     if (!empty($errores)) {
         echo json_encode([
@@ -172,4 +172,16 @@ if ($action === 'editar') {
         ]);
     }
     exit;
+}
+
+if ($action === 'cambiar_password') {
+
+
+    echo json_encode([
+        'status' => 'error',
+        'type' => 'fields',
+        'errors' => $_POST
+    ]);
+    exit;
+
 }
