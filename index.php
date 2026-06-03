@@ -15,13 +15,14 @@
     <title>Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link href="assets/css/custom.css" rel="stylesheet">
 </head>
 <body class="bg-light">
     <div class="container vh-100 d-flex justify-content-center align-items-center">
         <div class="card shadow-sm" style="width: 100%; max-width: 400px;">
             <div class="card-body p-4">
                 <h3 class="text-center mb-4">Iniciar Sesión</h3>
-                <form id="form-login">
+                <form id="form-login" class="form-validado-estatico" novalidate>
                     <div id="modal-mensajes"></div>
                     <input type="hidden" id="csrf_token" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                     <div class="mb-3">

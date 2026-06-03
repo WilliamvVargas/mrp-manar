@@ -14,9 +14,9 @@ if ($action === 'listar') {
                        DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') as fecha 
                 FROM usuarios ORDER BY id DESC";
         
-        $stmt = $pdo->prepare("$sql");
-        $stmt->execute();
-        $usuarios = $stmt->fetchAll();
+        $query = $pdo->prepare("$sql");
+        $query->execute();
+        $usuarios = $query->fetchAll();
 
         echo json_encode([
             'status' => 'success',
@@ -41,9 +41,10 @@ if ($action === 'obtener') {
                        usuario 
                 FROM usuarios 
                 WHERE id = ?";
-        $stmt = $pdo->prepare("$sql");
-        $stmt->execute([$id]);
-        $usuario = $stmt->fetch();
+
+        $query = $pdo->prepare("$sql");
+        $query->execute([$id]);
+        $usuario = $query->fetch();
 
         if ($usuario) {
             echo json_encode([
@@ -87,10 +88,10 @@ if ($action === 'registrar') {
 
     try {
   
-        $check = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ?");
-        $check->execute([$usuario]);
+        $validar = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ?");
+        $validar->execute([$usuario]);
         
-        if ($check->rowCount() > 0) {
+        if ($validar->rowCount() > 0) {
             echo json_encode([
                 'status' => 'error', 
                 'type' => 'fields', 
@@ -100,9 +101,9 @@ if ($action === 'registrar') {
         }
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare("INSERT INTO usuarios (usuario, password_hash) VALUES (?, ?)");
+        $query = $pdo->prepare("INSERT INTO usuarios (usuario, password_hash) VALUES (?, ?)");
         
-        if ($stmt->execute([$usuario, $password_hash])) {
+        if ($query->execute([$usuario, $password_hash])) {
             echo json_encode(['status' => 'success', 'message' => 'Usuario creado con éxito']);
         }
 
@@ -135,10 +136,10 @@ if ($action === 'editar') {
 
     try {
 
-        $check = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ? AND id != ?");
-        $check->execute([$usuario, $id]);
+        $validar = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ? AND id != ?");
+        $validar->execute([$usuario, $id]);
         
-        if ($check->rowCount() > 0) {
+        if ($validar->rowCount() > 0) {
             echo json_encode([
                 'status' => 'error', 
                 'type' => 'fields', 
@@ -148,10 +149,10 @@ if ($action === 'editar') {
         }
 
         // Actualizamos estrictamente el campo usuario
-        $stmt = $pdo->prepare("UPDATE usuarios SET usuario = ? WHERE id = ?");
-        $stmt->execute([$usuario, $id]);
+        $query = $pdo->prepare("UPDATE usuarios SET usuario = ? WHERE id = ?");
+        $query->execute([$usuario, $id]);
 
-        if ($stmt->rowCount() > 0) {
+        if ($query->rowCount() > 0) {
             echo json_encode([
                 'status' => 'success', 
                 'message' => 'Usuario actualizado con éxito.'
@@ -164,7 +165,8 @@ if ($action === 'editar') {
             ]);
         }
 
-    } catch (PDOException $e) {
+    } 
+    catch (PDOException $e) {
         echo json_encode([
             'status' => 'error', 
             'type' => 'general', 
@@ -176,12 +178,52 @@ if ($action === 'editar') {
 
 if ($action === 'cambiar_password') {
 
+    $id = intval($_POST['id_usuario'] ?? 0);
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm-password'] ?? '';
 
-    echo json_encode([
-        'status' => 'error',
-        'type' => 'fields',
-        'errors' => $_POST
-    ]);
+
+    $errores = validarPassword($password, $confirm_password);
+
+    if (!empty($errores)) {
+        echo json_encode([
+            'status' => 'error',
+            'type' => 'fields',
+            'errors' => $errores
+        ]);
+        exit;
+    }
+
+
+    try {
+
+        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+
+        $query = $pdo->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
+        $query->execute([$password_hash, $id]);
+
+        if ($query->rowCount() > 0) {
+            echo json_encode([
+                'status' => 'success', 
+                'message' => 'La contraseña ha sido actualizada con éxito.'
+            ]);
+        } 
+        else {
+            echo json_encode([
+                'status' => 'no_changes', 
+                'message' => 'No se realizaron cambios.'.$id
+            ]);
+        }
+
+    } 
+    catch (PDOException $e) {
+        echo json_encode([
+            'status' => 'error', 
+            'type' => 'general', 
+            'message' => 'Error: ' . $e->getMessage()
+        ]);
+    }
     exit;
+
 
 }

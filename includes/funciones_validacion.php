@@ -56,14 +56,14 @@
             $errores['password'] = "La contraseña no puede superar los " . PASS_MAX_LENGTH . " caracteres.";
         } 
         elseif (!validarFormatoPassword($password)) {
-            $errores['password'] = "La contraseña debe tener al menos una letra minúscula, una letra mayúscula, un número y un carácter especial..";
+            $errores['password'] = "La contraseña debe tener al menos una letra minúscula, una letra mayúscula, un número y un carácter especial.";
         }
 
 
         if (!empty($password) && empty($confirmPassword)) {
-            $errores['confirm_password'] = "Debes ingresar nuevamente la contraseña.";
+            $errores['confirm-password'] = "Debes ingresar nuevamente la contraseña.";
         } elseif ($password !== $confirmPassword) {
-            $errores['confirm_password'] = "Las contraseñas no coinciden.";
+            $errores['confirm-password'] = "Las contraseñas no coinciden.";
         }
 
         return $errores;

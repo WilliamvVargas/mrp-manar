@@ -5,6 +5,8 @@ $(document).ready(function() {
     activarLimpiezaMensajeAlEscribir('#form-usuario-editar', '#modal-mensajes-editar');
     activarTogglePassword('#togglePassword', '#password', '#iconEye');
     activarTogglePassword('#togglePasswordConfirm', '#confirm_password', '#iconEyeConfirm');
+    activarTogglePassword('#togglePasswordEdit', '#password-editar', '#iconEyeEdit');
+    activarTogglePassword('#togglePasswordConfirmEdit', '#confirm-password-editar', '#iconEyeConfirmEdit');
 
     function listarUsuarios() {
         $.ajax({
@@ -206,7 +208,30 @@ $(document).ready(function() {
             },
             success: function(res) {
 
+                limpiarFormularioCompleto('#form-usuario-password', '#modal-mensajes-password', false);
+
                 console.log(res)
+                if (res.status === 'success') {
+
+                    listarUsuarios();
+                    mostrarMensajeFormulario('#modal-mensajes-password', 'Éxito', res.message, 'success');
+                } 
+                else {
+
+                    if (res.type === 'fields') {
+                        
+                        $.each(res.errors, function(campo, mensaje) {
+                            const input = $(`#form-usuario-password [name="${campo}"]`);
+                            input.addClass('is-invalid');
+                            let feedback = input.closest('.mb-3').find('.invalid-feedback');
+                            feedback.text(mensaje);
+                            feedback.addClass('d-block');
+                        });
+                    } 
+                    else {
+                       mostrarMensajeFormulario('#modal-mensajes-password', 'Atención', res.message, 'danger');
+                    }
+                }
 
             },
             complete: function() {
@@ -260,9 +285,13 @@ $(document).on('click', '.btn-editar', function() {
 
 $(document).on('click', '.btn-password', function() {
 
+    limpiarFormularioCompleto('#form-usuario-password', '#modal-mensajes-password', true);
+
     const idUsuario = $(this).data('id');
     $('#id_usuario_password_editar').val(idUsuario);
 
     $('#modalUsuarioPassword').modal('show');
+
+
 
 });
