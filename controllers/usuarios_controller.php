@@ -227,3 +227,62 @@ if ($action === 'cambiar_password') {
 
 
 }
+
+
+
+if ($action === 'generar_password') {
+
+    $id = intval($_POST['id_usuario'] ?? 0);
+
+    try {
+
+        $sql = "SELECT id, 
+                       usuario 
+                FROM usuarios 
+                WHERE id = ?";
+
+        $query = $pdo->prepare("$sql");
+        $query->execute([$id]);
+        $usuario = $query->fetch();
+
+        if ($usuario) {
+
+            $nuevo_password = generarPasswordInteligente($usuario['usuario']);
+            $password_hash = password_hash($nuevo_password, PASSWORD_BCRYPT);
+
+
+            $query = $pdo->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
+            $query->execute([$password_hash, $id]);
+
+
+            if ($query->rowCount() > 0) {
+                echo json_encode([
+                    'status' => 'success', 
+                    'message' => 'La contraseña ha sido actualizada con éxito. <hr>Nueva Contraseña: <b>'.$nuevo_password.'</b>',
+                ]);
+            } 
+            else {
+                echo json_encode([
+                    'status' => 'no_changes', 
+                    'message' => 'No se realizaron cambios.'
+                ]);
+            }
+
+
+        } else {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Usuario no encontrado.'
+            ]);
+        }
+
+    } catch (PDOException $e) {
+        echo json_encode([
+            'status' => 'error', 
+            'message' => 'Error: ' . $e->getMessage()]
+        );
+    }
+    exit;
+
+
+}

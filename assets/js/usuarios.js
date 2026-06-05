@@ -198,6 +198,8 @@ $(document).ready(function() {
         const btn = $('#btnEditarPassword');
         setBtnLoading(btn, 'Actualizando...');
 
+        console.log($(this))
+
         $.ajax({
             url: 'controllers/usuarios_controller.php?action=cambiar_password',
             type: 'POST',
@@ -240,8 +242,56 @@ $(document).ready(function() {
 
         });
 
-
     });
+
+    $("#btn-generar-pass-editar").on("click", function(){
+
+        const formulario = $("#form-usuario-password");
+
+        console.log(formulario.serialize())
+
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=generar_password',
+            type: 'POST',
+            data: formulario.serialize(),
+            dataType: 'json',
+            success: function(res) {
+
+                limpiarFormularioCompleto("#form-usuario-password", '#modal-mensajes-password', false);
+
+                if (res.status === 'success') {
+                    mostrarMensajeFormulario('#modal-mensajes-password', 'Éxito', res.message, 'success');
+                }
+                else if (res.status === 'no_changes') {
+                    mostrarMensajeFormulario('#modal-mensajes-password', 'Atención', res.message, 'warning');
+                }
+                else {
+                    
+                    mostrarMensajeFormulario('#modal-mensajes-password', 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                let mensajeError = "Ocurrió un error crítico en el servidor al actualizar.";
+        
+                if (textStatus === 'timeout') {
+                    mensajeError = "El servidor está tardando demasiado en responder.";
+                } else if (jqXHR.status === 403) {
+                    mensajeError = "Su sesión expiró o la solicitud no es válida (Token CSRF inválido).";
+                } else if (jqXHR.status === 500) {
+                    mensajeError = "Error interno del servidor (500). Revisa los logs.";
+                }
+
+                mostrarMensajeFormulario('#modal-mensajes-password', 'Error de Sistema', mensajeError, 'danger');
+            },
+            complete: function() {
+                resetBtnLoading(btn); 
+            }
+
+        });
+
+
+    })
 
 });
 
@@ -266,8 +316,8 @@ $(document).on('click', '.btn-editar', function() {
                 $('#id_usuario_editar').val(response.data.id);
                 $('#usuario_editar').val(response.data.usuario);
                 
-            } else {
-                // Si tienes un contenedor general de alertas en la página principal
+            } 
+            else {
                 mostrarMensajeFormulario('#modal-mensajes-editar', 'Atención', response.message, 'danger', 0);
             }
         },
@@ -279,7 +329,6 @@ $(document).on('click', '.btn-editar', function() {
         }
     });
 
-
 });
 
 
@@ -288,7 +337,54 @@ $(document).on('click', '.btn-password', function() {
     limpiarFormularioCompleto('#form-usuario-password', '#modal-mensajes-password', true);
 
     const idUsuario = $(this).data('id');
-    $('#id_usuario_password_editar').val(idUsuario);
+    
+
+    $.ajax({
+        url: 'controllers/usuarios_controller.php?action=obtener',
+        type: 'GET',
+        data: { id: idUsuario },
+        dataType: 'json',
+        success: function(response) {
+            console.log(response);
+
+            if (response.status === 'success') {
+
+                $('#id_usuario_password_editar').val(response.data.id);
+                $('#input-usuario-pass').val(response.data.usuario);
+                
+            } 
+            else {
+                mostrarMensajeFormulario('#modal-mensajes-password', 'Atención', response.message, 'danger', 0);
+            }
+        },
+        error: function() {
+            mostrarMensajeFormulario('#modal-mensajes-password', 'Error de Sistema', 'No se pudieron recuperar los datos del usuario.', 'danger', 0);
+        },
+        complete: function() {
+            $('#modalUsuarioPassword').modal('show');
+        }
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     $('#modalUsuarioPassword').modal('show');
 

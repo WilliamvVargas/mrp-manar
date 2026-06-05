@@ -18,10 +18,19 @@
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label fw-bold" for="input-usuario-editar">Nombre de Usuario</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control" name="usuario" id="input-usuario-pass" disabled>
+                        </div>
+                        <div class="invalid-feedback"></div>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label fw-bold" for="password-editar">Contraseña</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-key"></i></span>
-                            <input type="password" class="form-control" name="password" id="password-editar" placeholder="Mínimo <?php echo PASS_MIN_LENGTH;?> caracteres y máximo de <?php echo PASS_MAX_LENGTH;?> caracteres" maxlength="<?php echo PASS_MAX_LENGTH;?>" autocomplete="new-password">
+                            <input type="password" class="form-control " name="password" id="password-editar" placeholder="Mínimo <?php echo PASS_MIN_LENGTH;?> caracteres y máximo de <?php echo PASS_MAX_LENGTH;?> caracteres" maxlength="<?php echo PASS_MAX_LENGTH;?>" autocomplete="new-password">
                             <button class="btn btn-outline-secondary" type="button" id="togglePasswordEdit">
                                 <i class="bi bi-eye" id="iconEyeEdit"></i>
                             </button>  
@@ -39,6 +48,12 @@
                             </button>  
                         </div>
                         <div class="invalid-feedback" id="error-confirm_password_editar"></div>
+                    </div>
+
+                    <div class="mb-3 d-flex justify-content-end">
+                        <button class="btn btn-primary" type="button" id="btn-generar-pass-editar">
+                            <i class="bi bi-robot"></i> Generar Contraseña Aleatoria
+                        </button>
                     </div>
 
                 </div>

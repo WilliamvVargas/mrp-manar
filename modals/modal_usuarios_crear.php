@@ -24,6 +24,7 @@
                         </div>
                         <div class="invalid-feedback" id="error-usuario"></div>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label fw-bold" for="password">Contraseña</label>
                         <div class="input-group">
@@ -35,7 +36,6 @@
                         </div>
                         <div class="invalid-feedback" id="error-password"></div>
                     </div>
-
 
                     <div class="mb-3">
                         <label class="form-label fw-bold" for="confirm_password">Repetir Contraseña</label>
