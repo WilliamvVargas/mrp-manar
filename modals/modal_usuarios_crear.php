@@ -49,6 +49,12 @@
                         <div class="invalid-feedback" id="error-confirm_password"></div>
                     </div>
 
+                    <div class="mb-3 d-flex justify-content-end">
+                        <button class="btn btn-primary" type="button" id="btn-generar-pass">
+                            <i class="bi bi-robot"></i> Generar Contraseña Aleatoria
+                        </button>
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

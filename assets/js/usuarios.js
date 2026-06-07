@@ -244,19 +244,79 @@ $(document).ready(function() {
 
     });
 
-    $("#btn-generar-pass-editar").on("click", function(){
 
-        const formulario = $("#form-usuario-password");
+    $("#btn-generar-pass").on("click", function(){
 
-        console.log(formulario.serialize())
+        let formulario = $("#form-usuario").serialize();
+        let btn = $('#btn-generar-pass');
+        let es_actualizacion = 0;
 
+        setBtnLoading(btn, 'Actualizando...');
+
+        formulario += "&es_actualizacion=" + encodeURIComponent(es_actualizacion);
+        console.log(formulario)
 
         $.ajax({
             url: 'controllers/usuarios_controller.php?action=generar_password',
             type: 'POST',
-            data: formulario.serialize(),
+            data: formulario,
             dataType: 'json',
             success: function(res) {
+
+                console.log(res)
+
+                if (res.status === 'success') {
+                
+                    $("#password").val(res.password);
+                    $("#confirm_password").val(res.password);
+
+                    if ($('#password').attr('type') === 'password')
+                        $('#togglePassword').trigger('click');
+
+                    if ($('#confirm_password').attr('type') === 'password')
+                        $('#togglePasswordConfirm').trigger('click');
+
+                }
+
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                let mensajeError = "Ocurrió un error crítico en el servidor al actualizar.";
+        
+                if (textStatus === 'timeout') {
+                    mensajeError = "El servidor está tardando demasiado en responder.";
+                } else if (jqXHR.status === 403) {
+                    mensajeError = "Su sesión expiró o la solicitud no es válida (Token CSRF inválido).";
+                } else if (jqXHR.status === 500) {
+                    mensajeError = "Error interno del servidor (500). Revisa los logs.";
+                }
+
+                mostrarMensajeFormulario('#modal-mensajes', 'Error de Sistema', mensajeError, 'danger');
+            },
+            complete: function() {
+                resetBtnLoading(btn); 
+            }
+        });
+
+    });
+
+    $("#btn-generar-pass-editar").on("click", function(){
+
+        let formulario = $("#form-usuario-password").serialize();
+        let btn = $('#btn-generar-pass-editar');
+        let es_actualizacion = 1;
+
+        setBtnLoading(btn, 'Actualizando...');
+
+        formulario += "&es_actualizacion=" + encodeURIComponent(es_actualizacion);
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=generar_password',
+            type: 'POST',
+            data: formulario,
+            dataType: 'json',
+            success: function(res) {
+
+                console.log(res)
 
                 limpiarFormularioCompleto("#form-usuario-password", '#modal-mensajes-password', false);
 
@@ -365,29 +425,6 @@ $(document).on('click', '.btn-password', function() {
         }
     });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     $('#modalUsuarioPassword').modal('show');
-
-
 
 });

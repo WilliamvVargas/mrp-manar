@@ -232,49 +232,70 @@ if ($action === 'cambiar_password') {
 
 if ($action === 'generar_password') {
 
+    time_nanosleep(0, 500000000);
+
     $id = intval($_POST['id_usuario'] ?? 0);
+    $nombre_usuario = $_POST['usuario'] ?? '';
+    $es_actualizacion = boolval($_POST['es_actualizacion'] ?? FALSE );
 
     try {
 
-        $sql = "SELECT id, 
-                       usuario 
-                FROM usuarios 
-                WHERE id = ?";
-
-        $query = $pdo->prepare("$sql");
-        $query->execute([$id]);
-        $usuario = $query->fetch();
-
-        if ($usuario) {
-
-            $nuevo_password = generarPasswordInteligente($usuario['usuario']);
-            $password_hash = password_hash($nuevo_password, PASSWORD_BCRYPT);
+        if($es_actualizacion){
 
 
-            $query = $pdo->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
-            $query->execute([$password_hash, $id]);
+            $sql = "SELECT id, 
+                           usuario 
+                    FROM usuarios 
+                    WHERE id = ?";
+
+            $query = $pdo->prepare("$sql");
+            $query->execute([$id]);
+            $usuario = $query->fetch();
+
+            if ($usuario) {
+
+                $nuevo_password = generarPasswordInteligente($usuario['usuario']);
+                $password_hash = password_hash($nuevo_password, PASSWORD_BCRYPT);
 
 
-            if ($query->rowCount() > 0) {
-                echo json_encode([
-                    'status' => 'success', 
-                    'message' => 'La contraseña ha sido actualizada con éxito. <hr>Nueva Contraseña: <b>'.$nuevo_password.'</b>',
-                ]);
+                $query = $pdo->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
+                $query->execute([$password_hash, $id]);
+
+
+                if ($query->rowCount() > 0) {
+                    echo json_encode([
+                        'status' => 'success', 
+                        'message' => 'La contraseña ha sido actualizada con éxito. <hr>Nueva Contraseña: <b>'.$nuevo_password.'</b>',
+                    ]);
+                } 
+                else {
+                    echo json_encode([
+                        'status' => 'no_changes', 
+                        'message' => 'No se realizaron cambios.'
+                    ]);
+                }
+
             } 
             else {
                 echo json_encode([
-                    'status' => 'no_changes', 
-                    'message' => 'No se realizaron cambios.'
+                    'status' => 'error',
+                    'message' => 'Usuario no encontrado.'
                 ]);
             }
 
 
-        } else {
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Usuario no encontrado.'
-            ]);
         }
+        else{
+
+            $nuevo_password = generarPasswordInteligente($nombre_usuario);
+
+            echo json_encode([
+                'status' => 'success', 
+                'password' => $nuevo_password,
+            ]);
+
+        }
+
 
     } catch (PDOException $e) {
         echo json_encode([
