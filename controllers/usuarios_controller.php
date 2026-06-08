@@ -37,7 +37,7 @@ if ($action === 'listar') {
 }
 else if ($action === 'obtener') {
 
-    $id = intval($_GET['id'] ?? 0);
+    $id = $_GET['id'] ?? '';
 
     try {
 
@@ -121,7 +121,7 @@ else if ($action === 'editar') {
 
     retrasar();
 
-    $id = intval($_POST['id_usuario'] ?? 0);
+    $id = $_POST['id_usuario'] ?? 0;
     $usuario = trim($_POST['usuario'] ?? '');
 
     $errores = validarUsuario($usuario);
@@ -180,7 +180,7 @@ else if ($action === 'cambiar_password') {
 
     retrasar();
 
-    $id = intval($_POST['id_usuario'] ?? 0);
+    $id = $_POST['id_usuario'] ?? 0;
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm-password'] ?? '';
 
@@ -233,7 +233,7 @@ else if ($action === 'generar_password') {
 
     retrasar();
 
-    $id = intval($_POST['id_usuario'] ?? 0);
+    $id = $_POST['id_usuario'] ?? 0;
     $nombre_usuario = $_POST['usuario'] ?? '';
     $es_actualizacion = boolval($_POST['es_actualizacion'] ?? FALSE );
 
@@ -309,7 +309,7 @@ else if ($action === 'eliminar') {
 
     retrasar();
 
-    $id = intval($_POST['id_usuario'] ?? 0);
+    $id = $_POST['id_usuario'] ?? 0;
 
     try {
 
