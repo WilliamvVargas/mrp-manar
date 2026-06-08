@@ -132,6 +132,10 @@ function limpiarFormularioCompleto(selectorForm, selectorMensajes, resetInputs =
  */
 function setBtnLoading(btn, textoCarga = 'Cargando...') {
     btn.data('original-text', btn.html());
+
+    const anchoOriginal = btn.outerWidth();
+    btn.css('min-width', `${anchoOriginal}px`);
+    
     btn.prop('disabled', true);
     btn.html(`<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${textoCarga}`);
 }

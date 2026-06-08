@@ -3,6 +3,11 @@ require_once '../includes/auth.php';
 require_once '../config/conexion.php';
 require_once '../includes/funciones_validacion.php';
 
+
+function retrasar(){
+    time_nanosleep(0, 500000000);
+}
+
 $action = $_REQUEST['action'] ?? '';
 
 if ($action === 'listar') {
@@ -30,8 +35,7 @@ if ($action === 'listar') {
     }
     exit;
 }
-
-if ($action === 'obtener') {
+else if ($action === 'obtener') {
 
     $id = intval($_GET['id'] ?? 0);
 
@@ -66,10 +70,9 @@ if ($action === 'obtener') {
     }
     exit;
 }
+else if ($action === 'registrar') {
 
-if ($action === 'registrar') {
-
-    time_nanosleep(0, 500000000);
+    retrasar();
 
     $usuario = trim($_POST['usuario'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -114,10 +117,9 @@ if ($action === 'registrar') {
     exit;
 
 }
+else if ($action === 'editar') {
 
-if ($action === 'editar') {
-
-    time_nanosleep(0, 500000000);
+    retrasar();
 
     $id = intval($_POST['id_usuario'] ?? 0);
     $usuario = trim($_POST['usuario'] ?? '');
@@ -174,8 +176,9 @@ if ($action === 'editar') {
     }
     exit;
 }
+else if ($action === 'cambiar_password') {
 
-if ($action === 'cambiar_password') {
+    retrasar();
 
     $id = intval($_POST['id_usuario'] ?? 0);
     $password = $_POST['password'] ?? '';
@@ -226,12 +229,9 @@ if ($action === 'cambiar_password') {
 
 
 }
+else if ($action === 'generar_password') {
 
-
-
-if ($action === 'generar_password') {
-
-    time_nanosleep(0, 500000000);
+    retrasar();
 
     $id = intval($_POST['id_usuario'] ?? 0);
     $nombre_usuario = $_POST['usuario'] ?? '';
@@ -304,14 +304,10 @@ if ($action === 'generar_password') {
     }
     exit;
 
-
 }
+else if ($action === 'eliminar') {
 
-
-if ($action === 'eliminar') {
-
-
-    time_nanosleep(0, 500000000);
+    retrasar();
 
     $id = intval($_POST['id_usuario'] ?? 0);
 
