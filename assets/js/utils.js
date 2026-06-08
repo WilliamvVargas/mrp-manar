@@ -148,3 +148,37 @@ function resetBtnLoading(btn) {
     }
 }
 
+
+/**
+ * Procesa de forma unificada los errores de servidor (HTTP) en cualquier petición AJAX
+ * @param {jQuery.jqXHR} jqXHR - Objeto nativo de error de jQuery
+ * @param {string} textStatus - Estado textual del error ('timeout', 'error', etc.)
+ * @param {string} contenedorAlerta - Selector del div de destino (ej: '#modal-mensajes')
+ */
+function manejarErrorAjax(jqXHR, textStatus, contenedorAlerta) {
+    let mensajeError = "Ocurrió un error crítico en el servidor.";
+    if (textStatus === 'timeout') {
+        mensajeError = "El servidor está tardando demasiado en responder.";
+    } else if (jqXHR.status === 403) {
+        mensajeError = "Su sesión expiró o la solicitud no es válida (Token CSRF inválido).";
+    } else if (jqXHR.status === 404) {
+        mensajeError = "No se encontró el controlador o endpoint en el servidor.";
+    } else if (jqXHR.status === 500) {
+        mensajeError = "Error interno del servidor (500). Revisa los logs de PHP.";
+    }
+    mostrarMensajeFormulario(contenedorAlerta, 'Error de Sistema', mensajeError, 'danger');
+}
+
+/**
+ * Pinta de manera automática los feedbacks inválidos de Bootstrap en cualquier formulario
+ * @param {string} selectorForm - Selector del formulario activo (ej: '#form-cliente')
+ * @param {Object} errors - Objeto asociativo clave-valor enviado por PHP (campo => mensaje)
+ */
+function renderizarErroresCampos(selectorForm, errors) {
+    $.each(errors, function(campo, mensaje) {
+        const input = $(`${selectorForm} [name="${campo}"]`);
+        input.addClass('is-invalid');
+        let feedback = input.closest('.mb-3').find('.invalid-feedback');
+        feedback.text(mensaje).addClass('d-block');
+    });
+}
