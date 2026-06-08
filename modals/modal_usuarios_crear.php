@@ -26,6 +26,18 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="nombres" class="form-label">Nombres</label>
+                        <input type="text" name="nombres" id="nombres" class="form-label form-control" placeholder="Ej: Juan Carlos">
+                        <div class="invalid-feedback" id="error-password"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="apellidos" class="form-label">Apellidos</label>
+                        <input type="text" name="apellidos" id="apellidos" class="form-label form-control" placeholder="Ej: Pérez Rossi">
+                        <div class="invalid-feedback" id="error-password"></div>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label fw-bold" for="password">Contraseña</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-key"></i></span>

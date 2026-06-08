@@ -188,5 +188,56 @@
         return implode('', $finalArr);
     }
 
+   /*
+    * Valida un campo de texto basado en un set de reglas dinámicas.
+    *
+    * @param string $valor El texto a validar.
+    * @param string $nombreCampo Nombre amigable para el mensaje (ej: 'Nombres').
+    * @param array $reglas Array asociativo con las reglas (ej: ['requerido' => true, 'min' => 3])
+    * @return string|null Devuelve el string del error si falla, o null si pasa limpio.
+    *
+    */
+
+    function validarCampoTexto($valor, $nombreCampo, $reglas = []) {
+        $valor = trim($valor);
+        $reglasFinales = [];
+
+        // 1. Si $reglas es un String, leemos directamente de la constante
+        if (is_string($reglas)) {
+            $reglasFinales = isset(DICCIONARIO_REGLAS[$reglas]) ? DICCIONARIO_REGLAS[$reglas] : [];
+        } 
+        // 2. Si es un array, lo usamos directamente (reglas personalizadas)
+        else if (is_array($reglas)) {
+            $reglasFinales = $reglas;
+        }
+
+        // --- (El resto de la lógica de validación de ifs se mantiene exactamente igual) ---
+        if (!empty($reglasFinales['requerido']) && $valor === '') {
+            return "El campo {$nombreCampo} es obligatorio.";
+        }
+
+        if ($valor === '') return null;
+
+        if (isset($reglasFinales['min']) && mb_strlen($valor) < $reglasFinales['min']) {
+            return "El campo {$nombreCampo} debe tener al menos {$reglasFinales['min']} caracteres.";
+        }
+
+        if (isset($reglasFinales['max']) && mb_strlen($valor) > $reglasFinales['max']) {
+            return "El campo {$nombreCampo} no puede superar los {$reglasFinales['max']} caracteres.";
+        }
+
+        if (isset($reglasFinales['patron']) && !preg_match($reglasFinales['patron'], $valor)) {
+            return isset($reglasFinales['mensaje_patron']) 
+                ? $reglasFinales['mensaje_patron'] 
+                : "El formato del campo {$nombreCampo} no es válido.";
+        }
+
+        if (isset($reglasFinales['coincide_con']) && $valor !== trim($reglasFinales['coincide_con'])) {
+            return "El campo {$nombreCampo} no coincide con la contraseña ingresada.";
+        }
+        
+        return null;
+    }
+
 
 ?>

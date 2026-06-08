@@ -17,7 +17,8 @@ if ($action === 'listar') {
         $sql = "SELECT id, 
                        usuario, 
                        DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') as fecha 
-                FROM usuarios ORDER BY id DESC";
+                FROM usuarios 
+                ORDER BY created_at DESC";
         
         $query = $pdo->prepare("$sql");
         $query->execute();
@@ -75,10 +76,30 @@ else if ($action === 'registrar') {
     retrasar();
 
     $usuario = trim($_POST['usuario'] ?? '');
+    $nombres = trim($_POST['nombres'] ?? '');
+    $apellidos = trim($_POST['apellidos'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    $errores = validarDatosNuevoUsuario($usuario, $password, $confirm_password);
+    // Validamos los Nombres
+    if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres')) 
+        $errores['nombres'] = $err;
+
+    if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
+        $errores['apellidos'] = $err;
+
+    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario'))
+        $errores['usuario'] = $err;
+
+    if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
+        $errores['password'] = $err;
+
+    if ($err = validarCampoTexto($password, 'Contraseña', 'password')) 
+        $errores['password'] = $err;
+
+    if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
+                                                                             'coincide_con' => $password]))
+        $errores['confirm_password'] = $err;
 
     if (!empty($errores)) {
         echo json_encode([
