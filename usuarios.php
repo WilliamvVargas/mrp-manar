@@ -50,7 +50,8 @@
 
     include 'modals/modal_usuarios_crear.php';
     include 'modals/modal_usuarios_editar.php';
-    include 'modals/modal_usuarios_password.php'; 
+    include 'modals/modal_usuarios_eliminar.php';
+    include 'modals/modal_usuarios_password.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>

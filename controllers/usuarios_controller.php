@@ -122,7 +122,6 @@ if ($action === 'editar') {
     $id = intval($_POST['id_usuario'] ?? 0);
     $usuario = trim($_POST['usuario'] ?? '');
 
-
     $errores = validarUsuario($usuario);
 
     if (!empty($errores)) {
@@ -306,4 +305,47 @@ if ($action === 'generar_password') {
     exit;
 
 
+}
+
+
+if ($action === 'eliminar') {
+
+
+    time_nanosleep(0, 500000000);
+
+    $id = intval($_POST['id_usuario'] ?? 0);
+
+    try {
+
+        $validar = $pdo->prepare("SELECT id FROM usuarios WHERE id = ?");
+        $validar->execute([$id]);
+        
+        if ($validar->rowCount() === 0) {
+            echo json_encode([
+                'status' => 'error', 
+                'type' => 'fields', 
+                'errors' => ['id' => 'El usuario que intenta eliminar no existe.']
+            ]);
+            exit;
+        }
+
+
+        $query = $pdo->prepare("DELETE FROM usuarios WHERE id = ?");
+        
+        if ($query->execute([$id])) {
+            echo json_encode([
+                'status' => 'success', 
+                'message' => 'Usuario eliminado con éxito'
+            ]);
+        }
+    } 
+    catch (PDOException $e) {
+
+        echo json_encode([
+            'status' => 'error', 
+            'type' => 'general', 
+            'message' => 'Error: ' . $e->getMessage()
+        ]);
+    }
+    exit;
 }

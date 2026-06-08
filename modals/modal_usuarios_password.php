@@ -18,12 +18,11 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold" for="input-usuario-editar">Nombre de Usuario</label>
+                        <label class="form-label fw-bold" for="input-usuario-pass">Nombre de Usuario</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
                             <input type="text" class="form-control" name="usuario" id="input-usuario-pass" disabled>
                         </div>
-                        <div class="invalid-feedback"></div>
                     </div>
 
                     <div class="mb-3">
@@ -39,7 +38,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold" for="confirm_password_editar">Repetir Contraseña</label>
+                        <label class="form-label fw-bold" for="confirm-password-editar">Repetir Contraseña</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
                             <input type="password" class="form-control" name="confirm-password" id="confirm-password-editar" placeholder="Reingrese la contraseña" maxlength="<?php echo PASS_MAX_LENGTH;?>" autocomplete="new-password">

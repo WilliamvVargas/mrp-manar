@@ -15,8 +15,6 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
 
-                console.log(response)
-
                 if (response.status === 'success') {
 
                     // 1. Destruir la instancia previa si existe
@@ -85,7 +83,6 @@ $(document).ready(function() {
             },
             success: function(res) {
 
-                console.log(res)
                 resetBtnLoading(btn);
 
                 if (res.status === 'success') {
@@ -198,8 +195,6 @@ $(document).ready(function() {
         const btn = $('#btnEditarPassword');
         setBtnLoading(btn, 'Actualizando...');
 
-        console.log($(this))
-
         $.ajax({
             url: 'controllers/usuarios_controller.php?action=cambiar_password',
             type: 'POST',
@@ -212,7 +207,6 @@ $(document).ready(function() {
 
                 limpiarFormularioCompleto('#form-usuario-password', '#modal-mensajes-password', false);
 
-                console.log(res)
                 if (res.status === 'success') {
 
                     listarUsuarios();
@@ -244,6 +238,53 @@ $(document).ready(function() {
 
     });
 
+    $('#form-usuario-eliminar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn = $('#btnEliminar');
+        setBtnLoading(btn, 'Eliminando...');
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=eliminar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            beforeSend: function() {
+
+            },
+            success: function(res) {
+
+                if (res.status === 'success') {
+
+                    listarUsuarios();
+                    mostrarMensajeFormulario('#modal-mensajes-eliminar', 'Éxito', res.message, 'success');
+                } 
+                else {
+                    mostrarMensajeFormulario('#modal-mensajes-eliminar', 'Atención', res.message, 'danger');
+                }
+
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                let mensajeError = "Ocurrió un error crítico en el servidor al actualizar.";
+        
+                if (textStatus === 'timeout') {
+                    mensajeError = "El servidor está tardando demasiado en responder.";
+                } else if (jqXHR.status === 403) {
+                    mensajeError = "Su sesión expiró o la solicitud no es válida (Token CSRF inválido).";
+                } else if (jqXHR.status === 500) {
+                    mensajeError = "Error interno del servidor (500). Revisa los logs.";
+                }
+
+                mostrarMensajeFormulario('#modal-mensajes-eliminar', 'Error de Sistema', mensajeError, 'danger');
+            },
+            complete: function() {
+                resetBtnLoading(btn); 
+            }
+
+        });
+
+    });
+
 
     $("#btn-generar-pass").on("click", function(){
 
@@ -251,10 +292,9 @@ $(document).ready(function() {
         let btn = $('#btn-generar-pass');
         let es_actualizacion = 0;
 
-        setBtnLoading(btn, 'Actualizando...');
+        setBtnLoading(btn, 'Generando...');
 
         formulario += "&es_actualizacion=" + encodeURIComponent(es_actualizacion);
-        console.log(formulario)
 
         $.ajax({
             url: 'controllers/usuarios_controller.php?action=generar_password',
@@ -262,8 +302,6 @@ $(document).ready(function() {
             data: formulario,
             dataType: 'json',
             success: function(res) {
-
-                console.log(res)
 
                 if (res.status === 'success') {
                 
@@ -305,7 +343,7 @@ $(document).ready(function() {
         let btn = $('#btn-generar-pass-editar');
         let es_actualizacion = 1;
 
-        setBtnLoading(btn, 'Actualizando...');
+        setBtnLoading(btn, 'Generando...');
 
         formulario += "&es_actualizacion=" + encodeURIComponent(es_actualizacion);
 
@@ -315,8 +353,6 @@ $(document).ready(function() {
             data: formulario,
             dataType: 'json',
             success: function(res) {
-
-                console.log(res)
 
                 limpiarFormularioCompleto("#form-usuario-password", '#modal-mensajes-password', false);
 
@@ -350,16 +386,14 @@ $(document).ready(function() {
 
         });
 
-
     })
+
 
 });
 
 $(document).on('click', '.btn-editar', function() {
 
     const idUsuario = $(this).data('id');
-
-    console.log(idUsuario)
 
     limpiarFormularioCompleto('#form-usuario-editar', '#modal-mensajes-editar', true);
 
@@ -368,8 +402,7 @@ $(document).on('click', '.btn-editar', function() {
         type: 'GET',
         data: { id: idUsuario },
         dataType: 'json',
-        success: function(response) {
-            console.log(response);
+        success: function(response) {          
 
             if (response.status === 'success') {
 
@@ -398,14 +431,13 @@ $(document).on('click', '.btn-password', function() {
 
     const idUsuario = $(this).data('id');
     
-
     $.ajax({
         url: 'controllers/usuarios_controller.php?action=obtener',
         type: 'GET',
         data: { id: idUsuario },
         dataType: 'json',
         success: function(response) {
-            console.log(response);
+            
 
             if (response.status === 'success') {
 
@@ -425,6 +457,37 @@ $(document).on('click', '.btn-password', function() {
         }
     });
 
-    $('#modalUsuarioPassword').modal('show');
+
+});
+
+$(document).on('click', '.btn-eliminar', function() {
+
+    limpiarFormularioCompleto('#form-usuario-eliminar', '#modal-mensajes-eliminar', true);
+    const idUsuario = $(this).data('id');
+
+    $.ajax({
+        url: 'controllers/usuarios_controller.php?action=obtener',
+        type: 'GET',
+        data: { id: idUsuario },
+        dataType: 'json',
+        success: function(response) {
+            
+            if (response.status === 'success') {
+
+                $('#id_usuario_eliminar').val(response.data.id);
+                $('#input-usuario-eliminar').val(response.data.usuario);
+                
+            } 
+            else {
+                mostrarMensajeFormulario('#modal-mensajes-eliminar', 'Atención', response.message, 'danger', 0);
+            }
+        },
+        error: function() {
+            mostrarMensajeFormulario('#modal-mensajes-eliminar', 'Error de Sistema', 'No se pudieron recuperar los datos del usuario.', 'danger', 0);
+        },
+        complete: function() {
+            $('#modalUsuarioEliminar').modal('show');
+        }
+    });
 
 });
