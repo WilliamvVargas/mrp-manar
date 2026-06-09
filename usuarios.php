@@ -32,8 +32,9 @@
                 <table class="table table-hover align-middle" id="tabla-usuarios" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 10%">ID</th>
-                            <th style="width: 50%">Nombre de Usuario</th>
+                            <th style="width: 20%">Nombre de Usuario</th>
+                            <th style="width: 20%">Nombres</th>
+                            <th style="width: 20%">Apellidos</th>
                             <th style="width: 25%">Fecha de Creación</th>
                             <th style="width: 15%" class="text-center">Acciones</th>
                         </tr>

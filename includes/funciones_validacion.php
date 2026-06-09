@@ -3,85 +3,58 @@
     declare(strict_types=1);
     require_once __DIR__ . '/../config/config.php'; // Importamos las constantes
 
-    function validarDatosLogin($usuario, $password) {
-        $errores = [];
+   /*
+    * Valida un campo de texto basado en un set de reglas dinámicas.
+    *
+    * @param string $valor El texto a validar.
+    * @param string $nombreCampo Nombre amigable para el mensaje (ej: 'Nombres').
+    * @param array $reglas Array asociativo con las reglas (ej: ['requerido' => true, 'min' => 3])
+    * @return string|null Devuelve el string del error si falla, o null si pasa limpio.
+    *
+    */
 
-        if (empty($usuario)) {
-            $errores['usuario'] = "El nombre de usuario es obligatorio.";
+    function validarCampoTexto($valor, $nombreCampo, $reglas = []) {
+        $valor = trim($valor);
+        $reglasFinales = [];
+
+        // 1. Si $reglas es un String, leemos directamente de la constante
+        if (is_string($reglas)) {
+            $reglasFinales = isset(DICCIONARIO_REGLAS[$reglas]) ? DICCIONARIO_REGLAS[$reglas] : [];
+        } 
+        // 2. Si es un array, usamos directamente las reglas personalizadas
+        else if (is_array($reglas)) {
+            $reglasFinales = $reglas;
         }
 
-        if (empty($password)) {
-            $errores['password'] = "La contraseña es obligatoria.";
+        // 3. Validación de campo Obligatorio, si no lo es y está en blanco no se aplica ninguna validación
+        if (!empty($reglasFinales['requerido']) && $valor === '') {
+            return "El campo {$nombreCampo} es obligatorio.";
         }
 
-        return $errores;
-    }
+        if ($valor === '') 
+            return null;
 
-    function validarDatosNuevoUsuario($usuario, $password, $confirmPassword) {
+        // 4. Otras validaciones según las reglas indicadas
+        if (isset($reglasFinales['min']) && mb_strlen($valor) < $reglasFinales['min']) {
+            return "El campo {$nombreCampo} debe tener al menos {$reglasFinales['min']} caracteres.";
+        }
+
+        if (isset($reglasFinales['max']) && mb_strlen($valor) > $reglasFinales['max']) {
+            return "El campo {$nombreCampo} no puede superar los {$reglasFinales['max']} caracteres.";
+        }
+
+        if (isset($reglasFinales['patron']) && !preg_match($reglasFinales['patron'], $valor)) {
+            return isset($reglasFinales['mensaje_patron']) 
+                ? $reglasFinales['mensaje_patron'] 
+                : "El formato del campo {$nombreCampo} no es válido.";
+        }
+
+        if (isset($reglasFinales['coincide_con']) && $valor !== trim($reglasFinales['coincide_con'])) {
+            return "El campo {$nombreCampo} no coincide con la contraseña ingresada.";
+        }
         
-        $errores_usuarios = validarUsuario($usuario);
-        $errores_password = validarPassword($password, $confirmPassword);
-
-        return array_merge($errores_usuarios, $errores_password);
-    }
-
-    function validarUsuario($usuario) {
-        $errores = [];
-
-        if (empty($usuario)) {
-            $errores['usuario'] = "El nombre de usuario es obligatorio.";
-        }
-        elseif (strlen($usuario) < USER_MIN_LENGTH) {
-             $errores['usuario'] = "El usuario es muy corto. Mínimo " . USER_MIN_LENGTH . " caracteres.";
-        } 
-        elseif (strlen($usuario) > USER_MAX_LENGTH) {
-            $errores['usuario'] = "El usuario no puede superar los " . USER_MAX_LENGTH . " caracteres.";
-        } 
-        elseif (!validarFormatoUsuario($usuario)) {
-            $errores['usuario'] = "El usuario solo puede contener letras, números, puntos (.) o guiones bajos (_).";
-        }
-        return $errores;
-    }
-
-    function validarPassword($password, $confirmPassword) {
-        $errores = [];
-
-        if (empty($password)) {
-            $errores['password'] = "La contraseña es obligatoria.";
-        }
-        elseif (strlen($password) < PASS_MIN_LENGTH) {
-            $errores['password'] = "La contraseña debe tener al menos " . PASS_MIN_LENGTH . " caracteres.";
-        } 
-        elseif (strlen($password) > PASS_MAX_LENGTH) {
-            $errores['password'] = "La contraseña no puede superar los " . PASS_MAX_LENGTH . " caracteres.";
-        } 
-        elseif (!validarFormatoPassword($password)) {
-            $errores['password'] = "La contraseña debe tener al menos una letra minúscula, una letra mayúscula y un número. No debe tener caracteres especiales o espacios.";
-        }
-
-
-        if (!empty($password) && empty($confirmPassword)) {
-            $errores['confirm-password'] = "Debes ingresar nuevamente la contraseña.";
-        } elseif ($password !== $confirmPassword) {
-            $errores['confirm-password'] = "Las contraseñas no coinciden.";
-        }
-
-        return $errores;
-    }
-
-
-    function validarFormatoPassword($password) {
-
-        $patronComplejidad = '/^(?=.*[a-zñáéíóú])(?=.*[A-ZÑÁÉÍÓÚ])(?=.*\d)[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]*$/u';
-    
-        return preg_match($patronComplejidad, $password) === 1;
-
-    }
-
-
-    function validarFormatoUsuario($usuario) {
-
-        return preg_match('/^[a-zA-Z0-9._ñÑ]+$/', $usuario) === 1;
+        // 5. Si no exiten ningún error se retorna nulo
+        return null;
     }
 
 
@@ -188,56 +161,6 @@
         return implode('', $finalArr);
     }
 
-   /*
-    * Valida un campo de texto basado en un set de reglas dinámicas.
-    *
-    * @param string $valor El texto a validar.
-    * @param string $nombreCampo Nombre amigable para el mensaje (ej: 'Nombres').
-    * @param array $reglas Array asociativo con las reglas (ej: ['requerido' => true, 'min' => 3])
-    * @return string|null Devuelve el string del error si falla, o null si pasa limpio.
-    *
-    */
-
-    function validarCampoTexto($valor, $nombreCampo, $reglas = []) {
-        $valor = trim($valor);
-        $reglasFinales = [];
-
-        // 1. Si $reglas es un String, leemos directamente de la constante
-        if (is_string($reglas)) {
-            $reglasFinales = isset(DICCIONARIO_REGLAS[$reglas]) ? DICCIONARIO_REGLAS[$reglas] : [];
-        } 
-        // 2. Si es un array, lo usamos directamente (reglas personalizadas)
-        else if (is_array($reglas)) {
-            $reglasFinales = $reglas;
-        }
-
-        // --- (El resto de la lógica de validación de ifs se mantiene exactamente igual) ---
-        if (!empty($reglasFinales['requerido']) && $valor === '') {
-            return "El campo {$nombreCampo} es obligatorio.";
-        }
-
-        if ($valor === '') return null;
-
-        if (isset($reglasFinales['min']) && mb_strlen($valor) < $reglasFinales['min']) {
-            return "El campo {$nombreCampo} debe tener al menos {$reglasFinales['min']} caracteres.";
-        }
-
-        if (isset($reglasFinales['max']) && mb_strlen($valor) > $reglasFinales['max']) {
-            return "El campo {$nombreCampo} no puede superar los {$reglasFinales['max']} caracteres.";
-        }
-
-        if (isset($reglasFinales['patron']) && !preg_match($reglasFinales['patron'], $valor)) {
-            return isset($reglasFinales['mensaje_patron']) 
-                ? $reglasFinales['mensaje_patron'] 
-                : "El formato del campo {$nombreCampo} no es válido.";
-        }
-
-        if (isset($reglasFinales['coincide_con']) && $valor !== trim($reglasFinales['coincide_con'])) {
-            return "El campo {$nombreCampo} no coincide con la contraseña ingresada.";
-        }
-        
-        return null;
-    }
 
 
 ?>

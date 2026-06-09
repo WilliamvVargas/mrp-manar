@@ -26,15 +26,15 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="nombres" class="form-label">Nombres</label>
-                        <input type="text" name="nombres" id="nombres" class="form-label form-control" placeholder="Ej: Juan Carlos">
-                        <div class="invalid-feedback" id="error-password"></div>
+                        <label for="nombres" class="form-label fw-bold">Nombres</label>
+                        <input type="text" name="nombres" id="nombres" class="form-label form-control" placeholder="Ej: Juan Carlos" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                        <div class="invalid-feedback" id="error-nombres"></div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="apellidos" class="form-label">Apellidos</label>
-                        <input type="text" name="apellidos" id="apellidos" class="form-label form-control" placeholder="Ej: Pérez Rossi">
-                        <div class="invalid-feedback" id="error-password"></div>
+                        <label for="apellidos" class="form-label fw-bold">Apellidos</label>
+                        <input type="text" name="apellidos" id="apellidos" class="form-label form-control" placeholder="Ej: Pérez Rossi" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                        <div class="invalid-feedback" id="error-apellidos"></div>
                     </div>
 
                     <div class="mb-3">

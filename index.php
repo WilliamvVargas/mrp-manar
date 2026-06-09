@@ -1,6 +1,7 @@
 <?php
 
     session_start();
+    require_once __DIR__ . '/config/config.php';
 
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -27,13 +28,13 @@
                     <input type="hidden" id="csrf_token" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                     <div class="mb-3">
                         <label class="form-label" for="usuario">Usuario</label>
-                        <input type="text" id="usuario" name="usuario" class="form-control" placeholder="Ingrese su nombre de usuario">
+                        <input type="text" id="usuario" name="usuario" class="form-control" placeholder="Ingrese su nombre de usuario" maxlength="<?php echo USER_MAX_LENGTH;?>">
                         <div class="invalid-feedback"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="password">Contraseña</label>
                         <div class="input-group">
-                            <input type="password" name="password" id="password" class="form-control" placeholder="Ingrese su contraseña" autocomplete="new-password">
+                            <input type="password" name="password" id="password" class="form-control" placeholder="Ingrese su contraseña" autocomplete="new-password" maxlength="<?php echo PASS_MAX_LENGTH;?>">
                             <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                 <i class="bi bi-eye" id="iconEye"></i>
                             </button>

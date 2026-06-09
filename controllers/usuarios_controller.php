@@ -15,7 +15,9 @@ if ($action === 'listar') {
     try {
 
         $sql = "SELECT id, 
-                       usuario, 
+                       usuario,
+                       nombres,
+                       apellidos,
                        DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') as fecha 
                 FROM usuarios 
                 ORDER BY created_at DESC";
@@ -43,7 +45,9 @@ else if ($action === 'obtener') {
     try {
 
         $sql = "SELECT id, 
-                       usuario 
+                       usuario,
+                       nombres,
+                       apellidos
                 FROM usuarios 
                 WHERE id = ?";
 
@@ -81,24 +85,23 @@ else if ($action === 'registrar') {
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    // Validamos los Nombres
+    $errores = [];
+
+    // Validamos campos del formulario
+    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario'))
+        $errores['usuario'] = $err;
+
     if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres')) 
         $errores['nombres'] = $err;
 
     if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
         $errores['apellidos'] = $err;
 
-    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario'))
-        $errores['usuario'] = $err;
-
     if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
         $errores['password'] = $err;
 
-    if ($err = validarCampoTexto($password, 'Contraseña', 'password')) 
-        $errores['password'] = $err;
-
     if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
-                                                                             'coincide_con' => $password]))
+                                                                           'coincide_con' => $password]))
         $errores['confirm_password'] = $err;
 
     if (!empty($errores)) {
@@ -125,9 +128,16 @@ else if ($action === 'registrar') {
         }
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $query = $pdo->prepare("INSERT INTO usuarios (usuario, password_hash) VALUES (?, ?)");
+        $query = $pdo->prepare("INSERT INTO usuarios (usuario,
+                                                      nombres,
+                                                      apellidos,
+                                                      password_hash) 
+                                VALUES (?, ?, ?, ?)");
         
-        if ($query->execute([$usuario, $password_hash])) {
+        if ($query->execute([$usuario,
+                             $nombres,
+                             $apellidos,
+                             $password_hash])) {
             echo json_encode(['status' => 'success', 'message' => 'Usuario creado con éxito']);
         }
 
@@ -144,8 +154,20 @@ else if ($action === 'editar') {
 
     $id = $_POST['id_usuario'] ?? 0;
     $usuario = trim($_POST['usuario'] ?? '');
+    $nombres = trim($_POST['nombres'] ?? '');
+    $apellidos = trim($_POST['apellidos'] ?? '');
 
-    $errores = validarUsuario($usuario);
+    $errores = [];
+
+    // Validamos campos del formulario
+    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario'))
+        $errores['usuario'] = $err;
+
+    if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres')) 
+        $errores['nombres'] = $err;
+
+    if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
+        $errores['apellidos'] = $err;
 
     if (!empty($errores)) {
         echo json_encode([
@@ -171,8 +193,16 @@ else if ($action === 'editar') {
         }
 
         // Actualizamos estrictamente el campo usuario
-        $query = $pdo->prepare("UPDATE usuarios SET usuario = ? WHERE id = ?");
-        $query->execute([$usuario, $id]);
+        $query = $pdo->prepare("UPDATE usuarios 
+                                SET usuario = ?,
+                                    nombres = ?,
+                                    apellidos = ?
+                                WHERE id = ?");
+
+        $query->execute([$usuario, 
+                         $nombres,
+                         $apellidos,
+                         $id]);
 
         if ($query->rowCount() > 0) {
             echo json_encode([
@@ -205,8 +235,14 @@ else if ($action === 'cambiar_password') {
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm-password'] ?? '';
 
+    $errores = [];
 
-    $errores = validarPassword($password, $confirm_password);
+    if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
+        $errores['password'] = $err;
+
+    if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
+                                                                           'coincide_con' => $password]))
+        $errores['confirm_password'] = $err;
 
     if (!empty($errores)) {
         echo json_encode([
@@ -340,8 +376,8 @@ else if ($action === 'eliminar') {
         if ($validar->rowCount() === 0) {
             echo json_encode([
                 'status' => 'error', 
-                'type' => 'fields', 
-                'errors' => ['id' => 'El usuario que intenta eliminar no existe.']
+                'type' => 'fields',
+                'message' => 'El usuario que intenta eliminar no existe.'
             ]);
             exit;
         }
@@ -352,7 +388,7 @@ else if ($action === 'eliminar') {
         if ($query->execute([$id])) {
             echo json_encode([
                 'status' => 'success', 
-                'message' => 'Usuario eliminado con éxito'
+                'message' => 'Usuario eliminado con éxito.'
             ]);
         }
     } 

@@ -11,6 +11,10 @@
   define('PASS_MAX_LENGTH', 20);
   define('PASS_GENERATED_MIN_LENGTH', 10);
 
+  //Nombres y Apellidos
+  define('NOMBRE_APELLIDO_MAX_LENGTH', 128);
+
+
   const DICCIONARIO_REGLAS = [
     'usuario' => [
         'requerido' => true, 
@@ -22,14 +26,14 @@
     'nombres' => [
         'requerido' => true, 
         'min' => 3, 
-        'max' => 50,
+        'max' => NOMBRE_APELLIDO_MAX_LENGTH,
         'patron' => '/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/',
         'mensaje_patron' => 'El campo nombres solo deben contener letras.'
     ],
     'apellidos' => [
         'requerido' => true, 
         'min' => 3, 
-        'max' => 50,
+        'max' => NOMBRE_APELLIDO_MAX_LENGTH,
         'patron' => '/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/',
         'mensaje_patron' => 'El campo apellidos solo deben contener letras.'
     ],

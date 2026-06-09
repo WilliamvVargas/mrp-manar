@@ -26,6 +26,18 @@
                         <div class="invalid-feedback" id="error-edit-usuario"></div>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="nombres" class="form-label fw-bold">Nombres</label>
+                        <input type="text" name="nombres" id="nombres_editar" class="form-label form-control" placeholder="Ej: Juan Carlos" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                        <div class="invalid-feedback" id="error-edit-nombres"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="apellidos" class="form-label fw-bold">Apellidos</label>
+                        <input type="text" name="apellidos" id="apellidos_editar" class="form-label form-control" placeholder="Ej: Pérez Rossi" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                        <div class="invalid-feedback" id="error-edit-apellidos"></div>
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

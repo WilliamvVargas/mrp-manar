@@ -22,8 +22,12 @@
     $userPost = trim($_POST['usuario'] ?? '');
     $passPost = trim($_POST['password'] ?? '');
 
-    //Validación usuario
-    $response['errors'] = validarDatosLogin($userPost, $passPost);
+    if ($err = validarCampoTexto($userPost, 'Usuario', ['requerido' => true]))
+        $response['errors']['usuario'] = $err;
+
+    if ($err = validarCampoTexto($passPost, 'Contraseña', ['requerido' => true]))
+        $response['errors']['password'] = $err;
+
 
     if (empty($response['errors'])) {
 

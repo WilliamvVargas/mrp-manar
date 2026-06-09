@@ -22,6 +22,9 @@ $(document).ready(function() {
             type: 'GET',
             dataType: 'json',
             success: function(response) {
+
+                console.log(response)
+
                 if (response.status === 'success') {
                     if ($.fn.DataTable.isDataTable('#tabla-usuarios')) {
                         $('#tabla-usuarios').DataTable().destroy();
@@ -31,8 +34,9 @@ $(document).ready(function() {
                     response.data.forEach(user => {
                         filas += `
                             <tr>
-                                <td>${user.id}</td>
                                 <td><strong>${user.usuario}</strong></td>
+                                <td><strong>${user.nombres}</strong></td>
+                                <td><strong>${user.apellidos}</strong></td>
                                 <td>${user.fecha}</td>
                                 <td class="text-center">
                                     <button class="btn btn-sm btn-outline-dark btn-editar" data-id="${user.id}">
@@ -55,8 +59,7 @@ $(document).ready(function() {
                         "language": {
                             "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
                         },
-                        "columnDefs": [ { "visible": false, "targets": 0 },
-                                        { "orderable": true, "targets": 2 }],
+                        "columnDefs": [ { "orderable": true, "targets": 3 }],
                         "order": [[0, "desc"]]
                     });
                 } 
@@ -320,6 +323,8 @@ $(document).on('click', '.btn-editar', function() {
 
                 $('#id_usuario_editar').val(response.data.id);
                 $('#usuario_editar').val(response.data.usuario);
+                $('#nombres_editar').val(response.data.nombres);
+                $('#apellidos_editar').val(response.data.apellidos);
                 
             } 
             else {
