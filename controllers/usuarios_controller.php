@@ -402,3 +402,34 @@ else if ($action === 'eliminar') {
     }
     exit;
 }
+else if ($action === 'validar_campo') {
+
+    $campo = $_POST['campo'] ?? '';
+    $valor = $_POST['valor'] ?? '';
+
+    $nombresLegibles = [
+        'usuario'   => 'Usuario',
+        'nombres'   => 'Nombres',
+        'apellidos' => 'Apellidos',
+        'password'  => 'Contraseña'
+    ];
+
+    $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
+
+    if (isset(DICCIONARIO_REGLAS[$campo])) {
+        $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, $campo);
+
+        if (!empty($errores[$campo])) {
+            echo json_encode([
+                'status' => 'error',
+                'type' => 'fields',
+                'errors' => $errores
+            ]);
+            exit;
+        }
+    }
+
+    echo json_encode(['status' => 'success']);
+    exit;
+
+}

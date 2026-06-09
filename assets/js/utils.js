@@ -108,8 +108,10 @@ function limpiarFormularioCompleto(selectorForm, selectorMensajes, resetInputs =
     const form = $(selectorForm);
     
     form.find('.form-control, .form-select').removeClass('is-invalid');
+    form.find('.form-control, .form-select').removeClass('is-valid');
+
     form.find('.invalid-feedback').text('').removeClass('d-block');
-    
+
     const $mensajes = $(selectorMensajes);
     $mensajes.slideUp(300, function() {
         $(this).html('').show(); 
@@ -185,4 +187,35 @@ function renderizarErroresCampos(selectorForm, errors) {
         let feedback = input.closest('.mb-3').find('.invalid-feedback');
         feedback.text(mensaje).addClass('d-block');
     });
+}
+
+/**
+ * Limpia el estado de error de un campo específico y colapsa su espacio vertical
+ * @param {jQuery} $input - El elemento jQuery del input a limpiar
+ */
+function limpiarErrorCampo($input) {
+    $input.removeClass('is-invalid');
+    
+    // Buscamos su feedback (usando el contenedor mb-2 o mb-3 que definiste)
+    let feedback = $input.closest('.mb-2, .mb-3').find('.invalid-feedback');
+    
+    // Vaciamos el texto y removemos d-block para que el div colapse a 0px de altura
+    feedback.text('').removeClass('d-block');
+}
+
+/**
+ * Crea una función con retraso (Debounce) para evitar ejecuciones masivas.
+ * @param {Function} func - La función que se ejecutará al final.
+ * @param {Number} delay - Tiempo de espera en milisegundos.
+ */
+function debounce(func, delay = 400) {
+    let timeoutId;
+    return function (...args) {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, delay);
+    };
 }

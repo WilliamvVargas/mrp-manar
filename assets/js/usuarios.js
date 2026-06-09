@@ -222,6 +222,52 @@ $(document).ready(function() {
         });
     });
 
+    $('#form-usuario input').on('keyup', debounce(function() {
+        ejecutarValidacionInstantanea($(this));
+    }));
+
+    $('#form-usuario input').on('blur', function() {
+        ejecutarValidacionInstantanea($(this));
+    });
+
+    function ejecutarValidacionInstantanea($input) {
+
+        const formulario = '#form-usuario';
+        const modalMensaje = '#modal-mensajes';
+        const fieldName = $input.attr('name');
+        const value = $input.val();
+        const csrf_token = $input.closest('form').find('input[name="csrf_token"]').val()
+
+        // Limpiamos el error visual previo de este campo específico usando tus estilos
+        $input.removeClass('is-invalid');
+        $input.next('.invalid-feedback').text('');
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=validar_campo',
+            type: 'POST',
+            data: {
+                campo: fieldName,
+                valor: value,
+                csrf_token: csrf_token
+            },
+            dataType: 'json',
+            success: function(response) {
+
+                console.log(response)
+
+                if (response.status === 'error') {
+                    if (response.type === 'fields') {
+                        renderizarErroresCampos(formulario, response.errors);
+                    } 
+                } else {
+                    $input.addClass('is-valid');
+                    limpiarErrorCampo($input);
+                }
+            }
+        });
+
+    };
+
 
     // --- 4. GATILLOS DE GENERACIÓN DE PASSWORDS ---
 
