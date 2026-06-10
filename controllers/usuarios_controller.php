@@ -8,6 +8,24 @@ function retrasar(){
     time_nanosleep(0, 500000000);
 }
 
+function existeUsuario($conexion, $usuario) {
+    // 1. La consulta sigue igual
+    $sql = "SELECT COUNT(*) FROM usuarios WHERE usuario = ? LIMIT 1";
+    
+    // 2. Preparamos la sentencia usando PDO
+    $stmt = $conexion->prepare($sql);
+    
+    // 3. En PDO podemos pasar los parámetros directamente en el execute como un array.
+    // ¡Mucho más limpio que bind_param!
+    $stmt->execute([$usuario]);
+    
+    // 4. Obtenemos el resultado del COUNT(*)
+    $total = $stmt->fetchColumn();
+    
+    // Si el conteo es mayor a 0, es porque el usuario ya existe
+    return $total > 0;
+}
+
 $action = $_REQUEST['action'] ?? '';
 
 if ($action === 'listar') {
@@ -88,7 +106,7 @@ else if ($action === 'registrar') {
     $errores = [];
 
     // Validamos campos del formulario
-    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario'))
+    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario', $pdo))
         $errores['usuario'] = $err;
 
     if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres')) 
@@ -406,27 +424,35 @@ else if ($action === 'validar_campo') {
 
     $campo = $_POST['campo'] ?? '';
     $valor = $_POST['valor'] ?? '';
+    $extra = $_POST['extra'] ?? '';
 
     $nombresLegibles = [
         'usuario'   => 'Usuario',
         'nombres'   => 'Nombres',
         'apellidos' => 'Apellidos',
-        'password'  => 'Contraseña'
+        'password'  => 'Contraseña',
+        'confirm_password'  => 'Repetir Contraseña'
     ];
 
     $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
 
-    if (isset(DICCIONARIO_REGLAS[$campo])) {
-        $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, $campo);
+    if( $campo === 'confirm_password')
 
-        if (!empty($errores[$campo])) {
-            echo json_encode([
-                'status' => 'error',
-                'type' => 'fields',
-                'errors' => $errores
-            ]);
-            exit;
-        }
+        $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, 
+                                                                ['requerido' => true,
+                                                                 'coincide_con' => $extra]);
+    else{
+       $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, $campo, $pdo); 
+    }
+
+    if (!empty($errores[$campo])) {
+        echo json_encode([
+            'status' => 'error',
+            'type' => 'fields',
+            'errors' => $errores,
+            'post' => $_POST
+        ]);
+        exit;
     }
 
     echo json_encode(['status' => 'success']);

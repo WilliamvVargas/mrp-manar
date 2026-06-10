@@ -230,17 +230,41 @@ $(document).ready(function() {
         ejecutarValidacionInstantanea($(this));
     });
 
+    //Trigguer en caso de que existan dependecias
+    $('#form-usuario input').on('keyup blur', function() {
+    const $inputModificado = $(this);
+    const nameModificado = $inputModificado.attr('name'); // Ejemplo: 'password'
+    const $inputDependiente = $(`#form-usuario [data-comparar-con="${nameModificado}"]`);
+
+    if ($inputDependiente.length && $inputDependiente.val() !== '') {
+        ejecutarValidacionInstantanea($inputDependiente);
+    }
+});
+
     function ejecutarValidacionInstantanea($input) {
 
         const formulario = '#form-usuario';
         const modalMensaje = '#modal-mensajes';
+        const $form = $input.closest('form');
         const fieldName = $input.attr('name');
         const value = $input.val();
         const csrf_token = $input.closest('form').find('input[name="csrf_token"]').val()
 
         // Limpiamos el error visual previo de este campo específico usando tus estilos
-        $input.removeClass('is-invalid');
-        $input.next('.invalid-feedback').text('');
+        //$input.removeClass('is-invalid');
+        //$input.next('.invalid-feedback').text('');
+
+
+        let extraValue = null;
+    
+        // Leemos si el input actual tiene el atributo data-comparar-con
+        const inputCompaneroName = $input.data('comparar-con'); 
+        
+        if (inputCompaneroName) {
+            extraValue = $form.find(`input[name="${inputCompaneroName}"]`).val();
+        }
+
+        console.log(fieldName)
 
         $.ajax({
             url: 'controllers/usuarios_controller.php?action=validar_campo',
@@ -248,6 +272,7 @@ $(document).ready(function() {
             data: {
                 campo: fieldName,
                 valor: value,
+                extra: extraValue,
                 csrf_token: csrf_token
             },
             dataType: 'json',
@@ -292,6 +317,12 @@ $(document).ready(function() {
                     // Forzar apertura de los ojos si están cerrados de forma segura
                     if ($('#password').attr('type') === 'password') $('#togglePassword').trigger('click');
                     if ($('#confirm_password').attr('type') === 'password') $('#togglePasswordConfirm').trigger('click');
+
+                    $('#password').addClass('is-valid');
+                    limpiarErrorCampo($('#password'));
+
+                    $('#confirm_password').addClass('is-valid');
+                    limpiarErrorCampo($('#confirm_password'));
                 }
             },
             error: function(jqXHR, textStatus) {

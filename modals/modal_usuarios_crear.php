@@ -53,7 +53,14 @@
                         <label class="form-label fw-bold" for="confirm_password">Repetir Contraseña</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
-                            <input type="password" class="form-control" name="confirm_password" id="confirm_password" placeholder="Reingrese la contraseña" maxlength="<?php echo PASS_MAX_LENGTH;?>" autocomplete="new-password">
+                            <input type="password" 
+                                   class="form-control" 
+                                   name="confirm_password" 
+                                   id="confirm_password" 
+                                   placeholder="Reingrese la contraseña" 
+                                   maxlength="<?php echo PASS_MAX_LENGTH;?>"
+                                   data-comparar-con="password"
+                                   autocomplete="new-password">
                             <button class="btn btn-outline-secondary" type="button" id="togglePasswordConfirm">
                                 <i class="bi bi-eye" id="iconEyeConfirm"></i>
                             </button>  

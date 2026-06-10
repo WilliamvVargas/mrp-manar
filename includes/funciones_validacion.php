@@ -13,20 +13,20 @@
     *
     */
 
-    function validarCampoTexto($valor, $nombreCampo, $reglas = []) {
+    function validarCampoTexto($valor, $nombreCampo, $reglas = [], $conexion = null) {
         $valor = trim($valor);
         $reglasFinales = [];
 
-        // 1. Si $reglas es un String, leemos directamente de la constante
+        // 1. Revisamos primero si requerimos usar las reglas por defecto o personalizadas
         if (is_string($reglas)) {
-            $reglasFinales = isset(DICCIONARIO_REGLAS[$reglas]) ? DICCIONARIO_REGLAS[$reglas] : [];
+            $diccionario = obtenerDiccionarioReglas($conexion);
+            $reglasFinales = isset($diccionario[$reglas]) ? $diccionario[$reglas] : [];
         } 
-        // 2. Si es un array, usamos directamente las reglas personalizadas
         else if (is_array($reglas)) {
             $reglasFinales = $reglas;
         }
 
-        // 3. Validación de campo Obligatorio, si no lo es y está en blanco no se aplica ninguna validación
+        // 2. Validación de campo Obligatorio, si no lo es y está en blanco no se aplica ninguna validación
         if (!empty($reglasFinales['requerido']) && $valor === '') {
             return "El campo {$nombreCampo} es obligatorio.";
         }
@@ -34,7 +34,7 @@
         if ($valor === '') 
             return null;
 
-        // 4. Otras validaciones según las reglas indicadas
+        // 3. Otras validaciones según las reglas indicadas
         if (isset($reglasFinales['min']) && mb_strlen($valor) < $reglasFinales['min']) {
             return "El campo {$nombreCampo} debe tener al menos {$reglasFinales['min']} caracteres.";
         }
@@ -52,8 +52,20 @@
         if (isset($reglasFinales['coincide_con']) && $valor !== trim($reglasFinales['coincide_con'])) {
             return "El campo {$nombreCampo} no coincide con la contraseña ingresada.";
         }
+
+        // valida casos de existencia de un campo
+        if (isset($reglasFinales['verificacion_externa']) && is_array($reglasFinales['verificacion_externa'])) {
+        $verificador = $reglasFinales['verificacion_externa']['callback'] ?? null;
+        $mensajeError = $reglasFinales['verificacion_externa']['mensaje'] ?? "El valor ingresado para {$nombreCampo} no es válido.";
+
+        if (is_callable($verificador)) {
+            if ($verificador($valor) === true) {
+                return $mensajeError;
+            }
+        }
+    }
         
-        // 5. Si no exiten ningún error se retorna nulo
+        // 4. Si no exiten ningún error se retorna nulo
         return null;
     }
 
@@ -162,5 +174,52 @@
     }
 
 
+
+    /**
+     * Retorna el diccionario de reglas del sistema.
+     * Al pasarle la conexión opcional, inyecta automáticamente las validaciones de BD.
+     * * @param PDO|null $conexion Objeto de conexión a la BD.
+     * @return array
+     */
+    
+    function obtenerDiccionarioReglas($conexion = null) {
+        return [
+            'usuario' => [
+                'requerido' => true, 
+                'min' => USER_MIN_LENGTH, 
+                'max' => USER_MAX_LENGTH, 
+                'patron' => '/^[a-zA-Z0-9_]+$/',
+                'mensaje_patron' => 'El campo Nombre de Usuario solo permite letras, números y guiones bajos.',
+                'verificacion_externa' => [
+                    'mensaje' => "El Nombre de Usuario ya se encuentra registrado.",
+                    'callback' => function($val) use ($conexion) {
+                        if (!$conexion) return false; 
+                            return existeUsuario($conexion, $val);
+                    }
+                ]
+            ],
+            'nombres' => [
+                'requerido' => true, 
+                'min' => NOMBRE_APELLIDO_MIN_LENGTH, 
+                'max' => NOMBRE_APELLIDO_MAX_LENGTH,
+                'patron' => '/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/',
+                'mensaje_patron' => 'El campo Nombres solo permite letras.'
+            ],
+            'apellidos' => [
+                'requerido' => true, 
+                'min' => NOMBRE_APELLIDO_MIN_LENGTH, 
+                'max' => NOMBRE_APELLIDO_MAX_LENGTH,
+                'patron' => '/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/',
+                'mensaje_patron' => 'El campo Apellidos solo permite letras.'
+            ],
+            'password' => [
+                'requerido' => true,
+                'min' => PASS_MIN_LENGTH,
+                'max' => PASS_MAX_LENGTH,
+                'patron' => '/^(?=.*[a-zñáéíóú])(?=.*[A-ZÑÁÉÍÓÚ])(?=.*\d)[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]*$/u',
+                'mensaje_patron' => 'La Contraseña debe tener al menos una letra minúscula, una letra mayúscula y un número. No debe tener caracteres especiales o espacios.'
+            ]
+        ];
+    }
 
 ?>
