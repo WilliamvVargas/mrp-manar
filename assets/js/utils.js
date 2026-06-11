@@ -65,7 +65,7 @@ function activarLimpiezaMensajeAlEscribir(selectorForm, selectorMensajes) {
  * @param {string} mensaje - Descripción detallada
  * @param {string} tipo - 'success', 'danger', 'warning', 'info'
  */
-function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger', duracion = 400) {
+function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger', duracion = 400, credenciales = null) {
     const iconos = {
         'success': 'bi-check-circle-fill',
         'danger': 'bi-exclamation-octagon-fill',
@@ -75,16 +75,35 @@ function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger', 
 
     const icono = iconos[tipo] || iconos['danger'];
 
+    let HTMLCredenciales = '';
+
+    //Caso especial en caso que venga las credenciales
+    if (tipo === 'success' && credenciales) {
+        HTMLCredenciales = `
+            <div class="mt-2 pt-2 border-top border-success-subtle d-flex align-items-center justify-content-between" style="font-size: 0.82rem;">
+                <div style="line-height: 1.3;">
+                    <span class="d-block"><strong>Usuario:</strong> <span>${credenciales.usuario}</span></span>
+                    <span class="d-block"><strong>Contraseña:</strong> <span>${credenciales.password}</span></span>
+                </div>
+                <button class="btn btn-sm btn-light border-secondary-subtle text-dark ms-3 py-1 px-2 d-flex align-items-center btn-copiar-credenciales-global" 
+                        type="button" 
+                        data-clipboard="Usuario: ${credenciales.usuario}&#10;Contraseña: ${credenciales.password}"
+                    <i class="bi bi-clipboard me-1"></i> Copiar
+                </button>
+            </div>
+        `;
+    }
+
     const html = `
-        <div class="alert alert-${tipo} alert-dismissible fade show p-4" role="alert">
-            <div class="d-flex align-items-center justify-content-center mb-2">
+        <div class="alert alert-${tipo} alert-dismissible fade show p-3" role="alert"> <div class="d-flex align-items-center justify-content-center mb-2">
                 <i class="bi ${icono} fs-5 me-2"></i>
                 <h6 class="alert-heading m-0 text-center fw-bold">${titulo}</h6>
             </div>
-            <ul class="mb-0 small d-inline-block text-start">
+            <div class="mb-0 small text-center">
                 ${mensaje}
-            </ul>
-            <button type="button" class="btn-close" aria-label="Close"></button>
+            </div>
+            ${HTMLCredenciales}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     `;
 

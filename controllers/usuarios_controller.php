@@ -156,7 +156,15 @@ else if ($action === 'registrar') {
                              $nombres,
                              $apellidos,
                              $password_hash])) {
-            echo json_encode(['status' => 'success', 'message' => 'Usuario creado con éxito']);
+
+            echo json_encode(['status' => 'success',
+                              'message' => 'Usuario creado con éxito',
+                              'credenciales' => [
+                                                    'usuario' => $usuario,
+                                                    'password' => $password 
+                                                ]
+                             ]);
+
         }
 
     } 
@@ -251,7 +259,7 @@ else if ($action === 'cambiar_password') {
 
     $id = $_POST['id_usuario'] ?? 0;
     $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm-password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
 
     $errores = [];
 
@@ -282,7 +290,10 @@ else if ($action === 'cambiar_password') {
         if ($query->rowCount() > 0) {
             echo json_encode([
                 'status' => 'success', 
-                'message' => 'La contraseña ha sido actualizada con éxito.'
+                'message' => 'La contraseña ha sido actualizada con éxito.',
+                'credenciales' => [
+                                    'password' => $password 
+                                  ]
             ]);
         } 
         else {
@@ -449,8 +460,7 @@ else if ($action === 'validar_campo') {
         echo json_encode([
             'status' => 'error',
             'type' => 'fields',
-            'errors' => $errores,
-            'post' => $_POST
+            'errors' => $errores
         ]);
         exit;
     }

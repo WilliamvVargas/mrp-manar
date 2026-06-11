@@ -93,7 +93,14 @@ $(document).ready(function() {
                 if (res.status === 'success') {
                     limpiarFormularioCompleto(formulario, modalMensaje, true);
                     listarUsuarios();
-                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                    mostrarMensajeFormulario(
+                        modalMensaje, 
+                        'Éxito', 
+                        res.message, 
+                        'success', 
+                        400, 
+                        res.credenciales
+                    );
                 } else {
 
                     $(modalMensaje).slideUp(150); 
@@ -174,10 +181,19 @@ $(document).ready(function() {
             data: $(this).serialize(),
             dataType: 'json',
             success: function(res) {
+
+                console.log(res)
                 
                 if (res.status === 'success') {
                     listarUsuarios();
-                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                    mostrarMensajeFormulario(
+                        modalMensaje, 
+                        'Éxito', 
+                        res.message, 
+                        'success', 
+                        400, 
+                        res.credenciales
+                    );
                 } 
                 else {
                     $(modalMensaje).slideUp(150);
@@ -426,4 +442,23 @@ $(document).on('click', '.btn-eliminar', function() {
         }
     });
 
+});
+
+
+// Botón Copiar Credenciales
+$(document).on('click', '.btn-copiar-credenciales-global', function() {
+    const $boton = $(this);
+    const textoACopiar = $boton.data('clipboard');
+
+    navigator.clipboard.writeText(textoACopiar).then(function() {
+        $boton.removeClass('btn-light border-secondary-subtle')
+              .addClass('btn-success text-white')
+              .html('<i class="bi bi-check-lg me-1"></i> ¡Copiado!');
+
+        setTimeout(function() {
+            $boton.removeClass('btn-success text-white')
+                  .addClass('btn-light border-secondary-subtle')
+                  .html('<i class="bi bi-clipboard me-1"></i> Copiar');
+        }, 2000);
+    });
 });
