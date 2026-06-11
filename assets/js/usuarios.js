@@ -95,7 +95,9 @@ $(document).ready(function() {
                     listarUsuarios();
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 } else {
-                    limpiarFormularioCompleto(formulario, modalMensaje, false);
+
+                    $(modalMensaje).slideUp(150); 
+                    
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
                     } else {
@@ -127,19 +129,22 @@ $(document).ready(function() {
             data: $(this).serialize(),
             dataType: 'json',
             success: function(res) {
-                limpiarFormularioCompleto(formulario, modalMensaje, false);
+                
                 if (res.status === 'success') {
+                    limpiarFormularioCompleto(formulario, modalMensaje, false);
                     listarUsuarios();
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 } 
                 else if (res.status === 'no_changes') {
+                    limpiarFormularioCompleto(formulario, modalMensaje, false);
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'warning');
                 } 
                 else {
+                    $(modalMensaje).slideUp(150);
+                    
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
-                    } 
-                    else {
+                    } else {
                         mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                     }
                 }
@@ -169,16 +174,17 @@ $(document).ready(function() {
             data: $(this).serialize(),
             dataType: 'json',
             success: function(res) {
-                limpiarFormularioCompleto(formulario, modalMensaje, false);
+                
                 if (res.status === 'success') {
                     listarUsuarios();
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 } 
                 else {
+                    $(modalMensaje).slideUp(150);
+                    
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
-                    } 
-                    else {
+                    } else {
                         mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                     }
                 }
@@ -221,77 +227,6 @@ $(document).ready(function() {
             }
         });
     });
-
-    $('#form-usuario input').on('keyup', debounce(function() {
-        ejecutarValidacionInstantanea($(this));
-    }));
-
-    $('#form-usuario input').on('blur', function() {
-        ejecutarValidacionInstantanea($(this));
-    });
-
-    //Trigguer en caso de que existan dependecias
-    $('#form-usuario input').on('keyup blur', function() {
-    const $inputModificado = $(this);
-    const nameModificado = $inputModificado.attr('name'); // Ejemplo: 'password'
-    const $inputDependiente = $(`#form-usuario [data-comparar-con="${nameModificado}"]`);
-
-    if ($inputDependiente.length && $inputDependiente.val() !== '') {
-        ejecutarValidacionInstantanea($inputDependiente);
-    }
-});
-
-    function ejecutarValidacionInstantanea($input) {
-
-        const formulario = '#form-usuario';
-        const modalMensaje = '#modal-mensajes';
-        const $form = $input.closest('form');
-        const fieldName = $input.attr('name');
-        const value = $input.val();
-        const csrf_token = $input.closest('form').find('input[name="csrf_token"]').val()
-
-        // Limpiamos el error visual previo de este campo específico usando tus estilos
-        //$input.removeClass('is-invalid');
-        //$input.next('.invalid-feedback').text('');
-
-
-        let extraValue = null;
-    
-        // Leemos si el input actual tiene el atributo data-comparar-con
-        const inputCompaneroName = $input.data('comparar-con'); 
-        
-        if (inputCompaneroName) {
-            extraValue = $form.find(`input[name="${inputCompaneroName}"]`).val();
-        }
-
-        console.log(fieldName)
-
-        $.ajax({
-            url: 'controllers/usuarios_controller.php?action=validar_campo',
-            type: 'POST',
-            data: {
-                campo: fieldName,
-                valor: value,
-                extra: extraValue,
-                csrf_token: csrf_token
-            },
-            dataType: 'json',
-            success: function(response) {
-
-                console.log(response)
-
-                if (response.status === 'error') {
-                    if (response.type === 'fields') {
-                        renderizarErroresCampos(formulario, response.errors);
-                    } 
-                } else {
-                    $input.addClass('is-valid');
-                    limpiarErrorCampo($input);
-                }
-            }
-        });
-
-    };
 
 
     // --- 4. GATILLOS DE GENERACIÓN DE PASSWORDS ---
@@ -465,7 +400,6 @@ $(document).on('click', '.btn-eliminar', function() {
     const modalMensaje = '#modal-mensajes-eliminar';
 
     limpiarFormularioCompleto(formulario, modalMensaje, true);
-    
 
     $.ajax({
         url: 'controllers/usuarios_controller.php?action=obtener',

@@ -7,7 +7,7 @@
                 <h5 class="modal-title" id="modalTitleCreate"><i class="bi bi-person-plus me-2"></i>Nuevo Usuario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="form-usuario" class="form-validado-estatico" novalidate>
+            <form id="form-usuario" class="form-validado-estatico form-validar-instantaneo" action="controllers/usuarios_controller.php" novalidate>
                 <div class="modal-body">
                     
                     <input type="hidden" name="csrf_token" id="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
@@ -41,7 +41,13 @@
                         <label class="form-label fw-bold" for="password">Contraseña</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-key"></i></span>
-                            <input type="password" class="form-control" name="password" id="password" placeholder="Mínimo <?php echo PASS_MIN_LENGTH;?> caracteres y máximo de <?php echo PASS_MAX_LENGTH;?> caracteres" maxlength="<?php echo PASS_MAX_LENGTH;?>" autocomplete="new-password">
+                            <input type="password" 
+                                   class="form-control" 
+                                   name="password" 
+                                   id="password" 
+                                   placeholder="Mínimo <?php echo PASS_MIN_LENGTH;?> caracteres y máximo de <?php echo PASS_MAX_LENGTH;?> caracteres" 
+                                   maxlength="<?php echo PASS_MAX_LENGTH;?>" 
+                                   autocomplete="new-password">
                             <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                 <i class="bi bi-eye" id="iconEye"></i>
                             </button>  

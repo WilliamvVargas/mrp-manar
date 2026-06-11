@@ -188,13 +188,17 @@
                 'requerido' => true, 
                 'min' => USER_MIN_LENGTH, 
                 'max' => USER_MAX_LENGTH, 
-                'patron' => '/^[a-zA-Z0-9_]+$/',
-                'mensaje_patron' => 'El campo Nombre de Usuario solo permite letras, números y guiones bajos.',
+                'patron' => '/^[a-z0-9_]+$/',
+                'mensaje_patron' => 'El campo Nombre de Usuario solo permite letras minúsculas, números y guiones bajos.',
                 'verificacion_externa' => [
                     'mensaje' => "El Nombre de Usuario ya se encuentra registrado.",
                     'callback' => function($val) use ($conexion) {
-                        if (!$conexion) return false; 
-                            return existeUsuario($conexion, $val);
+                        if (!$conexion) 
+                            return false; 
+
+                        $idRegistro = $_POST['id_registro'] ?? null;
+                        return existeUsuario($conexion, $val, $idRegistro);
+
                     }
                 ]
             ],

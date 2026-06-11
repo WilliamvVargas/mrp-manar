@@ -14,7 +14,7 @@ $(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
     
     const $contenedor = $(this).closest('[id*="mensajes"]');
     
-    $contenedor.slideUp(400, function() {
+    $contenedor.slideUp(500, function() {
         $(this).html('').show();
     });
 });
@@ -175,16 +175,23 @@ function manejarErrorAjax(jqXHR, textStatus, contenedorAlerta) {
     mostrarMensajeFormulario(contenedorAlerta, 'Error de Sistema', mensajeError, 'danger');
 }
 
+
 /**
- * Pinta de manera automática los feedbacks inválidos de Bootstrap en cualquier formulario
+ * Pinta los feedbacks inválidos de Bootstrap y remueve estados válidos previos
  * @param {string} selectorForm - Selector del formulario activo (ej: '#form-cliente')
  * @param {Object} errors - Objeto asociativo clave-valor enviado por PHP (campo => mensaje)
  */
 function renderizarErroresCampos(selectorForm, errors) {
     $.each(errors, function(campo, mensaje) {
         const input = $(`${selectorForm} [name="${campo}"]`);
+        
+        // Al encontrar un error, removemos el check verde obligatoriamente
+        input.removeClass('is-valid');
+        
+        // Añadimos el estado de error
         input.addClass('is-invalid');
-        let feedback = input.closest('.mb-3').find('.invalid-feedback');
+        
+        let feedback = input.closest('.mb-2, .mb-3').find('.invalid-feedback');
         feedback.text(mensaje).addClass('d-block');
     });
 }
@@ -219,3 +226,106 @@ function debounce(func, delay = 400) {
         }, delay);
     };
 }
+
+
+$(document).on('input', '.form-validar-instantaneo input[name="usuario"]', function() {
+    let valor = $(this).val();
+    let valorLimpio = valor.toLowerCase().replace(/\s+/g, '');
+    $(this).val(valorLimpio);
+});
+
+
+// 1. Al escribir: Valida el propio campo Y sus dependencias con DEBOUNCE
+$(document).on('keyup', '.form-validar-instantaneo input', debounce(function() {
+    const $inputModificado = $(this);
+    
+    // Primero validamos el campo en el que se está escribiendo
+    ejecutarValidacionUniversal($inputModificado);
+    
+    // Luego disparamos las dependencias cruzadas de forma pausada
+    procesarDependenciasCruzadas($inputModificado);
+}));
+
+// 2. Al perder el foco (Blur): Valida de inmediato (sin esperar al debounce)
+$(document).on('blur', '.form-validar-instantaneo input', function() {
+    const $inputModificado = $(this);
+    
+    ejecutarValidacionUniversal($inputModificado);
+    procesarDependenciasCruzadas($inputModificado);
+});
+
+/**
+ * Función auxiliar para evaluar y disparar la validación de campos hermanos
+ * @param {jQuery} $inputModificado - El input que cambió su valor
+ */
+function procesarDependenciasCruzadas($inputModificado) {
+    const nameModificado = $inputModificado.attr('name');
+    const $form = $inputModificado.closest('form');
+    
+    // CASO A: Modificaste el "Padre" (password). Buscamos al "Hijo" (confirm_password).
+    const $hijoDependiente = $form.find(`[data-comparar-con="${nameModificado}"]`);
+    if ($hijoDependiente.length && $hijoDependiente.val() !== '') {
+        ejecutarValidacionUniversal($hijoDependiente);
+    }
+
+    // CASO B: Modificaste el "Hijo" (confirm_password). Sincronizamos con el "Padre".
+    const namePadre = $inputModificado.data('comparar-con');
+    if (namePadre) {
+        const $padre = $form.find(`input[name="${namePadre}"]`);
+        if ($padre.length && $padre.val() !== '' && $padre.hasClass('is-invalid')) {
+            ejecutarValidacionUniversal($padre);
+        }
+    }
+}
+
+/**
+ * Procesa la validación asíncrona de un campo de manera agnóstica al módulo.
+ * @param {jQuery} $input - Elemento que se está evaluando.
+ */
+function ejecutarValidacionUniversal($input) {
+    const $form = $input.closest('form');
+    const idFormulario = `#${$form.attr('id')}`;
+    const fieldName = $input.attr('name');
+    const value = $input.val();
+    const csrf_token = $form.find('input[name="csrf_token"]').val();
+    const idRegistro = $form.find('input[name="id_usuario"], input[name="id"], input[name="id_producto"]').val() || null;
+    
+    // CAPTURA CLAVE: Leemos a qué controlador debe ir este formulario específico
+    const urlControlador = $form.attr('action'); 
+
+    // Lógica de comparación dinámica (data-comparar-con)
+    let extraValue = null;
+    const inputCompaneroName = $input.data('comparar-con'); 
+    if (inputCompaneroName) {
+        extraValue = $form.find(`input[name="${inputCompaneroName}"]`).val();
+    }
+
+    // Si por alguna razón el formulario no tiene action, detenemos para evitar errores
+    if (!urlControlador) return;
+
+    $.ajax({
+        // La URL ahora es 100% dinámica, concatenando la acción de validación de campo
+        url: `${urlControlador}?action=validar_campo`,
+        type: 'POST',
+        data: {
+            campo: fieldName,
+            valor: value,
+            extra: extraValue,
+            id_registro: idRegistro,
+            csrf_token: csrf_token
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'error') {
+                $input.removeClass('is-valid');
+                if (response.type === 'fields') {
+                    renderizarErroresCampos(idFormulario, response.errors);
+                } 
+            } else {
+                $input.addClass('is-valid');
+                limpiarErrorCampo($input);
+            }
+        }
+    });
+}
+

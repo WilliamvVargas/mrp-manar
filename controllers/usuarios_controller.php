@@ -8,23 +8,23 @@ function retrasar(){
     time_nanosleep(0, 500000000);
 }
 
-function existeUsuario($conexion, $usuario) {
-    // 1. La consulta sigue igual
-    $sql = "SELECT COUNT(*) FROM usuarios WHERE usuario = ? LIMIT 1";
+function existeUsuario($conexion, $usuario, $idUsuario = null) {
+
+    if ($idUsuario) {
+        $sql = "SELECT COUNT(*) FROM usuarios WHERE usuario = ? AND id != ? LIMIT 1";
+        $stmt = $conexion->prepare($sql);
+        $stmt->execute([$usuario, $idUsuario]);
+    } else {
+        // Si no viene ID (es un registro nuevo), la consulta se mantiene igual que antes
+        $sql = "SELECT COUNT(*) FROM usuarios WHERE usuario = ? LIMIT 1";
+        $stmt = $conexion->prepare($sql);
+        $stmt->execute([$usuario]);
+    }
     
-    // 2. Preparamos la sentencia usando PDO
-    $stmt = $conexion->prepare($sql);
-    
-    // 3. En PDO podemos pasar los parámetros directamente en el execute como un array.
-    // ¡Mucho más limpio que bind_param!
-    $stmt->execute([$usuario]);
-    
-    // 4. Obtenemos el resultado del COUNT(*)
     $total = $stmt->fetchColumn();
-    
-    // Si el conteo es mayor a 0, es porque el usuario ya existe
     return $total > 0;
 }
+
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -97,7 +97,7 @@ else if ($action === 'registrar') {
 
     retrasar();
 
-    $usuario = trim($_POST['usuario'] ?? '');
+    $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
     $nombres = trim($_POST['nombres'] ?? '');
     $apellidos = trim($_POST['apellidos'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -171,7 +171,7 @@ else if ($action === 'editar') {
     retrasar();
 
     $id = $_POST['id_usuario'] ?? 0;
-    $usuario = trim($_POST['usuario'] ?? '');
+    $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
     $nombres = trim($_POST['nombres'] ?? '');
     $apellidos = trim($_POST['apellidos'] ?? '');
 
@@ -309,7 +309,7 @@ else if ($action === 'generar_password') {
     retrasar();
 
     $id = $_POST['id_usuario'] ?? 0;
-    $nombre_usuario = $_POST['usuario'] ?? '';
+    $nombre_usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
     $es_actualizacion = boolval($_POST['es_actualizacion'] ?? FALSE );
 
     try {
