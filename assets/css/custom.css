@@ -2,15 +2,20 @@
 
 .form-validado-estatico .invalid-feedback {
     display: block !important;
-    margin-top: 0.75rem;
+    margin-top: 0.15rem; /* Reducido drásticamente de 0.75rem a un espacio mínimo y sutil */
+    font-size: 0.60rem !important; /* Forzamos un tamaño pequeño y fino tipo etiqueta secundaria */
+    line-height: 1.2; /* Evita que el texto herede altos gigantes */
+    
+    /* Estados base para la animación */
     visibility: hidden;
-    height: 0;
+    max-height: 0; /* Usamos max-height en lugar de height fijo */
     opacity: 0;
-    transition: height 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
+    overflow: hidden; /* Indispensable para que el texto no se asome cuando mida 0 */
+    transition: max-height 0.25s ease-out, opacity 0.2s ease, visibility 0.2s ease;
 }
 
 .form-validado-estatico .invalid-feedback.d-block {
     visibility: visible !important;
     opacity: 1 !important;
-    height: 2rem; 
+    max-height: 3.5rem; /* Le damos permiso de crecer HASTA este tope si el texto es largo, pero si es corto medirá solo su contenido */
 }

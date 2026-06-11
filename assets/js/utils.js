@@ -177,25 +177,41 @@ function manejarErrorAjax(jqXHR, textStatus, contenedorAlerta) {
 
 
 /**
- * Pinta los feedbacks inválidos de Bootstrap y remueve estados válidos previos
- * @param {string} selectorForm - Selector del formulario activo (ej: '#form-cliente')
- * @param {Object} errors - Objeto asociativo clave-valor enviado por PHP (campo => mensaje)
+ * Renderiza los errores del backend en sus respectivos campos.
+ * @param {string} idFormulario - ID del formulario actual (ej: '#form-usuario')
+ * @param {Object} errores - Objeto clave-valor con los errores ({ usuario: 'Error...', nombres: 'Error...' })
  */
-function renderizarErroresCampos(selectorForm, errors) {
-    $.each(errors, function(campo, mensaje) {
-        const input = $(`${selectorForm} [name="${campo}"]`);
+function renderizarErroresCampos(idFormulario, errores) {
+    const $form = $(idFormulario);
+    
+    // Iteramos sobre cada error que mandó el servidor
+    Object.keys(errores).forEach(function(nombreCampo) {
+        const mensajeError = errores[nombreCampo];
         
-        // Al encontrar un error, removemos el check verde obligatoriamente
-        input.removeClass('is-valid');
+        // 1. Buscamos el input exacto por su atributo NAME dentro de ESTE formulario
+        const $input = $form.find(`input[name="${nombreCampo}"], select[name="${nombreCampo}"], textarea[name="${nombreCampo}"]`);
         
-        // Añadimos el estado de error
-        input.addClass('is-invalid');
-        
-        let feedback = input.closest('.mb-2, .mb-3').find('.invalid-feedback');
-        feedback.text(mensaje).addClass('d-block');
+        if ($input.length) {
+            // Marcamos el input como inválido
+            $input.addClass('is-invalid');
+            
+            // 2. BÚSQUEDA QUIRÚRGICA: Buscamos el invalid-feedback que sea hermano 
+            // del input o que esté dentro de su mismo grupo contenedor (mb-2 o col)
+            let $feedback = $input.siblings('.invalid-feedback');
+            
+            // Si no lo encuentra al lado (caso de los input-group con botones), busca en su contenedor directo
+            if (!$feedback.length) {
+                $feedback = $input.closest('.input-group').siblings('.invalid-feedback');
+            }
+            if (!$feedback.length) {
+                $feedback = $input.closest('div').find('.invalid-feedback').first();
+            }
+
+            // Inyectamos el mensaje y lo mostramos
+            $feedback.text(mensajeError).addClass('d-block');
+        }
     });
 }
-
 /**
  * Limpia el estado de error de un campo específico y colapsa su espacio vertical
  * @param {jQuery} $input - El elemento jQuery del input a limpiar
@@ -203,11 +219,16 @@ function renderizarErroresCampos(selectorForm, errors) {
 function limpiarErrorCampo($input) {
     $input.removeClass('is-invalid');
     
-    // Buscamos su feedback (usando el contenedor mb-2 o mb-3 que definiste)
-    let feedback = $input.closest('.mb-2, .mb-3').find('.invalid-feedback');
+    // Buscamos el feedback asociado solo a este input específico
+    let $feedback = $input.siblings('.invalid-feedback');
+    if (!$feedback.length) {
+        $feedback = $input.closest('.input-group').siblings('.invalid-feedback');
+    }
+    if (!$feedback.length) {
+        $feedback = $input.closest('div').find('.invalid-feedback').first();
+    }
     
-    // Vaciamos el texto y removemos d-block para que el div colapse a 0px de altura
-    feedback.text('').removeClass('d-block');
+    $feedback.text('').removeClass('d-block');
 }
 
 /**

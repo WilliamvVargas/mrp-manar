@@ -1,39 +1,35 @@
 <?php require_once __DIR__ . '/../config/config.php'; ?>
 
 <div class="modal fade" id="modalUsuarioPassword" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title" id="modalTitlePassword"><i class="bi bi-key-fill me-2"></i>Cambiar Password</h5>
+    <div class="modal-dialog" style="max-width: 400px; margin: 1.75rem auto;"> <div class="modal-content border-0 shadow-sm">
+            <div class="modal-header bg-dark text-white py-2"> <h6 class="modal-title" id="modalTitlePassword"><i class="bi bi-key-fill me-2"></i>Cambiar Password</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="form-usuario-password" class="form-validado-estatico form-validar-instantaneo" action="controllers/usuarios_controller.php" novalidate>
-                <div class="modal-body">
-                    
-                    <input type="hidden" name="csrf_token" id="csrf_token_password" value="<?php echo $_SESSION['csrf_token']; ?>">
+                <div class="modal-body py-2"> <input type="hidden" name="csrf_token" id="csrf_token_password" value="<?php echo $_SESSION['csrf_token']; ?>">
                     <input type="hidden" name="id_usuario" id="id_usuario_password_editar">
                     
-                    <div class="mensaje-wrapper" style="min-height: 10px; transition: all 0.3s ease;">
+                    <div class="mensaje-wrapper" style="min-height: 5px; transition: all 0.3s ease;">
                         <div id="modal-mensajes-password"></div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" for="input-usuario-pass">Nombre de Usuario</label>
-                        <div class="input-group">
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input-usuario-pass">Nombre de Usuario</label>
+                        <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control" name="usuario" id="input-usuario-pass" disabled>
+                            <input type="text" class="form-control form-control-sm fw-bold text-muted bg-light" name="usuario" id="input-usuario-pass" disabled>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" for="password-editar">Contraseña</label>
-                        <div class="input-group">
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="password-editar">Contraseña</label>
+                        <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-key"></i></span>
                             <input type="password" 
-                                   class="form-control" 
+                                   class="form-control form-control-sm" 
                                    name="password" 
                                    id="password-editar" 
-                                   placeholder="Mínimo <?php echo PASS_MIN_LENGTH;?> caracteres y máximo de <?php echo PASS_MAX_LENGTH;?> caracteres" 
+                                   placeholder="Min: <?php echo PASS_MIN_LENGTH;?> - Max: <?php echo PASS_MAX_LENGTH;?>" 
                                    maxlength="<?php echo PASS_MAX_LENGTH;?>" 
                                    autocomplete="new-password">
                             <button class="btn btn-outline-secondary" type="button" id="togglePasswordEdit">
@@ -43,12 +39,11 @@
                         <div class="invalid-feedback" id="error-password-editar"></div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold" for="confirm-password-editar">Repetir Contraseña</label>
-                        <div class="input-group">
+                    <div class="mb-1"> <label class="form-label fw-bold small mb-1" for="confirm-password-editar">Repetir Contraseña</label>
+                        <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
                             <input type="password" 
-                                   class="form-control" 
+                                   class="form-control form-control-sm" 
                                    name="confirm_password" 
                                    id="confirm-password-editar" 
                                    placeholder="Reingrese la contraseña" 
@@ -62,16 +57,16 @@
                         <div class="invalid-feedback" id="error-confirm_password_editar"></div>
                     </div>
 
-                    <div class="mb-3 d-flex justify-content-end">
-                        <button class="btn btn-primary" type="button" id="btn-generar-pass-editar">
-                            <i class="bi bi-robot"></i> Generar Contraseña Aleatoria
+                    <div class="mb-2 d-flex justify-content-end">
+                        <button class="btn btn-xs btn-link text-decoration-none p-0 small" type="button" id="btn-generar-pass-editar" style="font-size: 0.82rem;">
+                            <i class="bi bi-robot"></i> Generar clave aleatoria
                         </button>
                     </div>
 
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary" id="btnEditarPassword">
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-sm btn-primary" id="btnEditarPassword">
                         <i class="bi bi-save me-1"></i> Cambiar Password
                     </button>
                 </div>
