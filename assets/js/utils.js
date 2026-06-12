@@ -374,3 +374,63 @@ function ejecutarValidacionUniversal($input) {
     });
 }
 
+// Listener delegado universal para la acción del robot generador de claves
+$(document).on("click", ".btn-generar-password-global", function() {
+    const $btn = $(this);
+    
+    // 1. Encontramos de forma dinámica el formulario ancestro más cercano
+    const $form = $btn.closest('form');
+    const idFormulario = '#' + $form.attr('id'); // '#form-usuario' o '#form-usuario-password'
+    
+    // 2. Encontramos el ID del contenedor de mensajes dinámicamente buscando el div hijo de .mensaje-wrapper
+    const idModalMensaje = '#' + $form.find('.mensaje-wrapper > div').attr('id');
+    
+    // 3. Mapeamos los inputs de contraseña por su atributo 'name' (común en ambos formularios)
+    const $inputPass = $form.find('input[name="password"]');
+    const $inputConfirm = $form.find('input[name="confirm_password"]');
+    
+    // 4. Mapeamos los botones de los ojos específicos de este formulario
+    const $btnTogglePass = $form.find('#togglePassword, #togglePasswordEdit');
+    const $btnToggleConfirm = $form.find('#togglePasswordConfirm, #togglePasswordConfirmEdit');
+
+    setBtnLoading($btn, 'Generando...');
+    
+    $.ajax({
+        url: 'controllers/usuarios_controller.php?action=generar_password',
+        type: 'POST',
+        data: $form.serialize(), // Envía estrictamente los datos del modal activo
+        dataType: 'json',
+        success: function(res) {
+            // Si estamos en el formulario de edición, aplicamos tu limpieza parcial previa
+            if (idFormulario === '#form-usuario-password') {
+                limpiarFormularioCompleto(idFormulario, idModalMensaje, false);
+            }
+
+            if (res.status === 'success') {
+                // Inyectamos la contraseña devuelta por el servidor
+                $inputPass.val(res.password);
+                $inputConfirm.val(res.password);
+
+                // Forzar apertura de los ojos si los campos están ocultos tipo 'password'
+                if ($inputPass.attr('type') === 'password') $btnTogglePass.trigger('click');
+                if ($inputConfirm.attr('type') === 'password') $btnToggleConfirm.trigger('click');
+
+                // Agregamos estilos de éxito y removemos clases inválidas de forma relativa
+                $inputPass.addClass('is-valid').removeClass('is-invalid');
+                limpiarErrorCampo($inputPass);
+
+                $inputConfirm.addClass('is-valid').removeClass('is-invalid');
+                limpiarErrorCampo($inputConfirm);
+            } 
+            else {
+                mostrarMensajeFormulario(idModalMensaje, 'Atención', res.message, 'danger');
+            }
+        },
+        error: function(jqXHR, textStatus) {
+            manejarErrorAjax(jqXHR, textStatus, idModalMensaje);
+        },
+        complete: function() {
+            resetBtnLoading($btn);
+        }
+    });
+});

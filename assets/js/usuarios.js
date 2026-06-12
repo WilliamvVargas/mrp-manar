@@ -244,103 +244,16 @@ $(document).ready(function() {
         });
     });
 
-
-    // --- 4. GATILLOS DE GENERACIÓN DE PASSWORDS ---
-
-    // Generar en Formulario de Registro
-    $("#btn-generar-pass").on("click", function() {
-
-        let btn = $(this);
-        let formulario_serialize = $("#form-usuario").serialize();
-        const modalMensaje = '#modal-mensajes';
-        setBtnLoading(btn, 'Generando...');
-        
-        $.ajax({
-            url: 'controllers/usuarios_controller.php?action=generar_password',
-            type: 'POST',
-            data: formulario_serialize,
-            dataType: 'json',
-            success: function(res) {
-                if (res.status === 'success') {
-                    $("#password").val(res.password);
-                    $("#confirm_password").val(res.password);
-
-                    // Forzar apertura de los ojos si están cerrados de forma segura
-                    if ($('#password').attr('type') === 'password') $('#togglePassword').trigger('click');
-                    if ($('#confirm_password').attr('type') === 'password') $('#togglePasswordConfirm').trigger('click');
-
-                    $('#password').addClass('is-valid');
-                    limpiarErrorCampo($('#password'));
-
-                    $('#confirm_password').addClass('is-valid');
-                    limpiarErrorCampo($('#confirm_password'));
-                }
-                else {
-                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
-                }
-            },
-            error: function(jqXHR, textStatus) {
-                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
-            },
-            complete: function() {
-                resetBtnLoading(btn);
-            }
-        });
-    });
-
-    // Generar en Formulario de Modificar Password
-    $("#btn-generar-pass-editar").on("click", function() {
-
-        let btn = $(this);
-        let formulario_serialize = $("#form-usuario-password").serialize();
-        const formulario = '#form-usuario-password';
-        const modalMensaje = '#modal-mensajes-password';
-        setBtnLoading(btn, 'Generando...');
-        
-        $.ajax({
-            url: 'controllers/usuarios_controller.php?action=generar_password',
-            type: 'POST',
-            data: formulario_serialize,
-            dataType: 'json',
-            success: function(res) {
-
-                console.log(res);
-
-                limpiarFormularioCompleto(formulario, modalMensaje, false);
-                if (res.status === 'success') {
-
-                    // Inyectamos la clave generada en el input de cambio de contraseña
-                    $("#password-editar").val(res.password);
-                    $("#confirm-password-editar").val(res.password);
-                    
-                    if ($('#password-editar').attr('type') === 'password') $('#togglePasswordEdit').trigger('click');
-                    if ($('#confirm-password-editar').attr('type') === 'password') $('#togglePasswordConfirmEdit').trigger('click');
-
-                    $('#password-editar').addClass('is-valid');
-                    limpiarErrorCampo($('#password'));
-
-                    $('#confirm-password-editar').addClass('is-valid');
-                    limpiarErrorCampo($('#confirm_password'));
-
-                } 
-                else {
-                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
-                }
-            },
-            error: function(jqXHR, textStatus) {
-                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
-            },
-            complete: function() {
-                resetBtnLoading(btn);
-            }
-        });
-    });
-
-
 });
 
 
-// --- 5. DISPARADORES DE APERTURA DE MODALES ---
+// --- 5. DISPARADORES DE APERTURA Y CiERRE DE MODALES ---
+
+$('#modalUsuarioCrear').on('hidden.bs.modal', function (e) {
+
+    limpiarFormularioCompleto("#form-usuario","modal-mensajes", true);
+
+});
 
 // Cargar datos en Modal de Edición
 $(document).on('click', '.btn-editar', function() {

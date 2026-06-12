@@ -58,7 +58,7 @@
                     </div>
 
                     <div class="mb-2 d-flex justify-content-end">
-                        <button class="btn btn-xs btn-link text-decoration-none p-0 small" type="button" id="btn-generar-pass-editar" style="font-size: 0.82rem;">
+                        <button class="btn btn-xs btn-link text-decoration-none p-0 small btn-generar-password-global" type="button" id="btn-generar-pass-editar" style="font-size: 0.82rem;">
                             <i class="bi bi-robot"></i> Generar clave aleatoria
                         </button>
                     </div>

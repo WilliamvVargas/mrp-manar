@@ -3,8 +3,8 @@
 .form-validado-estatico .invalid-feedback {
     display: block !important;
     margin-top: 0.15rem; /* Reducido drásticamente de 0.75rem a un espacio mínimo y sutil */
-    font-size: 0.60rem !important; /* Forzamos un tamaño pequeño y fino tipo etiqueta secundaria */
-    line-height: 1.2; /* Evita que el texto herede altos gigantes */
+    font-size: 0.75rem !important; /* Forzamos un tamaño pequeño y fino tipo etiqueta secundaria */
+    line-height: 1.5; /* Evita que el texto herede altos gigantes */
     
     /* Estados base para la animación */
     visibility: hidden;
