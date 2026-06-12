@@ -80,18 +80,24 @@ function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger', 
     //Caso especial en caso que venga las credenciales
     if (tipo === 'success' && credenciales) {
         HTMLCredenciales = `
-            <div class="mt-2 pt-2 border-top border-success-subtle d-flex align-items-center justify-content-between" style="font-size: 0.82rem;">
-                <div style="line-height: 1.3;">
+        <div class="mt-2 pt-2 border-top border-success-subtle text-start">
+            <div class="fw-bold text-center mb-1">
+                <i class="bi bi-key-fill me-1 "></i> Credenciales de acceso
+            </div>
+            
+            <div class="d-flex align-items-center justify-content-between" style="font-size: 0.82rem;">
+                <div style="line-height: 1.4;">
                     <span class="d-block"><strong>Usuario:</strong> <span>${credenciales.usuario}</span></span>
                     <span class="d-block"><strong>Contraseña:</strong> <span>${credenciales.password}</span></span>
                 </div>
+                
                 <button class="btn btn-sm btn-light border-secondary-subtle text-dark ms-3 py-1 px-2 d-flex align-items-center btn-copiar-credenciales-global" 
                         type="button" 
-                        data-clipboard="Usuario: ${credenciales.usuario}&#10;Contraseña: ${credenciales.password}"
+                        data-clipboard="Usuario: ${credenciales.usuario}&#10;Contraseña: ${credenciales.password}">
                     <i class="bi bi-clipboard me-1"></i> Copiar
                 </button>
             </div>
-        `;
+        </div>`;
     }
 
     const html = `
@@ -104,8 +110,7 @@ function mostrarMensajeFormulario(contenedor, titulo, mensaje, tipo = 'danger', 
             </div>
             ${HTMLCredenciales}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    `;
+        </div>`;
 
     $(contenedor)
     .stop(true, true)

@@ -185,7 +185,7 @@ $(document).ready(function() {
                 console.log(res)
                 
                 if (res.status === 'success') {
-                    listarUsuarios();
+                    limpiarFormularioCompleto(formulario, modalMensaje, false);
                     mostrarMensajeFormulario(
                         modalMensaje, 
                         'Éxito', 
@@ -251,7 +251,7 @@ $(document).ready(function() {
     $("#btn-generar-pass").on("click", function() {
 
         let btn = $(this);
-        let formulario_serialize = $("#form-usuario").serialize() + "&es_actualizacion=0";
+        let formulario_serialize = $("#form-usuario").serialize();
         const modalMensaje = '#modal-mensajes';
         setBtnLoading(btn, 'Generando...');
         
@@ -275,6 +275,9 @@ $(document).ready(function() {
                     $('#confirm_password').addClass('is-valid');
                     limpiarErrorCampo($('#confirm_password'));
                 }
+                else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
             },
             error: function(jqXHR, textStatus) {
                 manejarErrorAjax(jqXHR, textStatus, modalMensaje);
@@ -289,7 +292,7 @@ $(document).ready(function() {
     $("#btn-generar-pass-editar").on("click", function() {
 
         let btn = $(this);
-        let formulario_serialize = $("#form-usuario-password").serialize() + "&es_actualizacion=1";
+        let formulario_serialize = $("#form-usuario-password").serialize();
         const formulario = '#form-usuario-password';
         const modalMensaje = '#modal-mensajes-password';
         setBtnLoading(btn, 'Generando...');
@@ -300,6 +303,9 @@ $(document).ready(function() {
             data: formulario_serialize,
             dataType: 'json',
             success: function(res) {
+
+                console.log(res);
+
                 limpiarFormularioCompleto(formulario, modalMensaje, false);
                 if (res.status === 'success') {
 
@@ -310,7 +316,12 @@ $(document).ready(function() {
                     if ($('#password-editar').attr('type') === 'password') $('#togglePasswordEdit').trigger('click');
                     if ($('#confirm-password-editar').attr('type') === 'password') $('#togglePasswordConfirmEdit').trigger('click');
 
-                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                    $('#password-editar').addClass('is-valid');
+                    limpiarErrorCampo($('#password'));
+
+                    $('#confirm-password-editar').addClass('is-valid');
+                    limpiarErrorCampo($('#confirm_password'));
+
                 } 
                 else {
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');

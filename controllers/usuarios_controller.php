@@ -11,12 +11,21 @@ function retrasar(){
 function existeUsuario($conexion, $usuario, $idUsuario = null) {
 
     if ($idUsuario) {
-        $sql = "SELECT COUNT(*) FROM usuarios WHERE usuario = ? AND id != ? LIMIT 1";
+
+        $sql = "SELECT COUNT(*) 
+                FROM usuarios 
+                WHERE usuario = ? AND id != ? 
+                LIMIT 1";
+
         $stmt = $conexion->prepare($sql);
         $stmt->execute([$usuario, $idUsuario]);
-    } else {
-        // Si no viene ID (es un registro nuevo), la consulta se mantiene igual que antes
-        $sql = "SELECT COUNT(*) FROM usuarios WHERE usuario = ? LIMIT 1";
+    } 
+    else {
+
+        $sql = "SELECT COUNT(*) 
+                FROM usuarios 
+                WHERE usuario = ? 
+                LIMIT 1";
         $stmt = $conexion->prepare($sql);
         $stmt->execute([$usuario]);
     }
@@ -282,6 +291,10 @@ else if ($action === 'cambiar_password') {
 
     try {
 
+        $validar = $pdo->prepare("SELECT usuario FROM usuarios WHERE id = ?");
+        $validar->execute([$id]);
+        $usuario = $validar->fetch();
+
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
         $query = $pdo->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
@@ -292,6 +305,7 @@ else if ($action === 'cambiar_password') {
                 'status' => 'success', 
                 'message' => 'La contraseña ha sido actualizada con éxito.',
                 'credenciales' => [
+                                    'usuario' => $usuario['usuario'],
                                     'password' => $password 
                                   ]
             ]);
@@ -321,72 +335,37 @@ else if ($action === 'generar_password') {
 
     $id = $_POST['id_usuario'] ?? 0;
     $nombre_usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
-    $es_actualizacion = boolval($_POST['es_actualizacion'] ?? FALSE );
 
     try {
 
-        if($es_actualizacion){
 
+        $sql = "SELECT id, 
+                       usuario 
+                FROM usuarios 
+                WHERE id = ?";
 
-            $sql = "SELECT id, 
-                           usuario 
-                    FROM usuarios 
-                    WHERE id = ?";
+        $query = $pdo->prepare("$sql");
+        $query->execute([$id]);
+        $usuario = $query->fetch();
 
-            $query = $pdo->prepare("$sql");
-            $query->execute([$id]);
-            $usuario = $query->fetch();
+        if ($usuario)
+            $nombre_usuario = $usuario['usuario'];
 
-            if ($usuario) {
+        $nuevo_password = generarPasswordInteligente($nombre_usuario);
 
-                $nuevo_password = generarPasswordInteligente($usuario['usuario']);
-                $password_hash = password_hash($nuevo_password, PASSWORD_BCRYPT);
+        echo json_encode([
+            'status' => 'success',
+            'password' => $nuevo_password,
+        ]);
 
+    }
+    catch (PDOException $e) {
 
-                $query = $pdo->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
-                $query->execute([$password_hash, $id]);
-
-
-                if ($query->rowCount() > 0) {
-                    echo json_encode([
-                        'status' => 'success', 
-                        'message' => 'La contraseña ha sido actualizada con éxito. <hr>Nueva Contraseña: <b>'.$nuevo_password.'</b>',
-                    ]);
-                } 
-                else {
-                    echo json_encode([
-                        'status' => 'no_changes', 
-                        'message' => 'No se realizaron cambios.'
-                    ]);
-                }
-
-            } 
-            else {
-                echo json_encode([
-                    'status' => 'error',
-                    'message' => 'Usuario no encontrado.'
-                ]);
-            }
-
-
-        }
-        else{
-
-            $nuevo_password = generarPasswordInteligente($nombre_usuario);
-
-            echo json_encode([
-                'status' => 'success', 
-                'password' => $nuevo_password,
-            ]);
-
-        }
-
-
-    } catch (PDOException $e) {
         echo json_encode([
             'status' => 'error', 
             'message' => 'Error: ' . $e->getMessage()]
         );
+
     }
     exit;
 
