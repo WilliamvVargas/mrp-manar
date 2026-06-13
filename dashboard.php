@@ -22,7 +22,10 @@
                 </div>
                 <div class="card-body text-center">
                     <h5><?= htmlspecialchars($_SESSION['usuario_nombre']) ?></h5>
-                    <button type="button" class="btn btn-info mt-3" data-bs-toggle="modal" data-bs-target="#miModal">
+                    <button type="button" 
+                            class="btn btn-info mt-3" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#miModal">
                         Ver Detalles
                     </button>
                 </div>
@@ -36,17 +39,28 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Información del Perfil</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" 
+                        class="btn-close" 
+                        data-bs-dismiss="modal" 
+                        aria-label="Close">
+                </button>
             </div>
             <div class="modal-body">
                 <p>Este es un ejemplo de modal cargado dinámicamente.</p>
                 <div class="text-center">
-                    <img src="assets/img/logo.png" class="img-thumbnail" style="width: 150px;" alt="Logo">
+                    <img src="assets/img/perfil-placeholder.png" class="img-thumbnail" style="width: 150px;" alt="Logo">
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" id="btnGuardar">Guardar Cambios</button>
+                <button type="button" 
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal">
+                    Cerrar</button>
+                <button type="button" 
+                        class="btn btn-primary"
+                         id="btnGuardar">
+                    Guardar Cambios
+                </button>
             </div>
         </div>
     </div>

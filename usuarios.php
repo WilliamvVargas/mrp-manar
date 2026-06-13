@@ -23,7 +23,9 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-primary">Listado de Usuarios</h5>
-            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalUsuarioCrear">
+            <button class="btn btn-primary btn-sm" 
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalUsuarioCrear">
                 <i class="bi bi-plus-lg"></i> Agregar Usuario
             </button>
         </div>
@@ -40,7 +42,7 @@
                         </tr>
                     </thead>
                     <tbody id="lista-usuarios">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
         </div>

@@ -59,21 +59,28 @@
 
         // valida casos de existencia de un campo
         if (isset($reglasFinales['verificacion_externa']) && is_array($reglasFinales['verificacion_externa'])) {
-        $verificador = $reglasFinales['verificacion_externa']['callback'] ?? null;
-        $mensajeError = $reglasFinales['verificacion_externa']['mensaje'] ?? "El valor ingresado para <b>{$nombreCampo}</b> no es válido.";
 
-        if (is_callable($verificador)) {
-            if ($verificador($valor) === true) {
-                return $mensajeError;
+            $verificador = $reglasFinales['verificacion_externa']['callback'] ?? null;
+            $mensajeError = $reglasFinales['verificacion_externa']['mensaje'] ?? "El valor ingresado para <b>{$nombreCampo}</b> no es válido.";
+
+            if (is_callable($verificador)) {
+                if ($verificador($valor) === true) {
+                    return $mensajeError;
+                }
             }
+            
         }
-    }
         
         // 4. Si no exiten ningún error se retorna nulo
         return null;
     }
 
-
+    /**
+     * Retorna un password generedo con valores de forma aleatoria.
+     * Al pasarle un string como parámetro trabaja con los caracteres del mismo para facilitar un password similar
+     * * @param string|null $usuario Nombre de usuario.
+     * @return array
+     */
     function generarPasswordInteligente($usuario) {
 
         // Limpiamos el parámetro de usuario
@@ -230,7 +237,12 @@
         ];
     }
 
-
+    /**
+     * Retorna un mensaje la cantidad de errores de los campos de un formulario y termina el programa.
+     * Al pasarle la conexión opcional, inyecta automáticamente las validaciones de BD.
+     * * @param array|null $errores Arreglo con errores.
+     * @return array
+     */
     function enviarErrorCamposFormulario($errores) {
 
         $cantidad_errores = count($errores);

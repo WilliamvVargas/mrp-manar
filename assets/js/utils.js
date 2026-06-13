@@ -1,22 +1,10 @@
-//configura todas las llamadas ajax con codigo 401 a retornar al login
+//Configura todas las llamadas ajax con codigo 401 a retornar al login
 $.ajaxSetup({
     statusCode: {
         401: function() {
             window.location.href = "index?error=session_expired";
         }
     }
-});
-
-
-/** Trigger para cerrar mensajes con el boton cerrar*/
-$(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
-    e.preventDefault();
-    
-    const $contenedor = $(this).closest('[id*="mensajes"]');
-    
-    $contenedor.slideUp(500, function() {
-        $(this).html('').show();
-    });
 });
 
 /**
@@ -56,7 +44,6 @@ function activarLimpiezaMensajeAlEscribir(selectorForm, selectorMensajes) {
         }
     });
 }
-
 
 /**
  * Muestra un mensaje estructurado con icono, título y animación dentro de un contenedor
@@ -178,7 +165,6 @@ function resetBtnLoading(btn) {
     }
 }
 
-
 /**
  * Procesa de forma unificada los errores de servidor (HTTP) en cualquier petición AJAX
  * @param {jQuery.jqXHR} jqXHR - Objeto nativo de error de jQuery
@@ -272,7 +258,18 @@ function debounce(func, delay = 400) {
     };
 }
 
+/** Trigger para cerrar mensajes con el boton cerrar*/
+$(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
+    e.preventDefault();
+    
+    const $contenedor = $(this).closest('[id*="mensajes"]');
+    
+    $contenedor.slideUp(500, function() {
+        $(this).html('').show();
+    });
+});
 
+// Mantiene cualquier input de usuario con letra minuscula y sin espacios
 $(document).on('input', '.form-validar-instantaneo input[name="usuario"]', function() {
     let valor = $(this).val();
     let valorLimpio = valor.toLowerCase().replace(/\s+/g, '');
@@ -284,10 +281,7 @@ $(document).on('input', '.form-validar-instantaneo input[name="usuario"]', funct
 $(document).on('keyup', '.form-validar-instantaneo input', debounce(function() {
     const $inputModificado = $(this);
     
-    // Primero validamos el campo en el que se está escribiendo
     ejecutarValidacionUniversal($inputModificado);
-    
-    // Luego disparamos las dependencias cruzadas de forma pausada
     procesarDependenciasCruzadas($inputModificado);
 }));
 
@@ -335,8 +329,6 @@ function ejecutarValidacionUniversal($input, aprobar_input = true) {
     const csrf_token = $form.find('input[name="csrf_token"]').val();
     const idRegistro = $form.find('input[name="id_registro"]').val() || null;
     const usar_check = $input.data('check')
-    
-    // CAPTURA CLAVE: Leemos a qué controlador debe ir este formulario específico
     const urlControlador = $form.attr('action'); 
 
     // Lógica de comparación dinámica (data-comparar-con)
@@ -346,11 +338,11 @@ function ejecutarValidacionUniversal($input, aprobar_input = true) {
         extraValue = $form.find(`input[name="${inputCompaneroName}"]`).val();
     }
 
-    // Si por alguna razón el formulario no tiene action, detenemos para evitar errores
-    if (!urlControlador) return;
+    // Si por alguna razón el formulario no tiene action
+    if (!urlControlador) 
+        return;
 
     $.ajax({
-        // La URL ahora es 100% dinámica, concatenando la acción de validación de campo
         url: `${urlControlador}?action=validar_campo`,
         type: 'POST',
         data: {
@@ -388,7 +380,7 @@ $(document).on("click", ".btn-generar-password-global", function() {
     
     // 1. Encontramos de forma dinámica el formulario ancestro más cercano
     const $form = $btn.closest('form');
-    const idFormulario = '#' + $form.attr('id'); // '#form-usuario' o '#form-usuario-password'
+    const idFormulario = '#' + $form.attr('id');
     
     // 2. Encontramos el ID del contenedor de mensajes dinámicamente buscando el div hijo de .mensaje-wrapper
     const idModalMensaje = '#' + $form.find('.mensaje-wrapper > div').attr('id');
@@ -406,24 +398,22 @@ $(document).on("click", ".btn-generar-password-global", function() {
     $.ajax({
         url: 'controllers/usuarios_controller.php?action=generar_password',
         type: 'POST',
-        data: $form.serialize(), // Envía estrictamente los datos del modal activo
+        data: $form.serialize(),
         dataType: 'json',
         success: function(res) {
-            // Si estamos en el formulario de edición, aplicamos tu limpieza parcial previa
+            
             if (idFormulario === '#form-usuario-password') {
                 limpiarFormularioCompleto(idFormulario, idModalMensaje, false);
             }
 
             if (res.status === 'success') {
-                // Inyectamos la contraseña devuelta por el servidor
+
                 $inputPass.val(res.password);
                 $inputConfirm.val(res.password);
 
-                // Forzar apertura de los ojos si los campos están ocultos tipo 'password'
                 if ($inputPass.attr('type') === 'password') $btnTogglePass.trigger('click');
                 if ($inputConfirm.attr('type') === 'password') $btnToggleConfirm.trigger('click');
 
-                // Agregamos estilos de éxito y removemos clases inválidas de forma relativa
                 $inputPass.addClass('is-valid').removeClass('is-invalid');
                 limpiarErrorCampo($inputPass);
 

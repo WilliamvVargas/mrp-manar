@@ -5,6 +5,7 @@ require_once '../includes/funciones_validacion.php';
 
 function existeUsuario($conexion, $usuario, $idUsuario = null) {
 
+    //Si se incluye el id de un usuario se omite en la consula
     if ($idUsuario) {
 
         $sql = "SELECT COUNT(*) 
