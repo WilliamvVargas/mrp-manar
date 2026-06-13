@@ -11,290 +11,296 @@ $usuarioModel = new Usuario($pdo);
 
 $action = $_REQUEST['action'] ?? '';
 
-if ($action === 'listar') {
+switch ($action) {
 
-    try {
+    case 'listar':
 
-        $usuarios = $usuarioModel->listarTodos();
+        try {
 
-        echo json_encode([
-            'status' => 'success',
-            'data' => $usuarios
-        ]);
-    } catch (PDOException $e) {
-        responderErrorServidor($e, null);
-    }
-    exit;
-}
-else if ($action === 'obtener') {
+            $usuarios = $usuarioModel->listarTodos();
 
-    $id = $_GET['id'] ?? '';
-
-    try {
-
-        $usuario = $usuarioModel->buscarPorId($id);
-
-        if ($usuario) {
             echo json_encode([
                 'status' => 'success',
-                'data' => $usuario
+                'data' => $usuarios
             ]);
-        } else {
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Usuario no encontrado.'
-            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e, null);
         }
+        exit;
 
-    } catch (PDOException $e) {
-        responderErrorServidor($e, null);
-    }
-    exit;
-}
-else if ($action === 'registrar') {
+    case 'obtener':
 
-    retrasar();
+        $id = $_GET['id'] ?? '';
 
-    $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
-    $nombres = trim($_POST['nombres'] ?? '');
-    $apellidos = trim($_POST['apellidos'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+        try {
 
-    $errores = [];
+            $usuario = $usuarioModel->buscarPorId($id);
 
-    // Validamos campos del formulario
-    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario', $pdo))
-        $errores['usuario'] = $err;
+            if ($usuario) {
+                echo json_encode([
+                    'status' => 'success',
+                    'data' => $usuario
+                ]);
+            } else {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Usuario no encontrado.'
+                ]);
+            }
 
-    if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres')) 
-        $errores['nombres'] = $err;
+        } catch (PDOException $e) {
+            responderErrorServidor($e, null);
+        }
+        exit;
 
-    if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
-        $errores['apellidos'] = $err;
+    case 'registrar':
 
-    if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
-        $errores['password'] = $err;
+        retrasar();
 
-    if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
-                                                                           'coincide_con' => $password]))
-        $errores['confirm_password'] = $err;
+        $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
+        $nombres = trim($_POST['nombres'] ?? '');
+        $apellidos = trim($_POST['apellidos'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
 
-    enviarErrorCamposFormulario($errores);
+        $errores = [];
 
-    try {
+        // Validamos campos del formulario
+        if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario', $pdo))
+            $errores['usuario'] = $err;
 
-        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+        if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres'))
+            $errores['nombres'] = $err;
 
-        if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash)) {
+        if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
+            $errores['apellidos'] = $err;
 
-            echo json_encode(['status' => 'success',
-                              'message' => 'Usuario creado con éxito',
-                              'credenciales' => [
-                                                    'usuario' => $usuario,
-                                                    'password' => $password 
-                                                ]
-                             ]);
+        if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
+            $errores['password'] = $err;
+
+        if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
+                                                                               'coincide_con' => $password]))
+            $errores['confirm_password'] = $err;
+
+        enviarErrorCamposFormulario($errores);
+
+        try {
+
+            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+
+            if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash)) {
+
+                echo json_encode(['status' => 'success',
+                                  'message' => 'Usuario creado con éxito',
+                                  'credenciales' => [
+                                                        'usuario' => $usuario,
+                                                        'password' => $password
+                                                    ]
+                                 ]);
+
+            }
 
         }
+        catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
 
-    } 
-    catch (PDOException $e) {
-        responderErrorServidor($e);
-    }
-    exit;
+    case 'editar':
 
-}
-else if ($action === 'editar') {
+        retrasar();
 
-    retrasar();
+        $id = $_POST['id_registro'] ?? 0;
+        $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
+        $nombres = trim($_POST['nombres'] ?? '');
+        $apellidos = trim($_POST['apellidos'] ?? '');
 
-    $id = $_POST['id_registro'] ?? 0;
-    $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
-    $nombres = trim($_POST['nombres'] ?? '');
-    $apellidos = trim($_POST['apellidos'] ?? '');
+        $errores = [];
 
-    $errores = [];
+        // Validamos campos del formulario
+        if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario', $pdo))
+            $errores['usuario'] = $err;
 
-    // Validamos campos del formulario
-    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario', $pdo))
-        $errores['usuario'] = $err;
+        if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres'))
+            $errores['nombres'] = $err;
 
-    if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres')) 
-        $errores['nombres'] = $err;
+        if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
+            $errores['apellidos'] = $err;
 
-    if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
-        $errores['apellidos'] = $err;
+        enviarErrorCamposFormulario($errores);
 
-    enviarErrorCamposFormulario($errores);
+        try {
 
-    try {
+            $filasAfectadas = $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos);
 
-        $filasAfectadas = $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos);
+            if ($filasAfectadas > 0) {
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Usuario actualizado con éxito.'
+                ]);
+            }
+            else {
+                echo json_encode([
+                    'status' => 'no_changes',
+                    'message' => 'No se realizaron cambios.'
+                ]);
+            }
 
-        if ($filasAfectadas > 0) {
+        }
+        catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'cambiar_password':
+
+        retrasar();
+
+        $id = $_POST['id_usuario'] ?? 0;
+        $password = $_POST['password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+
+        $errores = [];
+
+        if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
+            $errores['password'] = $err;
+
+        if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
+                                                                               'coincide_con' => $password]))
+            $errores['confirm_password'] = $err;
+
+        enviarErrorCamposFormulario($errores);
+
+        try {
+
+            $usuario = $usuarioModel->buscarPorId($id);
+
+            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+
+            $filasAfectadas = $usuarioModel->actualizarPassword($id, $password_hash);
+
+            if ($filasAfectadas > 0) {
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'La contraseña ha sido actualizada con éxito.',
+                    'credenciales' => [
+                                        'usuario' => $usuario['usuario'],
+                                        'password' => $password
+                                      ]
+                ]);
+            }
+            else {
+                echo json_encode([
+                    'status' => 'no_changes',
+                    'message' => 'No se realizaron cambios.'.$id
+                ]);
+            }
+
+        }
+        catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'generar_password':
+
+        retrasar();
+
+        $id = $_POST['id_usuario'] ?? 0;
+        $nombre_usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
+
+        try {
+
+            $usuario = $usuarioModel->buscarPorId($id);
+
+            if ($usuario)
+                $nombre_usuario = $usuario['usuario'];
+
+            $nuevo_password = generarPasswordInteligente($nombre_usuario);
+
             echo json_encode([
                 'status' => 'success',
-                'message' => 'Usuario actualizado con éxito.'
+                'password' => $nuevo_password,
             ]);
-        } 
-        else {
-            echo json_encode([
-                'status' => 'no_changes', 
-                'message' => 'No se realizaron cambios.'
-            ]);
+
+        }
+        catch (PDOException $e) {
+            responderErrorServidor($e, null);
+        }
+        exit;
+
+    case 'eliminar':
+
+        retrasar();
+
+        $id = $_POST['id_usuario'] ?? 0;
+
+        try {
+
+            if (!$usuarioModel->existePorId($id)) {
+                echo json_encode([
+                    'status' => 'error',
+                    'type' => 'fields',
+                    'message' => 'El usuario que intenta eliminar no existe.'
+                ]);
+                exit;
+            }
+
+            if ($usuarioModel->eliminar($id)) {
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Usuario eliminado con éxito.'
+                ]);
+            }
+        }
+        catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'validar_campo':
+
+        $campo = $_POST['campo'] ?? '';
+        $valor = $_POST['valor'] ?? '';
+        $extra = $_POST['extra'] ?? '';
+
+        $nombresLegibles = [
+            'usuario'   => 'Usuario',
+            'nombres'   => 'Nombres',
+            'apellidos' => 'Apellidos',
+            'password'  => 'Contraseña',
+            'confirm_password'  => 'Repetir Contraseña'
+        ];
+
+        $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
+
+        if( $campo === 'confirm_password')
+
+            $errores[$campo] = validarCampoTexto($valor, $nombreFormulario,
+                                                                    ['requerido' => true,
+                                                                     'coincide_con' => $extra]);
+        else{
+           $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, $campo, $pdo);
         }
 
-    } 
-    catch (PDOException $e) {
-        responderErrorServidor($e);
-    }
-    exit;
-}
-else if ($action === 'cambiar_password') {
-
-    retrasar();
-
-    $id = $_POST['id_usuario'] ?? 0;
-    $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
-
-    $errores = [];
-
-    if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
-        $errores['password'] = $err;
-
-    if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
-                                                                           'coincide_con' => $password]))
-        $errores['confirm_password'] = $err;
-
-    enviarErrorCamposFormulario($errores);
-
-    try {
-
-        $usuario = $usuarioModel->buscarPorId($id);
-
-        $password_hash = password_hash($password, PASSWORD_BCRYPT);
-
-        $filasAfectadas = $usuarioModel->actualizarPassword($id, $password_hash);
-
-        if ($filasAfectadas > 0) {
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'La contraseña ha sido actualizada con éxito.',
-                'credenciales' => [
-                                    'usuario' => $usuario['usuario'],
-                                    'password' => $password 
-                                  ]
-            ]);
-        } 
-        else {
-            echo json_encode([
-                'status' => 'no_changes', 
-                'message' => 'No se realizaron cambios.'.$id
-            ]);
-        }
-
-    } 
-    catch (PDOException $e) {
-        responderErrorServidor($e);
-    }
-    exit;
-
-
-}
-else if ($action === 'generar_password') {
-
-    retrasar();
-
-    $id = $_POST['id_usuario'] ?? 0;
-    $nombre_usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
-
-    try {
-
-        $usuario = $usuarioModel->buscarPorId($id);
-
-        if ($usuario)
-            $nombre_usuario = $usuario['usuario'];
-
-        $nuevo_password = generarPasswordInteligente($nombre_usuario);
-
-        echo json_encode([
-            'status' => 'success',
-            'password' => $nuevo_password,
-        ]);
-
-    }
-    catch (PDOException $e) {
-        responderErrorServidor($e, null);
-    }
-    exit;
-
-}
-else if ($action === 'eliminar') {
-
-    retrasar();
-
-    $id = $_POST['id_usuario'] ?? 0;
-
-    try {
-
-        if (!$usuarioModel->existePorId($id)) {
+        if (!empty($errores[$campo])) {
             echo json_encode([
                 'status' => 'error',
                 'type' => 'fields',
-                'message' => 'El usuario que intenta eliminar no existe.'
+                'errors' => $errores
             ]);
             exit;
         }
 
-        if ($usuarioModel->eliminar($id)) {
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'Usuario eliminado con éxito.'
-            ]);
-        }
-    } 
-    catch (PDOException $e) {
-        responderErrorServidor($e);
-    }
-    exit;
-}
-else if ($action === 'validar_campo') {
+        echo json_encode(['status' => 'success']);
+        exit;
 
-    $campo = $_POST['campo'] ?? '';
-    $valor = $_POST['valor'] ?? '';
-    $extra = $_POST['extra'] ?? '';
+    default:
 
-    $nombresLegibles = [
-        'usuario'   => 'Usuario',
-        'nombres'   => 'Nombres',
-        'apellidos' => 'Apellidos',
-        'password'  => 'Contraseña',
-        'confirm_password'  => 'Repetir Contraseña'
-    ];
-
-    $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
-
-    if( $campo === 'confirm_password')
-
-        $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, 
-                                                                ['requerido' => true,
-                                                                 'coincide_con' => $extra]);
-    else{
-       $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, $campo, $pdo); 
-    }
-
-    if (!empty($errores[$campo])) {
+        http_response_code(400);
         echo json_encode([
             'status' => 'error',
-            'type' => 'fields',
-            'errors' => $errores
+            'message' => 'Acción no válida.'
         ]);
         exit;
-    }
-
-    echo json_encode(['status' => 'success']);
-    exit;
-
 }

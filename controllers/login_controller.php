@@ -21,139 +21,144 @@
             exit;
 
     }
-  
+
     require_once '../config/conexion.php';
     require_once '../includes/funciones_validacion.php';
     require_once '../includes/control_acceso.php';
 
-    if ($action === 'iniciar_sesion') {
+    switch ($action) {
 
-        retrasar();
+        case 'iniciar_sesion':
 
-        $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
-        $password = $_POST['password'] ?? '';
+            retrasar();
 
-        if ($err = validarCampoTexto($usuario, 'Usuario', ['requerido' => true]))
-            $errores['usuario'] = $err;
+            $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
+            $password = $_POST['password'] ?? '';
 
-        if ($err = validarCampoTexto($password, 'Contraseña', ['requerido' => true]))
-            $errores['password'] = $err;
+            if ($err = validarCampoTexto($usuario, 'Usuario', ['requerido' => true]))
+                $errores['usuario'] = $err;
 
-        if (!empty($errores)) {
-            echo json_encode([
-                'status' => 'error',
-                'type' => 'fields',
-                'message' => "Usuario o Contraseña incorrectos.",
-                'errors' => $errores
-            ]);
-            exit;
-        }
-        else{
+            if ($err = validarCampoTexto($password, 'Contraseña', ['requerido' => true]))
+                $errores['password'] = $err;
 
-            try {
+            if (!empty($errores)) {
+                echo json_encode([
+                    'status' => 'error',
+                    'type' => 'fields',
+                    'message' => "Usuario o Contraseña incorrectos.",
+                    'errors' => $errores
+                ]);
+                exit;
+            }
+            else{
 
-                $ip = obtenerIpCliente();
+                try {
 
-                // Freno de fuerza bruta: bloqueo temporal por IP + usuario
-                $segundosBloqueo = segundosBloqueoLogin($pdo, $ip, $usuario);
-                if ($segundosBloqueo > 0) {
-                    $minutos = (int) ceil($segundosBloqueo / 60);
+                    $ip = obtenerIpCliente();
+
+                    // Freno de fuerza bruta: bloqueo temporal por IP + usuario
+                    $segundosBloqueo = segundosBloqueoLogin($pdo, $ip, $usuario);
+                    if ($segundosBloqueo > 0) {
+                        $minutos = (int) ceil($segundosBloqueo / 60);
+                        echo json_encode([
+                            'status' => 'error',
+                            'type' => 'auth',
+                            'message' => "Demasiados intentos fallidos. Intente nuevamente en {$minutos} minuto(s).",
+                            'errors' => []
+                        ]);
+                        exit;
+                    }
+
+                    // Validación contra Base de Datos
+                    $usuarioModel = new Usuario($pdo);
+                    $usuario_db = $usuarioModel->obtenerCredenciales($usuario);
+
+                    if ($usuario_db && password_verify($password, $usuario_db['password_hash'])) {
+
+                        limpiarIntentosFallidos($pdo, $ip, $usuario);
+
+                        // Se regenera el ID de sesión para evitar fijación de sesión
+                        session_regenerate_id(true);
+
+                        // Se guardan datos importantes en la sesión
+                        $_SESSION['usuario_id'] = $usuario_db['id'];
+                        $_SESSION['usuario_nombre'] = $usuario;
+                        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+                        $url_defecto = 'dashboard';
+
+                        // Se añade una ruta de redirección en caso de haber ingresado por un url
+                        if (isset($_SESSION['redirect_to'])) {
+                            $url_redireccion = $_SESSION['redirect_to'];
+                            unset($_SESSION['redirect_to']);
+                            $url_defecto = $url_redireccion;
+                        }
+
+                        echo json_encode(['status' => 'success',
+                                          'redirect' => $url_defecto]);
+                        exit;
+
+                    }
+                    else {
+
+                        // Credenciales incorrectas: se registra el intento fallido
+                        registrarIntentoFallido($pdo, $ip, $usuario);
+
+                        echo json_encode([
+                            'status' => 'error',
+                            'type' => 'auth',
+                            'message' => "Usuario o Contraseña incorrectos.",
+                            'errors' => ['usuario' => '', 'password' => '']
+                        ]);
+                        exit;
+
+                    }
+                }
+                catch (PDOException $e) {
+
                     echo json_encode([
                         'status' => 'error',
-                        'type' => 'auth',
-                        'message' => "Demasiados intentos fallidos. Intente nuevamente en {$minutos} minuto(s).",
+                        'type' => 'db',
+                        'message' => "Error de base de datos.",
                         'errors' => []
                     ]);
                     exit;
                 }
 
-                // Validación contra Base de Datos
-                $usuarioModel = new Usuario($pdo);
-                $usuario_db = $usuarioModel->obtenerCredenciales($usuario);
+            }
 
-                if ($usuario_db && password_verify($password, $usuario_db['password_hash'])) {
+            exit;
 
-                    limpiarIntentosFallidos($pdo, $ip, $usuario);
+        case 'validar_campo':
 
-                    // Se regenera el ID de sesión para evitar fijación de sesión
-                    session_regenerate_id(true);
+            $campo = $_POST['campo'] ?? '';
+            $valor = $_POST['valor'] ?? '';
+            $extra = $_POST['extra'] ?? '';
 
-                    // Se guardan datos importantes en la sesión
-                    $_SESSION['usuario_id'] = $usuario_db['id'];
-                    $_SESSION['usuario_nombre'] = $usuario;
-                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            $nombresLegibles = [
+                'usuario'   => 'Usuario',
+                'password'   => 'Contraseña',
+            ];
 
-                    $url_defecto = 'dashboard';
+            $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
+            $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, ['requerido' => true]);
 
-                    // Se añade una ruta de redirección en caso de haber ingresado por un url
-                    if (isset($_SESSION['redirect_to'])) {
-                        $url_redireccion = $_SESSION['redirect_to'];
-                        unset($_SESSION['redirect_to']);
-                        $url_defecto = $url_redireccion;
-                    } 
-
-                    echo json_encode(['status' => 'success',
-                                      'redirect' => $url_defecto]);
-                    exit;
-
-                }
-                else {
-
-                    // Credenciales incorrectas: se registra el intento fallido
-                    registrarIntentoFallido($pdo, $ip, $usuario);
-
-                    echo json_encode([
-                        'status' => 'error',
-                        'type' => 'auth',
-                        'message' => "Usuario o Contraseña incorrectos.",
-                        'errors' => ['usuario' => '', 'password' => '']
-                    ]);
-                    exit;
-
-                }
-            } 
-            catch (PDOException $e) {
-
+            if (!empty($errores[$campo])) {
                 echo json_encode([
                     'status' => 'error',
-                    'type' => 'db',
-                    'message' => "Error de base de datos.",
-                    'errors' => []
+                    'type' => 'fields',
+                    'errors' => $errores
                 ]);
                 exit;
             }
 
-        }
-
-    }
-    else if ($action === 'validar_campo') {
-
-        $campo = $_POST['campo'] ?? '';
-        $valor = $_POST['valor'] ?? '';
-        $extra = $_POST['extra'] ?? '';
-
-        $nombresLegibles = [
-            'usuario'   => 'Usuario',
-            'password'   => 'Contraseña',
-        ];
-
-        $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
-        $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, ['requerido' => true]);
-
-        if (!empty($errores[$campo])) {
-            echo json_encode([
-                'status' => 'error',
-                'type' => 'fields',
-                'errors' => $errores
-            ]);
+            echo json_encode(['status' => 'success']);
             exit;
-        }
 
-        echo json_encode(['status' => 'success']);
-        exit;
+        default:
 
+            echo json_encode($response);
+            exit;
     }
-
-    echo json_encode($response);
 
 ?>
