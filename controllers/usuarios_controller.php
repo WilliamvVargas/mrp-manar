@@ -1,8 +1,8 @@
 <?php
-require_once '../includes/auth.php';
-require_once '../config/conexion.php';
-require_once '../includes/funciones_validacion.php';
-require_once '../models/usuario_model.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../config/conexion.php';
+require_once __DIR__ . '/../includes/funciones_validacion.php';
+require_once __DIR__ . '/../models/usuario_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -273,6 +273,8 @@ switch ($action) {
         ];
 
         $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
+
+        $errores = [];
 
         if( $campo === 'confirm_password')
 

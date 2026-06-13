@@ -22,9 +22,9 @@
 
     }
 
-    require_once '../config/conexion.php';
-    require_once '../includes/funciones_validacion.php';
-    require_once '../includes/control_acceso.php';
+    require_once __DIR__ . '/../config/conexion.php';
+    require_once __DIR__ . '/../includes/funciones_validacion.php';
+    require_once __DIR__ . '/../includes/control_acceso.php';
 
     switch ($action) {
 
@@ -34,6 +34,8 @@
 
             $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
             $password = $_POST['password'] ?? '';
+
+            $errores = [];
 
             if ($err = validarCampoTexto($usuario, 'Usuario', ['requerido' => true]))
                 $errores['usuario'] = $err;
@@ -141,6 +143,8 @@
             ];
 
             $nombreFormulario = $nombresLegibles[$campo] ?? ucfirst($campo);
+
+            $errores = [];
             $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, ['requerido' => true]);
 
             if (!empty($errores[$campo])) {
