@@ -3,6 +3,9 @@ require_once '../includes/auth.php';
 require_once '../config/conexion.php';
 require_once '../includes/funciones_validacion.php';
 
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+
 function existeUsuario($conexion, $usuario, $idUsuario = null) {
 
     //Si se incluye el id de un usuario se omite en la consula
