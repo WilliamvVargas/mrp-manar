@@ -116,47 +116,53 @@
 
         /**
          * Inserta un nuevo usuario. El id (UUID) lo asigna el trigger de la BD.
+         * $creadoPor es el id del usuario que realiza la creación (auditoría).
          * Retorna true si la inserción fue exitosa.
          */
-        public function crear($usuario, $nombres, $apellidos, $passwordHash)
+        public function crear($usuario, $nombres, $apellidos, $passwordHash, $creadoPor = null)
         {
-            $sql = "INSERT INTO usuarios (usuario, 
-                                          nombres, 
-                                          apellidos, 
-                                          password_hash)
-                    VALUES (?, ?, ?, ?)";
+            $sql = "INSERT INTO usuarios (usuario,
+                                          nombres,
+                                          apellidos,
+                                          password_hash,
+                                          created_by)
+                    VALUES (?, ?, ?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
 
-            return $stmt->execute([$usuario, $nombres, $apellidos, $passwordHash]);
+            return $stmt->execute([$usuario, $nombres, $apellidos, $passwordHash, $creadoPor]);
         }
 
         /**
          * Actualiza los datos (sin contraseña) de un usuario.
+         * $modificadoPor es el id del usuario que realiza el cambio (auditoría).
          * Retorna la cantidad de filas afectadas (0 si no hubo cambios).
          */
-        public function actualizarDatos($id, $usuario, $nombres, $apellidos)
+        public function actualizarDatos($id, $usuario, $nombres, $apellidos, $modificadoPor = null)
         {
             $sql = "UPDATE usuarios
                     SET usuario = ?,
                         nombres = ?,
-                        apellidos = ?
+                        apellidos = ?,
+                        updated_by = ?
                     WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$usuario, $nombres, $apellidos, $id]);
+            $stmt->execute([$usuario, $nombres, $apellidos, $modificadoPor, $id]);
 
             return $stmt->rowCount();
         }
 
         /**
          * Actualiza el hash de la contraseña de un usuario.
+         * $modificadoPor es el id del usuario que realiza el cambio (auditoría).
          * Retorna la cantidad de filas afectadas (0 si no hubo cambios).
          */
-        public function actualizarPassword($id, $passwordHash)
+        public function actualizarPassword($id, $passwordHash, $modificadoPor = null)
         {
             $stmt = $this->pdo->prepare("UPDATE usuarios
-                                         SET password_hash = ?
+                                         SET password_hash = ?,
+                                             updated_by = ?
                                          WHERE id = ?");
-            $stmt->execute([$passwordHash, $id]);
+            $stmt->execute([$passwordHash, $modificadoPor, $id]);
 
             return $stmt->rowCount();
         }

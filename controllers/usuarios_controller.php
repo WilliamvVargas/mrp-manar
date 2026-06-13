@@ -88,7 +88,7 @@ switch ($action) {
 
             $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-            if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash)) {
+            if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash, $_SESSION['usuario_id'])) {
 
                 echo json_encode(['status' => 'success',
                                   'message' => 'Usuario creado con éxito',
@@ -131,7 +131,7 @@ switch ($action) {
 
         try {
 
-            $filasAfectadas = $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos);
+            $filasAfectadas = $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos, $_SESSION['usuario_id']);
 
             if ($filasAfectadas > 0) {
                 echo json_encode([
@@ -177,7 +177,7 @@ switch ($action) {
 
             $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-            $filasAfectadas = $usuarioModel->actualizarPassword($id, $password_hash);
+            $filasAfectadas = $usuarioModel->actualizarPassword($id, $password_hash, $_SESSION['usuario_id']);
 
             if ($filasAfectadas > 0) {
                 echo json_encode([
