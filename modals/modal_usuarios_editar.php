@@ -7,13 +7,13 @@
         </div>
             <form id="form-usuario-editar" class="form-validado-estatico form-validar-instantaneo" action="controllers/usuarios_controller.php" novalidate>
                 <div class="modal-body py-2"> <input type="hidden" name="csrf_token" id="csrf_token_editar" value="<?php echo $_SESSION['csrf_token']; ?>">
-                    <input type="hidden" name="id_usuario" id="id_usuario_editar">
+                    <input type="hidden" name="id_registro" id="id_usuario_editar">
                     
                     <div class="mensaje-wrapper" style="min-height: 5px; transition: all 0.3s ease;">
                         <div id="modal-mensajes-editar"></div>
                     </div>
                     
-                    <div class="mb-2"> <label class="form-label fw-bold small mb-1" for="usuario_editar">Nombre de Usuario</label>
+                    <div class="mb-2"> <label class="form-label fw-bold small mb-1" for="usuario_editar">Usuario</label>
                         <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person"></i></span>
                             <input type="text" class="form-control form-control-sm" name="usuario" id="usuario_editar" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" autocomplete="off" data-check='true' required>     
                         </div>

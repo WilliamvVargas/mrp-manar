@@ -126,28 +126,9 @@ else if ($action === 'registrar') {
                                                                            'coincide_con' => $password]))
         $errores['confirm_password'] = $err;
 
-    if (!empty($errores)) {
-        echo json_encode([
-            'status' => 'error',
-            'type' => 'fields',
-            'errors' => $errores
-        ]);
-        exit;
-    }
+    enviarErrorCamposFormulario($errores);
 
     try {
-  
-        $validar = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ?");
-        $validar->execute([$usuario]);
-        
-        if ($validar->rowCount() > 0) {
-            echo json_encode([
-                'status' => 'error', 
-                'type' => 'fields', 
-                'errors' => ['usuario' => 'Este nombre de usuario ya está en uso.']
-            ]);
-            exit;
-        }
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
         $query = $pdo->prepare("INSERT INTO usuarios (usuario,
@@ -182,7 +163,7 @@ else if ($action === 'editar') {
 
     retrasar();
 
-    $id = $_POST['id_usuario'] ?? 0;
+    $id = $_POST['id_registro'] ?? 0;
     $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
     $nombres = trim($_POST['nombres'] ?? '');
     $apellidos = trim($_POST['apellidos'] ?? '');
@@ -190,7 +171,7 @@ else if ($action === 'editar') {
     $errores = [];
 
     // Validamos campos del formulario
-    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario'))
+    if ($err = validarCampoTexto($usuario, 'Usuario', 'usuario', $pdo))
         $errores['usuario'] = $err;
 
     if ($err = validarCampoTexto($nombres, 'Nombres', 'nombres')) 
@@ -199,30 +180,10 @@ else if ($action === 'editar') {
     if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
         $errores['apellidos'] = $err;
 
-    if (!empty($errores)) {
-        echo json_encode([
-            'status' => 'error',
-            'type' => 'fields',
-            'errors' => $errores
-        ]);
-        exit;
-    }
+    enviarErrorCamposFormulario($errores);
 
     try {
 
-        $validar = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ? AND id != ?");
-        $validar->execute([$usuario, $id]);
-        
-        if ($validar->rowCount() > 0) {
-            echo json_encode([
-                'status' => 'error', 
-                'type' => 'fields', 
-                'errors' => ['usuario' => 'Este nombre de usuario ya está en uso por otra cuenta.']
-            ]);
-            exit;
-        }
-
-        // Actualizamos estrictamente el campo usuario
         $query = $pdo->prepare("UPDATE usuarios 
                                 SET usuario = ?,
                                     nombres = ?,
@@ -274,15 +235,7 @@ else if ($action === 'cambiar_password') {
                                                                            'coincide_con' => $password]))
         $errores['confirm_password'] = $err;
 
-    if (!empty($errores)) {
-        echo json_encode([
-            'status' => 'error',
-            'type' => 'fields',
-            'errors' => $errores
-        ]);
-        exit;
-    }
-
+    enviarErrorCamposFormulario($errores);
 
     try {
 

@@ -232,7 +232,7 @@ function renderizarErroresCampos(idFormulario, errores) {
             }
 
             // Inyectamos el mensaje y lo mostramos
-            $feedback.text(mensajeError).addClass('d-block');
+            $feedback.html(mensajeError).addClass('d-block');
         }
     });
 }
@@ -333,7 +333,7 @@ function ejecutarValidacionUniversal($input, aprobar_input = true) {
     const fieldName = $input.attr('name');
     const value = $input.val();
     const csrf_token = $form.find('input[name="csrf_token"]').val();
-    const idRegistro = $form.find('input[name="id_usuario"], input[name="id"], input[name="id_producto"]').val() || null;
+    const idRegistro = $form.find('input[name="id_registro"]').val() || null;
     const usar_check = $input.data('check')
     
     // CAPTURA CLAVE: Leemos a qué controlador debe ir este formulario específico

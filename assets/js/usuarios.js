@@ -99,15 +99,15 @@ $(document).ready(function() {
                         400, 
                         res.credenciales
                     );
-                } else {
+                } 
+                else if (res.status === 'error') {
 
                     $(modalMensaje).slideUp(150); 
                     
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
-                    } else {
-                        mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                     }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                 }
             },
             error: function(jqXHR, textStatus) {
@@ -145,13 +145,14 @@ $(document).ready(function() {
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'warning');
                 } 
                 else {
-                    $(modalMensaje).slideUp(150);
+
+                    $(modalMensaje).slideUp(150); 
                     
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
-                    } else {
-                        mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                     }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+
                 }
             },
             error: function(jqXHR, textStatus) {
@@ -192,13 +193,12 @@ $(document).ready(function() {
                     );
                 } 
                 else {
-                    $(modalMensaje).slideUp(150);
+                    $(modalMensaje).slideUp(150); 
                     
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
-                    } else {
-                        mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                     }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                 }
             },
             error: function(jqXHR, textStatus) {
@@ -247,7 +247,7 @@ $(document).ready(function() {
 
 $('#modalUsuarioCrear').on('hidden.bs.modal', function (e) {
 
-    limpiarFormularioCompleto("#form-usuario","modal-mensajes", true);
+    limpiarFormularioCompleto("#form-usuario","#modal-mensajes", true);
 
 });
 

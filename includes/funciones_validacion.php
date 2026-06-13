@@ -32,7 +32,7 @@
 
         // 2. Validación de campo Obligatorio, si no lo es y está en blanco no se aplica ninguna validación
         if (!empty($reglasFinales['requerido']) && $valor === '') {
-            return "El campo {$nombreCampo} es obligatorio.";
+            return "El campo <b>{$nombreCampo}</b> es obligatorio.";
         }
 
         if ($valor === '') 
@@ -40,27 +40,27 @@
 
         // 3. Otras validaciones según las reglas indicadas
         if (isset($reglasFinales['min']) && mb_strlen($valor) < $reglasFinales['min']) {
-            return "El campo {$nombreCampo} debe tener al menos {$reglasFinales['min']} caracteres.";
+            return "El campo <b>{$nombreCampo}</b> debe tener al menos {$reglasFinales['min']} caracteres.";
         }
 
         if (isset($reglasFinales['max']) && mb_strlen($valor) > $reglasFinales['max']) {
-            return "El campo {$nombreCampo} no puede superar los {$reglasFinales['max']} caracteres.";
+            return "El campo <b>{$nombreCampo}</b> no puede superar los {$reglasFinales['max']} caracteres.";
         }
 
         if (isset($reglasFinales['patron']) && !preg_match($reglasFinales['patron'], $valor)) {
             return isset($reglasFinales['mensaje_patron']) 
                 ? $reglasFinales['mensaje_patron'] 
-                : "El formato del campo {$nombreCampo} no es válido.";
+                : "El formato del campo <b>{$nombreCampo}</b> no es válido.";
         }
 
         if (isset($reglasFinales['coincide_con']) && $valor !== trim($reglasFinales['coincide_con'])) {
-            return "El campo {$nombreCampo} no coincide con la contraseña ingresada.";
+            return "El campo <b>{$nombreCampo}</b> no coincide con la contraseña ingresada.";
         }
 
         // valida casos de existencia de un campo
         if (isset($reglasFinales['verificacion_externa']) && is_array($reglasFinales['verificacion_externa'])) {
         $verificador = $reglasFinales['verificacion_externa']['callback'] ?? null;
-        $mensajeError = $reglasFinales['verificacion_externa']['mensaje'] ?? "El valor ingresado para {$nombreCampo} no es válido.";
+        $mensajeError = $reglasFinales['verificacion_externa']['mensaje'] ?? "El valor ingresado para <b>{$nombreCampo}</b> no es válido.";
 
         if (is_callable($verificador)) {
             if ($verificador($valor) === true) {
@@ -192,10 +192,10 @@
                 'requerido' => true, 
                 'min' => USER_MIN_LENGTH, 
                 'max' => USER_MAX_LENGTH, 
-                'patron' => '/^[a-z0-9_]+$/',
-                'mensaje_patron' => 'El campo Nombre de Usuario solo permite letras minúsculas, números y guiones bajos.',
+                'patron' => '/^[a-z0-9_ñ]+$/',
+                'mensaje_patron' => 'El campo <b>Usuario</b> solo permite letras minúsculas, números y guiones bajos.',
                 'verificacion_externa' => [
-                    'mensaje' => "El Nombre de Usuario ya se encuentra registrado.",
+                    'mensaje' => "El <b>Usuario</b> ya se encuentra registrado. Utilice otro.",
                     'callback' => function($val) use ($conexion) {
                         if (!$conexion) 
                             return false; 
@@ -211,23 +211,45 @@
                 'min' => NOMBRE_APELLIDO_MIN_LENGTH, 
                 'max' => NOMBRE_APELLIDO_MAX_LENGTH,
                 'patron' => '/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/',
-                'mensaje_patron' => 'El campo Nombres solo permite letras.'
+                'mensaje_patron' => 'El campo <b>Nombres</b> solo permite letras.'
             ],
             'apellidos' => [
                 'requerido' => true, 
                 'min' => NOMBRE_APELLIDO_MIN_LENGTH, 
                 'max' => NOMBRE_APELLIDO_MAX_LENGTH,
                 'patron' => '/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/',
-                'mensaje_patron' => 'El campo Apellidos solo permite letras.'
+                'mensaje_patron' => 'El campo <b>Apellidos</b> solo permite letras.'
             ],
             'password' => [
                 'requerido' => true,
                 'min' => PASS_MIN_LENGTH,
                 'max' => PASS_MAX_LENGTH,
                 'patron' => '/^(?=.*[a-zñáéíóú])(?=.*[A-ZÑÁÉÍÓÚ])(?=.*\d)[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]*$/u',
-                'mensaje_patron' => 'La Contraseña debe tener al menos una letra minúscula, una letra mayúscula y un número. No debe tener caracteres especiales o espacios.'
+                'mensaje_patron' => 'La <b>Contraseña</b> debe tener al menos una letra minúscula, una letra mayúscula y un número. No debe tener caracteres especiales o espacios.'
             ]
         ];
+    }
+
+
+    function enviarErrorCamposFormulario($errores) {
+
+        $cantidad_errores = count($errores);
+
+        if($cantidad_errores == 1)
+            $message = 'El formulario tiene un campo con error.';
+        else if ($cantidad_errores > 1)
+            $message = "El formulario tiene $cantidad_errores campos con error.";
+
+        if (!empty($errores)) {
+            echo json_encode([
+                'status' => 'error',
+                'type' => 'fields',
+                'message' => $message,
+                'errors' => $errores
+            ]);
+            exit;
+        }
+
     }
 
 ?>

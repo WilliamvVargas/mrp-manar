@@ -13,7 +13,7 @@
                         <div id="modal-mensajes"></div>
                     </div>
                     
-                    <div class="mb-2"> <label class="form-label fw-bold small mb-1" for="input_usuario">Nombre de Usuario</label>
+                    <div class="mb-2"> <label class="form-label fw-bold small mb-1" for="input_usuario">Usuario</label>
                         <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person"></i></span>
                             <input type="text" class="form-control form-control-sm" name="usuario" id="input_usuario" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" data-check='true'>
                         </div>
