@@ -2,6 +2,7 @@
 
     declare(strict_types=1);
     require_once __DIR__ . '/../config/config.php';
+    require_once __DIR__ . '/../models/usuario_model.php';
 
     function retrasar(){
         time_nanosleep(0, 500000000);
@@ -204,11 +205,11 @@
                 'verificacion_externa' => [
                     'mensaje' => "El <b>Usuario</b> ya se encuentra registrado. Utilice otro.",
                     'callback' => function($val) use ($conexion) {
-                        if (!$conexion) 
-                            return false; 
+                        if (!$conexion)
+                            return false;
 
                         $idRegistro = $_POST['id_registro'] ?? null;
-                        return existeUsuario($conexion, $val, $idRegistro);
+                        return (new Usuario($conexion))->existePorUsuario($val, $idRegistro);
 
                     }
                 ]

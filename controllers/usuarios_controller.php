@@ -2,37 +2,12 @@
 require_once '../includes/auth.php';
 require_once '../config/conexion.php';
 require_once '../includes/funciones_validacion.php';
+require_once '../models/usuario_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-function existeUsuario($conexion, $usuario, $idUsuario = null) {
-
-    //Si se incluye el id de un usuario se omite en la consula
-    if ($idUsuario) {
-
-        $sql = "SELECT COUNT(*) 
-                FROM usuarios 
-                WHERE usuario = ? AND id != ? 
-                LIMIT 1";
-
-        $stmt = $conexion->prepare($sql);
-        $stmt->execute([$usuario, $idUsuario]);
-    } 
-    else {
-
-        $sql = "SELECT COUNT(*) 
-                FROM usuarios 
-                WHERE usuario = ? 
-                LIMIT 1";
-        $stmt = $conexion->prepare($sql);
-        $stmt->execute([$usuario]);
-    }
-    
-    $total = $stmt->fetchColumn();
-    return $total > 0;
-}
-
+$usuarioModel = new Usuario($pdo);
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -40,17 +15,7 @@ if ($action === 'listar') {
 
     try {
 
-        $sql = "SELECT id, 
-                       usuario,
-                       nombres,
-                       apellidos,
-                       DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') as fecha 
-                FROM usuarios 
-                ORDER BY created_at DESC";
-        
-        $query = $pdo->prepare("$sql");
-        $query->execute();
-        $usuarios = $query->fetchAll();
+        $usuarios = $usuarioModel->listarTodos();
 
         echo json_encode([
             'status' => 'success',
@@ -67,16 +32,7 @@ else if ($action === 'obtener') {
 
     try {
 
-        $sql = "SELECT id, 
-                       usuario,
-                       nombres,
-                       apellidos
-                FROM usuarios 
-                WHERE id = ?";
-
-        $query = $pdo->prepare("$sql");
-        $query->execute([$id]);
-        $usuario = $query->fetch();
+        $usuario = $usuarioModel->buscarPorId($id);
 
         if ($usuario) {
             echo json_encode([
@@ -129,16 +85,8 @@ else if ($action === 'registrar') {
     try {
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $query = $pdo->prepare("INSERT INTO usuarios (usuario,
-                                                      nombres,
-                                                      apellidos,
-                                                      password_hash) 
-                                VALUES (?, ?, ?, ?)");
-        
-        if ($query->execute([$usuario,
-                             $nombres,
-                             $apellidos,
-                             $password_hash])) {
+
+        if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash)) {
 
             echo json_encode(['status' => 'success',
                               'message' => 'Usuario creado con éxito',
@@ -182,20 +130,11 @@ else if ($action === 'editar') {
 
     try {
 
-        $query = $pdo->prepare("UPDATE usuarios
-                                SET usuario = ?,
-                                    nombres = ?,
-                                    apellidos = ?
-                                WHERE id = ?");
+        $filasAfectadas = $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos);
 
-        $query->execute([$usuario, 
-                         $nombres,
-                         $apellidos,
-                         $id]);
-
-        if ($query->rowCount() > 0) {
+        if ($filasAfectadas > 0) {
             echo json_encode([
-                'status' => 'success', 
+                'status' => 'success',
                 'message' => 'Usuario actualizado con éxito.'
             ]);
         } 
@@ -233,18 +172,15 @@ else if ($action === 'cambiar_password') {
 
     try {
 
-        $validar = $pdo->prepare("SELECT usuario FROM usuarios WHERE id = ?");
-        $validar->execute([$id]);
-        $usuario = $validar->fetch();
+        $usuario = $usuarioModel->buscarPorId($id);
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-        $query = $pdo->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
-        $query->execute([$password_hash, $id]);
+        $filasAfectadas = $usuarioModel->actualizarPassword($id, $password_hash);
 
-        if ($query->rowCount() > 0) {
+        if ($filasAfectadas > 0) {
             echo json_encode([
-                'status' => 'success', 
+                'status' => 'success',
                 'message' => 'La contraseña ha sido actualizada con éxito.',
                 'credenciales' => [
                                     'usuario' => $usuario['usuario'],
@@ -276,14 +212,7 @@ else if ($action === 'generar_password') {
 
     try {
 
-        $sql = "SELECT id, 
-                       usuario 
-                FROM usuarios 
-                WHERE id = ?";
-
-        $query = $pdo->prepare("$sql");
-        $query->execute([$id]);
-        $usuario = $query->fetch();
+        $usuario = $usuarioModel->buscarPorId($id);
 
         if ($usuario)
             $nombre_usuario = $usuario['usuario'];
@@ -310,23 +239,18 @@ else if ($action === 'eliminar') {
 
     try {
 
-        $validar = $pdo->prepare("SELECT id FROM usuarios WHERE id = ?");
-        $validar->execute([$id]);
-        
-        if ($validar->rowCount() === 0) {
+        if (!$usuarioModel->existePorId($id)) {
             echo json_encode([
-                'status' => 'error', 
+                'status' => 'error',
                 'type' => 'fields',
                 'message' => 'El usuario que intenta eliminar no existe.'
             ]);
             exit;
         }
 
-        $query = $pdo->prepare("DELETE FROM usuarios WHERE id = ?");
-        
-        if ($query->execute([$id])) {
+        if ($usuarioModel->eliminar($id)) {
             echo json_encode([
-                'status' => 'success', 
+                'status' => 'success',
                 'message' => 'Usuario eliminado con éxito.'
             ]);
         }

@@ -68,14 +68,8 @@
                 }
 
                 // Validación contra Base de Datos
-                $validar = $pdo->prepare("SELECT id, 
-                                                 password_hash 
-                                          FROM usuarios 
-                                          WHERE usuario = ? 
-                                          LIMIT 1");
-
-                $validar->execute([$usuario]);
-                $usuario_db = $validar->fetch();
+                $usuarioModel = new Usuario($pdo);
+                $usuario_db = $usuarioModel->obtenerCredenciales($usuario);
 
                 if ($usuario_db && password_verify($password, $usuario_db['password_hash'])) {
 
