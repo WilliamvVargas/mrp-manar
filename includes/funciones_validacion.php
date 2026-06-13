@@ -238,6 +238,32 @@
     }
 
     /**
+     * Registra el error real en el log del servidor y responde al cliente con un
+     * mensaje genérico, sin exponer detalles internos (SQL, tablas, etc.).
+     * Termina la ejecución.
+     *
+     * @param Throwable $e Excepción capturada.
+     * @param string|null $type Tipo de error para el frontend (ej: 'general'). Null para omitirlo.
+     * @return void
+     */
+    function responderErrorServidor($e, $type = 'general') {
+
+        error_log('[BD] ' . $e->getMessage());
+
+        $respuesta = [
+            'status' => 'error',
+            'message' => 'Ocurrió un error inesperado. Por favor, intente nuevamente más tarde.'
+        ];
+
+        if ($type !== null) {
+            $respuesta['type'] = $type;
+        }
+
+        echo json_encode($respuesta);
+        exit;
+    }
+
+    /**
      * Retorna un mensaje la cantidad de errores de los campos de un formulario y termina el programa.
      * Al pasarle la conexión opcional, inyecta automáticamente las validaciones de BD.
      * * @param array|null $errores Arreglo con errores.

@@ -54,10 +54,7 @@ if ($action === 'listar') {
             'data' => $usuarios
         ]);
     } catch (PDOException $e) {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Error: ' . $e->getMessage()
-        ]);
+        responderErrorServidor($e, null);
     }
     exit;
 }
@@ -91,10 +88,7 @@ else if ($action === 'obtener') {
         }
 
     } catch (PDOException $e) {
-        echo json_encode([
-            'status' => 'error', 
-            'message' => 'Error: ' . $e->getMessage()]
-        );
+        responderErrorServidor($e, null);
     }
     exit;
 }
@@ -155,7 +149,7 @@ else if ($action === 'registrar') {
 
     } 
     catch (PDOException $e) {
-        echo json_encode(['status' => 'error', 'type' => 'general', 'message' => 'Error: ' . $e->getMessage()]);
+        responderErrorServidor($e);
     }
     exit;
 
@@ -185,7 +179,7 @@ else if ($action === 'editar') {
 
     try {
 
-        $query = $pdo->prepare("UPDATE usuarios 
+        $query = $pdo->prepare("UPDATE usuarios
                                 SET usuario = ?,
                                     nombres = ?,
                                     apellidos = ?
@@ -211,11 +205,7 @@ else if ($action === 'editar') {
 
     } 
     catch (PDOException $e) {
-        echo json_encode([
-            'status' => 'error', 
-            'type' => 'general', 
-            'message' => 'Error: ' . $e->getMessage()
-        ]);
+        responderErrorServidor($e);
     }
     exit;
 }
@@ -268,11 +258,7 @@ else if ($action === 'cambiar_password') {
 
     } 
     catch (PDOException $e) {
-        echo json_encode([
-            'status' => 'error', 
-            'type' => 'general', 
-            'message' => 'Error: ' . $e->getMessage()
-        ]);
+        responderErrorServidor($e);
     }
     exit;
 
@@ -286,7 +272,6 @@ else if ($action === 'generar_password') {
     $nombre_usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
 
     try {
-
 
         $sql = "SELECT id, 
                        usuario 
@@ -309,12 +294,7 @@ else if ($action === 'generar_password') {
 
     }
     catch (PDOException $e) {
-
-        echo json_encode([
-            'status' => 'error', 
-            'message' => 'Error: ' . $e->getMessage()]
-        );
-
+        responderErrorServidor($e, null);
     }
     exit;
 
@@ -339,7 +319,6 @@ else if ($action === 'eliminar') {
             exit;
         }
 
-
         $query = $pdo->prepare("DELETE FROM usuarios WHERE id = ?");
         
         if ($query->execute([$id])) {
@@ -350,12 +329,7 @@ else if ($action === 'eliminar') {
         }
     } 
     catch (PDOException $e) {
-
-        echo json_encode([
-            'status' => 'error', 
-            'type' => 'general', 
-            'message' => 'Error: ' . $e->getMessage()
-        ]);
+        responderErrorServidor($e);
     }
     exit;
 }
