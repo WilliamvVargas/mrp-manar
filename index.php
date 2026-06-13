@@ -23,18 +23,18 @@
         <div class="card shadow-sm" style="width: 100%; max-width: 400px;">
             <div class="card-body p-4">
                 <h3 class="text-center mb-4">Iniciar Sesión</h3>
-                <form id="form-login" class="form-validado-estatico" novalidate>
+                <form id="form-login" class="form-validado-estatico form-validar-instantaneo" action="controllers/login_controller.php" novalidate>
                     <div id="modal-mensajes"></div>
                     <input type="hidden" id="csrf_token" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                     <div class="mb-3">
                         <label class="form-label" for="usuario">Usuario</label>
-                        <input type="text" id="usuario" name="usuario" class="form-control" placeholder="Ingrese su nombre de usuario" maxlength="<?php echo USER_MAX_LENGTH;?>">
+                        <input type="text" id="usuario" name="usuario" class="form-control" placeholder="Ingrese su nombre de usuario" maxlength="<?php echo USER_MAX_LENGTH;?>" data-check='false'>
                         <div class="invalid-feedback"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="password">Contraseña</label>
                         <div class="input-group">
-                            <input type="password" name="password" id="password" class="form-control" placeholder="Ingrese su contraseña" autocomplete="new-password" maxlength="<?php echo PASS_MAX_LENGTH;?>">
+                            <input type="password" name="password" id="password" class="form-control" placeholder="Ingrese su contraseña" autocomplete="new-password" maxlength="<?php echo PASS_MAX_LENGTH;?>" data-check='false'>
                             <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                 <i class="bi bi-eye" id="iconEye"></i>
                             </button>

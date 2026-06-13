@@ -294,7 +294,7 @@ $(document).on('keyup', '.form-validar-instantaneo input', debounce(function() {
 // 2. Al perder el foco (Blur): Valida de inmediato (sin esperar al debounce)
 $(document).on('blur', '.form-validar-instantaneo input', function() {
     const $inputModificado = $(this);
-    
+
     ejecutarValidacionUniversal($inputModificado);
     procesarDependenciasCruzadas($inputModificado);
 });
@@ -327,13 +327,14 @@ function procesarDependenciasCruzadas($inputModificado) {
  * Procesa la validación asíncrona de un campo de manera agnóstica al módulo.
  * @param {jQuery} $input - Elemento que se está evaluando.
  */
-function ejecutarValidacionUniversal($input) {
+function ejecutarValidacionUniversal($input, aprobar_input = true) {
     const $form = $input.closest('form');
     const idFormulario = `#${$form.attr('id')}`;
     const fieldName = $input.attr('name');
     const value = $input.val();
     const csrf_token = $form.find('input[name="csrf_token"]').val();
     const idRegistro = $form.find('input[name="id_usuario"], input[name="id"], input[name="id_producto"]').val() || null;
+    const usar_check = $input.data('check')
     
     // CAPTURA CLAVE: Leemos a qué controlador debe ir este formulario específico
     const urlControlador = $form.attr('action'); 
@@ -361,13 +362,20 @@ function ejecutarValidacionUniversal($input) {
         },
         dataType: 'json',
         success: function(response) {
+
             if (response.status === 'error') {
-                $input.removeClass('is-valid');
+
+                if(usar_check == true)
+                    $input.removeClass('is-valid');
+
                 if (response.type === 'fields') {
                     renderizarErroresCampos(idFormulario, response.errors);
-                } 
+                }
+
             } else {
-                $input.addClass('is-valid');
+
+                if(usar_check == true)
+                    $input.addClass('is-valid');
                 limpiarErrorCampo($input);
             }
         }

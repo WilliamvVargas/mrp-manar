@@ -1,7 +1,11 @@
 <?php
 
     declare(strict_types=1);
-    require_once __DIR__ . '/../config/config.php'; // Importamos las constantes
+    require_once __DIR__ . '/../config/config.php';
+
+    function retrasar(){
+        time_nanosleep(0, 500000000);
+    }
 
    /*
     * Valida un campo de texto basado en un set de reglas dinámicas.

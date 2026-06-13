@@ -23,8 +23,6 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
 
-                console.log(response)
-
                 if (response.status === 'success') {
                     if ($.fn.DataTable.isDataTable('#tabla-usuarios')) {
                         $('#tabla-usuarios').DataTable().destroy();
@@ -182,8 +180,6 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(res) {
 
-                console.log(res)
-                
                 if (res.status === 'success') {
                     limpiarFormularioCompleto(formulario, modalMensaje, false);
                     mostrarMensajeFormulario(

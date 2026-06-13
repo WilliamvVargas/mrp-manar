@@ -15,7 +15,7 @@
                     
                     <div class="mb-2"> <label class="form-label fw-bold small mb-1" for="input_usuario">Nombre de Usuario</label>
                         <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control form-control-sm" name="usuario" id="input_usuario" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>">
+                            <input type="text" class="form-control form-control-sm" name="usuario" id="input_usuario" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" data-check='true'>
                         </div>
                         <div class="invalid-feedback small" id="error-usuario"></div>
                     </div>
@@ -23,12 +23,12 @@
                     <div class="row g-2 mb-2"> 
                         <div class="col-md-6">
                             <label for="nombres" class="form-label fw-bold small mb-1">Nombres</label>
-                            <input type="text" name="nombres" id="nombres" class="form-control form-control-sm" placeholder="Ej: Juan Carlos" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                            <input type="text" name="nombres" id="nombres" class="form-control form-control-sm" placeholder="Ej: Juan Carlos" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>" data-check='true'>
                             <div class="invalid-feedback small" id="error-nombres"></div>
                         </div>
                         <div class="col-md-6">
                             <label for="apellidos" class="form-label fw-bold small mb-1">Apellidos</label>
-                            <input type="text" name="apellidos" id="apellidos" class="form-control form-control-sm" placeholder="Ej: Pérez Rossi" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                            <input type="text" name="apellidos" id="apellidos" class="form-control form-control-sm" placeholder="Ej: Pérez Rossi" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>" data-check='true'>
                             <div class="invalid-feedback small" id="error-apellidos"></div>
                         </div>
                     </div>
@@ -44,7 +44,8 @@
                                        id="password" 
                                        placeholder="Min: <?php echo PASS_MIN_LENGTH;?> - Max: <?php echo PASS_MAX_LENGTH;?>" 
                                        maxlength="<?php echo PASS_MAX_LENGTH;?>" 
-                                       autocomplete="new-password">
+                                       autocomplete="new-password"
+                                       data-check='true'>
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                     <i class="bi bi-eye" id="iconEye"></i>
                                 </button>  
@@ -62,7 +63,8 @@
                                        placeholder="Reingrese contraseña" 
                                        maxlength="<?php echo PASS_MAX_LENGTH;?>"
                                        data-comparar-con="password"
-                                       autocomplete="new-password">
+                                       autocomplete="new-password"
+                                       data-check='true'>
                                 <button class="btn btn-outline-secondary" type="button" id="togglePasswordConfirm">
                                     <i class="bi bi-eye" id="iconEyeConfirm"></i>
                                 </button>  

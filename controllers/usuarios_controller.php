@@ -3,11 +3,6 @@ require_once '../includes/auth.php';
 require_once '../config/conexion.php';
 require_once '../includes/funciones_validacion.php';
 
-
-function retrasar(){
-    time_nanosleep(0, 500000000);
-}
-
 function existeUsuario($conexion, $usuario, $idUsuario = null) {
 
     if ($idUsuario) {

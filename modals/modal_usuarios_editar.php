@@ -15,19 +15,19 @@
                     
                     <div class="mb-2"> <label class="form-label fw-bold small mb-1" for="usuario_editar">Nombre de Usuario</label>
                         <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control form-control-sm" name="usuario" id="usuario_editar" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" autocomplete="off" required>     
+                            <input type="text" class="form-control form-control-sm" name="usuario" id="usuario_editar" placeholder="Ej: jperez" maxlength="<?php echo USER_MAX_LENGTH;?>" autocomplete="off" data-check='true' required>     
                         </div>
                         <div class="invalid-feedback" id="error-edit-usuario"></div>
                     </div>
 
                     <div class="row g-2 mb-2"> <div class="col-md-6">
                             <label for="nombres_editar" class="form-label fw-bold small mb-1">Nombres</label>
-                            <input type="text" name="nombres" id="nombres_editar" class="form-control form-control-sm" placeholder="Ej: Juan Carlos" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                            <input type="text" name="nombres" id="nombres_editar" class="form-control form-control-sm" placeholder="Ej: Juan Carlos" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>" data-check='true'>
                             <div class="invalid-feedback" id="error-edit-nombres"></div>
                         </div>
                         <div class="col-md-6">
                             <label for="apellidos_editar" class="form-label fw-bold small mb-1">Apellidos</label>
-                            <input type="text" name="apellidos" id="apellidos_editar" class="form-control form-control-sm" placeholder="Ej: Pérez Rossi" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>">
+                            <input type="text" name="apellidos" id="apellidos_editar" class="form-control form-control-sm" placeholder="Ej: Pérez Rossi" maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>" data-check='true'>
                             <div class="invalid-feedback" id="error-edit-apellidos"></div>
                         </div>
                     </div>

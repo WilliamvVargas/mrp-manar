@@ -17,7 +17,7 @@
                         <label class="form-label fw-bold small mb-1" for="input-usuario-pass">Nombre de Usuario</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control form-control-sm fw-bold text-muted bg-light" name="usuario" id="input-usuario-pass" disabled>
+                            <input type="text" class="form-control form-control-sm fw-bold text-muted bg-light" name="usuario" id="input-usuario-pass" disabled data-check='true'>
                         </div>
                     </div>
 
@@ -31,7 +31,8 @@
                                    id="password-editar" 
                                    placeholder="Min: <?php echo PASS_MIN_LENGTH;?> - Max: <?php echo PASS_MAX_LENGTH;?>" 
                                    maxlength="<?php echo PASS_MAX_LENGTH;?>" 
-                                   autocomplete="new-password">
+                                   autocomplete="new-password"
+                                   data-check='true'>
                             <button class="btn btn-outline-secondary" type="button" id="togglePasswordEdit">
                                 <i class="bi bi-eye" id="iconEyeEdit"></i>
                             </button>  
@@ -49,7 +50,8 @@
                                    placeholder="Reingrese la contraseña" 
                                    maxlength="<?php echo PASS_MAX_LENGTH;?>" 
                                    data-comparar-con="password"
-                                   autocomplete="new-password">
+                                   autocomplete="new-password"
+                                   data-check='true'>
                             <button class="btn btn-outline-secondary" type="button" id="togglePasswordConfirmEdit">
                                 <i class="bi bi-eye" id="iconEyeConfirmEdit"></i>
                             </button>  
