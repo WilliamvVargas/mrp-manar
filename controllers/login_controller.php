@@ -2,7 +2,7 @@
 
     declare(strict_types=1);
     header('Content-Type: application/json');
-    session_start();
+    require_once __DIR__ . '/../config/sesion.php';
 
     $tokenPost = $_POST['csrf_token'] ?? '';
     $tokenSession = $_SESSION['csrf_token'] ?? '';
@@ -57,6 +57,9 @@
                 $usuario_db = $validar->fetch();
 
                 if ($usuario_db && password_verify($password, $usuario_db['password_hash'])) {
+
+                    // Se regenera el ID de sesión para evitar fijación de sesión
+                    session_regenerate_id(true);
 
                     // Se guardan datos importantes en la sesión
                     $_SESSION['usuario_id'] = $usuario_db['id'];
