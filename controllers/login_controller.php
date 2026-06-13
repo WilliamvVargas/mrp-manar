@@ -22,8 +22,9 @@
 
     }
   
-    require_once '../config/conexion.php'; 
+    require_once '../config/conexion.php';
     require_once '../includes/funciones_validacion.php';
+    require_once '../includes/control_acceso.php';
 
     if ($action === 'iniciar_sesion') {
 
@@ -51,12 +52,34 @@
 
             try {
 
+                $ip = obtenerIpCliente();
+
+                // Freno de fuerza bruta: bloqueo temporal por IP + usuario
+                $segundosBloqueo = segundosBloqueoLogin($pdo, $ip, $usuario);
+                if ($segundosBloqueo > 0) {
+                    $minutos = (int) ceil($segundosBloqueo / 60);
+                    echo json_encode([
+                        'status' => 'error',
+                        'type' => 'auth',
+                        'message' => "Demasiados intentos fallidos. Intente nuevamente en {$minutos} minuto(s).",
+                        'errors' => []
+                    ]);
+                    exit;
+                }
+
                 // Validación contra Base de Datos
-                $validar = $pdo->prepare("SELECT id, password_hash FROM usuarios WHERE usuario = ? LIMIT 1");
+                $validar = $pdo->prepare("SELECT id, 
+                                                 password_hash 
+                                          FROM usuarios 
+                                          WHERE usuario = ? 
+                                          LIMIT 1");
+
                 $validar->execute([$usuario]);
                 $usuario_db = $validar->fetch();
 
                 if ($usuario_db && password_verify($password, $usuario_db['password_hash'])) {
+
+                    limpiarIntentosFallidos($pdo, $ip, $usuario);
 
                     // Se regenera el ID de sesión para evitar fijación de sesión
                     session_regenerate_id(true);
@@ -79,8 +102,11 @@
                                       'redirect' => $url_defecto]);
                     exit;
 
-                } 
+                }
                 else {
+
+                    // Credenciales incorrectas: se registra el intento fallido
+                    registrarIntentoFallido($pdo, $ip, $usuario);
 
                     echo json_encode([
                         'status' => 'error',
