@@ -1,5 +1,24 @@
 $(document).ready(function() {
 
+    // Tabla principal de forecast (server-side, helper reutilizable de utils.js)
+    const tablaConsulta = inicializarTablaConsulta({
+        tabla: '#tabla-consulta',
+        url:   'controllers/forecast_controller.php?action=listar',
+        input: '#consulta',
+        orden: [[0, 'desc']],   // por id, descendente (más recientes primero)
+        columnas: [
+            { data: 'id', className: 'text-center' },
+            { data: 'empresa',         render: $.fn.dataTable.render.text() },
+            { data: 'version',         render: $.fn.dataTable.render.text() },
+            { data: 'codigo_cliente',  render: $.fn.dataTable.render.text() },
+            { data: 'nombre_cliente',  render: $.fn.dataTable.render.text() },
+            { data: 'codigo_producto', render: $.fn.dataTable.render.text() },
+            { data: 'nombre_producto', render: $.fn.dataTable.render.text() },
+            { data: 'cantidad', className: 'text-end' },
+            { data: null, orderable: false, searchable: false, className: 'text-center', render: function() { return ''; } }
+        ]
+    });
+
     // Carga masiva: solo se aceptan archivos Excel .xlsx
     $('#archivo-excel').on('change', function() {
         const $input = $(this);
@@ -54,6 +73,7 @@ $(document).ready(function() {
                 resetBtnLoading(btn);
                 if (res.status === 'success') {
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                    tablaConsulta.ajax.reload(null, true);   // refresca la tabla con los nuevos registros
                 } else {
                     let msg = res.message;
                     if (res.errores && res.errores.length) {

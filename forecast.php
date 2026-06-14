@@ -41,7 +41,7 @@
                                    class="form-control form-control-sm"
                                    id="consulta"
                                    name="consulta"
-                                   placeholder="Ej: jperez, Juan, Pérez">
+                                   placeholder="Nombre de cliente o de producto">
                         </div>
                     </div>
                 </div>
@@ -49,6 +49,7 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
+                            <th style="width: 5%">ID</th>
                             <th style="width: 10%">Empresa</th>
                             <th style="width: 10%">Versión</th>
                             <th style="width: 15%">Código Cliente</th>
@@ -56,7 +57,7 @@
                             <th style="width: 15%">Código Producto</th>
                             <th style="width: 15%">Nombre Producto</th>
                             <th style="width: 5%">Cantidad</th>
-                            <th style="width: 15%" class="text-center">Acciones</th>
+                            <th style="width: 10%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

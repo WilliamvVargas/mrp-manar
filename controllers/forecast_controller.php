@@ -221,6 +221,45 @@ switch ($action) {
         ]);
         exit;
 
+    case 'listar':
+
+        $draw     = (int) ($_GET['draw'] ?? 0);
+        $inicio   = (int) ($_GET['start'] ?? 0);
+        $longitud = (int) ($_GET['length'] ?? 10);
+
+        // Filtro del buscador (#consulta): por nombre de cliente o de producto.
+        $consulta = trim($_GET['consulta'] ?? '');
+
+        // Columna y dirección de ordenamiento (índice -> nombre lógico).
+        $columnas     = ['id', 'empresa', 'version', 'codigo_cliente', 'nombre_cliente', 'codigo_producto', 'nombre_producto', 'cantidad'];
+        $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
+        $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'id';
+        $dirOrden     = $_GET['order'][0]['dir'] ?? 'desc';
+
+        try {
+            $forecastModel  = new Forecast($pdo);
+            $totalRegistros = $forecastModel->contarTodos();
+            $totalFiltrados = $forecastModel->contarFiltrados($consulta);
+            $datos          = $forecastModel->listarPagina($consulta, $columnaOrden, $dirOrden, $inicio, $longitud);
+
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => $totalRegistros,
+                'recordsFiltered' => $totalFiltrados,
+                'data'            => $datos
+            ]);
+        } catch (PDOException $e) {
+            error_log('[FORECAST] ' . $e->getMessage());
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => 0,
+                'recordsFiltered' => 0,
+                'data'            => [],
+                'error'           => 'Ocurrió un error al cargar los registros.'
+            ]);
+        }
+        exit;
+
     default:
         http_response_code(400);
         errorForecast('Acción no válida.');
