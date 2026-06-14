@@ -78,20 +78,82 @@
         }
 
         /**
-         * Lista todos los usuarios con la fecha de creación ya formateada,
-         * ordenados del más reciente al más antiguo.
+         * Cantidad total de usuarios registrados (sin filtro).
          */
-        public function listarTodos()
+        public function contarTodos()
         {
+            return (int) $this->pdo->query("SELECT COUNT(*) FROM usuarios")->fetchColumn();
+        }
+
+        /**
+         * Cantidad de usuarios que coinciden con el filtro en usuario, nombres o apellidos.
+         * Si el filtro está vacío, equivale al total.
+         */
+        public function contarFiltrados($busqueda)
+        {
+            if ($busqueda === '') {
+                return $this->contarTodos();
+            }
+
+            $like = '%' . $busqueda . '%';
+            $stmt = $this->pdo->prepare("SELECT COUNT(*)
+                                         FROM usuarios
+                                         WHERE usuario LIKE ?
+                                            OR nombres LIKE ?
+                                            OR apellidos LIKE ?");
+            $stmt->execute([$like, $like, $like]);
+
+            return (int) $stmt->fetchColumn();
+        }
+
+        /**
+         * Devuelve una página de usuarios para DataTables (server-side).
+         *
+         * @param string $busqueda     Texto a buscar en usuario, nombres o apellidos.
+         * @param string $columnaOrden Nombre lógico de la columna a ordenar.
+         * @param string $dirOrden     'asc' o 'desc'.
+         * @param int    $inicio       Offset (registro inicial).
+         * @param int    $longitud     Cantidad de registros (-1 = todos).
+         */
+        public function listarPagina($busqueda, $columnaOrden, $dirOrden, $inicio, $longitud)
+        {
+            // Lista blanca de columnas ordenables: evita inyección en el ORDER BY.
+            $columnasValidas = [
+                'usuario'   => 'usuario',
+                'nombres'   => 'nombres',
+                'apellidos' => 'apellidos',
+                'fecha'     => 'created_at',
+            ];
+            $columna   = $columnasValidas[$columnaOrden] ?? 'created_at';
+            $direccion = (strtolower($dirOrden) === 'asc') ? 'ASC' : 'DESC';
+
+            // Casteo a entero: seguro para incrustar en el LIMIT (las prepares
+            // nativas no aceptan parámetros enlazados en LIMIT).
+            $inicio   = max(0, (int) $inicio);
+            $longitud = (int) $longitud;
+
+            $where  = '';
+            $params = [];
+            if ($busqueda !== '') {
+                $like   = '%' . $busqueda . '%';
+                $where  = "WHERE usuario LIKE ? OR nombres LIKE ? OR apellidos LIKE ?";
+                $params = [$like, $like, $like];
+            }
+
+            $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
+
             $sql = "SELECT id,
                            usuario,
                            nombres,
                            apellidos,
                            DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') AS fecha
                     FROM usuarios
-                    ORDER BY created_at DESC";
+                    $where
+                    ORDER BY $columna $direccion
+                    $limit";
 
-            $stmt = $this->pdo->query($sql);
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
 
             return $stmt->fetchAll();
         }

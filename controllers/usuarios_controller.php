@@ -15,16 +15,43 @@ switch ($action) {
 
     case 'listar':
 
+        retrasar();
+
+        // Parámetros que envía DataTables en modo server-side
+        $draw     = (int) ($_GET['draw'] ?? 0);
+        $inicio   = (int) ($_GET['start'] ?? 0);
+        $longitud = (int) ($_GET['length'] ?? 10);
+
+        // Filtro propio del buscador (#consulta): por usuario, nombres o apellidos
+        $consulta = trim($_GET['consulta'] ?? '');
+
+        // Columna y dirección de ordenamiento (índice -> nombre lógico)
+        $columnas     = ['usuario', 'nombres', 'apellidos', 'fecha'];
+        $idxOrden     = (int) ($_GET['order'][0]['column'] ?? 3);
+        $columnaOrden = $columnas[$idxOrden] ?? 'fecha';
+        $dirOrden     = $_GET['order'][0]['dir'] ?? 'desc';
+
         try {
 
-            $usuarios = $usuarioModel->listarTodos();
+            $totalRegistros = $usuarioModel->contarTodos();
+            $totalFiltrados = $usuarioModel->contarFiltrados($consulta);
+            $datos          = $usuarioModel->listarPagina($consulta, $columnaOrden, $dirOrden, $inicio, $longitud);
 
             echo json_encode([
-                'status' => 'success',
-                'data' => $usuarios
+                'draw'            => $draw,
+                'recordsTotal'    => $totalRegistros,
+                'recordsFiltered' => $totalFiltrados,
+                'data'            => $datos
             ]);
         } catch (PDOException $e) {
-            responderErrorServidor($e, null);
+            error_log('[BD] ' . $e->getMessage());
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => 0,
+                'recordsFiltered' => 0,
+                'data'            => [],
+                'error'           => 'Ocurrió un error al cargar los usuarios.'
+            ]);
         }
         exit;
 

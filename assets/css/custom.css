@@ -19,3 +19,18 @@
     opacity: 1 !important;
     max-height: 3.5rem; /* Le damos permiso de crecer HASTA este tope si el texto es largo, pero si es corto medirá solo su contenido */
 }
+
+
+/* Paginación de DataTables en tono oscuro (sobreescribe las variables de Bootstrap 5) */
+
+.dataTables_wrapper .pagination {
+    --bs-pagination-color: #212529;
+    --bs-pagination-hover-color: #000;
+    --bs-pagination-hover-bg: #e9ecef;
+    --bs-pagination-hover-border-color: #dee2e6;
+    --bs-pagination-focus-color: #000;
+    --bs-pagination-focus-box-shadow: none;
+    --bs-pagination-active-color: #fff;
+    --bs-pagination-active-bg: #212529;
+    --bs-pagination-active-border-color: #212529;
+}

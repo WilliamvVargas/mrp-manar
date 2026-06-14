@@ -22,7 +22,7 @@
 <div class="container">
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 text-primary">Listado de Usuarios</h5>
+            <h5 class="mb-0 text-black"><i class="bi bi-person-fill me-2"></i>Usuarios</h5>
             <button class="btn btn-primary btn-sm" 
                     data-bs-toggle="modal"
                     data-bs-target="#modalUsuarioCrear">
@@ -31,6 +31,21 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
+
+                <div class="mb-2">
+                    <label class="form-label fw-bold small mb-1" for="consulta">Consulta</label>
+                    <div class="col-md-4 px-0">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   id="consulta"
+                                   name="consulta"
+                                   placeholder="Ej: jperez, Juan, Pérez">
+                        </div>
+                    </div>
+                </div>
+
                 <table class="table table-hover align-middle" id="tabla-usuarios" style="width:100%">
                     <thead class="table-dark">
                         <tr>
@@ -41,7 +56,7 @@
                             <th style="width: 15%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="lista-usuarios">
+                    <tbody>
                     </tbody>
                 </table>
             </div>
@@ -59,6 +74,7 @@
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/usuarios.js"></script>

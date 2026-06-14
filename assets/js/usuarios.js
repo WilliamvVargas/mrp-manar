@@ -1,9 +1,15 @@
 $(document).ready(function() {
 
+    let tablaUsuarios;
 
     // --- 1. INICIALIZACIONES ---
-    listarUsuarios();
-    
+    inicializarTablaUsuarios();
+
+    // Buscador propio: filtra la tabla por nombre de usuario (server-side, con debounce)
+    $('#consulta').on('input', debounce(function() {
+        tablaUsuarios.ajax.reload();
+    }, 400));
+
     // Listeners de limpieza automática al escribir
     activarLimpiezaMensajeAlEscribir('#form-usuario', '#modal-mensajes');
     activarLimpiezaMensajeAlEscribir('#form-usuario-editar', '#modal-mensajes-editar');
@@ -15,56 +21,51 @@ $(document).ready(function() {
     activarTogglePassword('#togglePasswordEdit', '#password-editar', '#iconEyeEdit');
     activarTogglePassword('#togglePasswordConfirmEdit', '#confirm-password-editar', '#iconEyeConfirmEdit');
 
-    // --- 2. FLUJO PRINCIPAL: LISTAR ---
-    function listarUsuarios() {
-        $.ajax({
-            url: 'controllers/usuarios_controller.php?action=listar',
-            type: 'GET',
-            dataType: 'json',
-            success: function(response) {
-
-                if (response.status === 'success') {
-                    if ($.fn.DataTable.isDataTable('#tabla-usuarios')) {
-                        $('#tabla-usuarios').DataTable().destroy();
-                    }
-
-                    let filas = '';
-                    response.data.forEach(user => {
-                        filas += `
-                            <tr>
-                                <td><strong>${user.usuario}</strong></td>
-                                <td><strong>${user.nombres}</strong></td>
-                                <td><strong>${user.apellidos}</strong></td>
-                                <td>${user.fecha}</td>
-                                <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-dark btn-editar" data-id="${user.id}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-dark btn-password" data-id="${user.id}">
-                                        <i class="bi bi-key"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger btn-eliminar" data-id="${user.id}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>`;
-                    });
-                    
-                    $('#lista-usuarios').html(filas);
-
-                    $('#tabla-usuarios').DataTable({
-                        autoWidth: false,
-                        "language": {
-                            "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-                        },
-                        "columnDefs": [ { "orderable": true, "targets": 3 }],
-                        "order": [[0, "desc"]]
-                    });
-                } 
-                else {
-                    mostrarMensajeFormulario('#alert-container', 'Error de Sistema', 'No se pudieron procesar los usuarios.', 'danger');
+    // --- 2. FLUJO PRINCIPAL: LISTAR (server-side) ---
+    function inicializarTablaUsuarios() {
+        tablaUsuarios = $('#tabla-usuarios').DataTable({
+            serverSide: true,   // El servidor pagina, busca y ordena
+            processing: true,   // Muestra indicador "Procesando..."
+            ajax: {
+                url: 'controllers/usuarios_controller.php?action=listar',
+                type: 'GET',
+                data: function(d) {
+                    d.consulta = $('#consulta').val();   // Filtro por nombre de usuario
                 }
-            }
+            },
+            // Layout: arriba [cantidad por página | info de registros], abajo la paginación. Sin buscador.
+            dom: "<'row align-items-center'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-end'i>>" +
+                 "<'row'<'col-sm-12'tr>>" +
+                 "<'row'<'col-sm-12'p>>",
+            autoWidth: false,
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+            },
+            order: [[3, 'desc']],   // Por fecha de creación, más recientes primero
+            columns: [
+                { data: 'usuario',   render: $.fn.dataTable.render.text() },
+                { data: 'nombres',   render: $.fn.dataTable.render.text() },
+                { data: 'apellidos', render: $.fn.dataTable.render.text() },
+                { data: 'fecha' },
+                {
+                    data: 'id',
+                    orderable: false,
+                    searchable: false,
+                    className: 'text-center',
+                    render: function(id) {
+                        return `
+                            <button class="btn btn-sm btn-outline-dark btn-editar" data-id="${id}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-dark btn-password" data-id="${id}">
+                                <i class="bi bi-key"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-eliminar" data-id="${id}">
+                                <i class="bi bi-trash"></i>
+                            </button>`;
+                    }
+                }
+            ]
         });
     }
 
@@ -90,7 +91,7 @@ $(document).ready(function() {
                 resetBtnLoading(btn);
                 if (res.status === 'success') {
                     limpiarFormularioCompleto(formulario, modalMensaje, true);
-                    listarUsuarios();
+                    tablaUsuarios.ajax.reload(null, true);
                     mostrarMensajeFormulario(
                         modalMensaje, 
                         'Éxito', 
@@ -137,7 +138,7 @@ $(document).ready(function() {
                 
                 if (res.status === 'success') {
                     limpiarFormularioCompleto(formulario, modalMensaje, false);
-                    listarUsuarios();
+                    tablaUsuarios.ajax.reload(null, false);
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 } 
                 else if (res.status === 'no_changes') {
@@ -225,7 +226,7 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(res) {
                 if (res.status === 'success') {
-                    listarUsuarios();
+                    tablaUsuarios.ajax.reload(null, false);
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 } else {
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
