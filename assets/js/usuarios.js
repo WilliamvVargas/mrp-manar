@@ -4,7 +4,7 @@ $(document).ready(function() {
 
     // Tabla de consulta server-side (helper reutilizable definido en utils.js)
     const tablaConsulta = inicializarTablaConsulta({
-        tabla: '#tabla-usuarios',
+        tabla: '#tabla-consulta',
         url: 'controllers/usuarios_controller.php?action=listar',
         input: '#consulta',
         orden: [[3, 'desc']],   // Por fecha de creación, más recientes primero

@@ -19,4 +19,8 @@
   define('LOGIN_MAX_INTENTOS', 5);      // Intentos fallidos permitidos por IP + usuario
   define('LOGIN_VENTANA_MINUTOS', 15);  // Ventana de tiempo y duración del bloqueo
 
+  //Carga masiva de Forecast (.xlsx)
+  define('FORECAST_MAX_FILAS', 5000);   // Máximo de filas de datos a procesar
+  define('FORECAST_MAX_PESO_MB', 5);    // Peso máximo del archivo .xlsx (protege la memoria)
+
 ?>

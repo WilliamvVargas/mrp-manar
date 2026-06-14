@@ -61,6 +61,29 @@ END
 $$
 DELIMITER ;
 
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `forecast`
+--
+
+DROP TABLE IF EXISTS `forecast`;
+CREATE TABLE `forecast` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `empresa` varchar(50) NOT NULL,
+  `version` varchar(20) NOT NULL,
+  `codigo_cliente` varchar(20) NOT NULL,
+  `nombre_cliente` varchar(256) NOT NULL,
+  `fecha` date NOT NULL,
+  `codigo_producto` varchar(20) NOT NULL,
+  `nombre_producto` varchar(256) NOT NULL,
+  `cantidad` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(36) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updated_by` varchar(36) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Índices para tablas volcadas
 --
@@ -80,6 +103,12 @@ ALTER TABLE `usuarios`
   ADD UNIQUE KEY `uq_usuarios_usuario` (`usuario`);
 
 --
+-- Indices de la tabla `forecast`
+--
+ALTER TABLE `forecast`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- AUTO_INCREMENT de las tablas volcadas
 --
 
@@ -87,5 +116,11 @@ ALTER TABLE `usuarios`
 -- AUTO_INCREMENT de la tabla `login_intentos`
 --
 ALTER TABLE `login_intentos`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `forecast`
+--
+ALTER TABLE `forecast`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 COMMIT;

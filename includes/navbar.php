@@ -22,6 +22,19 @@
                         <li><a class="dropdown-item disabled" href="#">Configuración</a></li>
                     </ul>
                 </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle <?php echo (basename($_SERVER['PHP_SELF']) == 'usuarios.php') ? 'active' : ''; ?>" 
+                       href="#" id="navbarAdmin" role="button" data-bs-toggle="dropdown">
+                        Procesos
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'forecast.php') ? 'active' : ''; ?>" href="forecast">
+                                <i class="bi bi-graph-up me-2"></i>Forecast
+                            </a>
+                        </li>
+                    </ul>
+                </li>
             </ul>
             <div class="d-flex align-items-center">
                 <span class="navbar-text me-3 small">

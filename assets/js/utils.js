@@ -266,7 +266,7 @@ function debounce(func, delay = 400) {
  *   - Contador de registros que omite el redundante "de un total de 0" sin resultados.
  *
  * @param {Object} opciones
- * @param {string} opciones.tabla    - Selector de la tabla (ej: '#tabla-usuarios').
+ * @param {string} opciones.tabla    - Selector de la tabla (ej: '#tabla-consulta').
  * @param {string} opciones.url      - URL del controlador (con action=listar).
  * @param {string} opciones.input    - Selector del input de búsqueda (ej: '#consulta').
  * @param {Array}  opciones.columnas - Definición de columnas de DataTables.
