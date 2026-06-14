@@ -18,6 +18,11 @@
                                 <i class="bi bi-people me-2"></i>Usuarios
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'menus.php') ? 'active' : ''; ?>" href="menus">
+                                <i class="bi bi-segmented-nav me-2"></i>Menús
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item disabled" href="#">Configuración</a></li>
                     </ul>
