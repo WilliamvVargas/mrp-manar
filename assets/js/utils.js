@@ -258,6 +258,72 @@ function debounce(func, delay = 400) {
     };
 }
 
+/**
+ * Inicializa una tabla de DataTables en modo server-side, reutilizable por
+ * cualquier mantenedor. Incluye:
+ *   - Buscador propio (input externo) con debounce, que envía el parámetro 'consulta'.
+ *   - Spinner de Bootstrap como indicador de carga.
+ *   - Contador de registros que omite el redundante "de un total de 0" sin resultados.
+ *
+ * @param {Object} opciones
+ * @param {string} opciones.tabla    - Selector de la tabla (ej: '#tabla-usuarios').
+ * @param {string} opciones.url      - URL del controlador (con action=listar).
+ * @param {string} opciones.input    - Selector del input de búsqueda (ej: '#consulta').
+ * @param {Array}  opciones.columnas - Definición de columnas de DataTables.
+ * @param {Array}  opciones.orden    - Orden inicial (ej: [[3, 'desc']]).
+ * @returns {Object} La instancia de DataTable.
+ */
+function inicializarTablaConsulta(opciones) {
+
+    // Indicador de carga: spinner de Bootstrap + texto
+    $(opciones.tabla).on('processing.dt', function(e, settings, processing) {
+        if (processing) {
+            $('.dataTables_processing', settings.nTableWrapper)
+                .html('<div class="spinner-border" role="status" aria-hidden="true"></div><span>Cargando . . .</span>');
+        }
+    });
+
+    const tabla = $(opciones.tabla).DataTable({
+        serverSide: true,   // El servidor pagina, busca y ordena
+        processing: true,   // Activa el indicador de carga
+        ajax: {
+            url: opciones.url,
+            type: 'GET',
+            data: function(d) {
+                d.consulta = $(opciones.input).val();   // Texto del buscador propio
+            }
+        },
+        // Layout: arriba [cantidad por página | info de registros], abajo la paginación.
+        dom: "<'row align-items-center'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-end'i>>" +
+             "<'row'<'col-sm-12'tr>>" +
+             "<'row'<'col-sm-12'p>>",
+        autoWidth: false,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+        },
+        // Sin resultados: omite el redundante "de un total de 0 registros"
+        infoCallback: function(settings, start, end, max, total, pre) {
+            if (total === 0) {
+                let texto = 'Mostrando registros del 0 al 0';
+                if (max > 0 && max !== total) {
+                    texto += ' (filtrado de un total de ' + max + ' registros)';
+                }
+                return texto;
+            }
+            return pre;
+        },
+        order: opciones.orden,
+        columns: opciones.columnas
+    });
+
+    // Buscador propio con debounce → recarga la tabla
+    $(opciones.input).on('input', debounce(function() {
+        tabla.ajax.reload();
+    }, 400));
+
+    return tabla;
+}
+
 /** Trigger para cerrar mensajes con el boton cerrar*/
 $(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
     e.preventDefault();

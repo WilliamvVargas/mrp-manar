@@ -34,3 +34,36 @@
     --bs-pagination-active-bg: #212529;
     --bs-pagination-active-border-color: #212529;
 }
+
+
+/* Indicador "Procesando" de DataTables como overlay sobre el área de la tabla.
+   Por defecto usaba top:50% (saltaba según la cantidad de filas), y fijarlo con
+   un top absoluto generaba barra de scroll en tablas cortas. Este overlay ocupa
+   EXACTAMENTE el contenedor (no lo desborda → sin scroll) y ancla el texto
+   arriba (posición constante → sin saltos). */
+
+.dataTables_wrapper {
+    position: relative;
+}
+
+.dataTables_wrapper .dataTables_processing {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding-top: 0.5 rem;          /* ancla el cargador cerca del tope */
+    display: flex;
+    flex-direction: column;     /* spinner arriba, texto debajo */
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    overflow: hidden;           /* nunca sobresale → nunca genera scroll */
+    background: rgba(255, 255, 255, 0.7);
+    border: 0;
+    box-shadow: none;
+    color: #212529;             /* color del spinner (currentColor) y del texto */
+    font-weight: 500;
+}
