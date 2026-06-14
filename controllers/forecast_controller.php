@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../config/conexion.php';
 require_once __DIR__ . '/../includes/funciones_validacion.php';
 require_once __DIR__ . '/../assets/librerias/lector_xlsx/lector_xlsx.php';
+require_once __DIR__ . '/../models/forecast_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -10,7 +12,7 @@ header('Cache-Control: no-store');
 $COLUMNAS_FORECAST = [
     'A' => 'empresa',
     'B' => 'version',
-    'C' => 'cod_cliente',
+    'C' => 'codigo_cliente',
     'D' => 'nombre_cliente',
     'E' => 'fecha',
     'F' => 'codigo_producto',
@@ -28,6 +30,16 @@ $CABECERAS_ESPERADAS = [
     'F' => 'CODIGO PRODUCTO',
     'G' => 'NOMBRE PRODUCTO',
     'H' => 'CANTIDAD',
+];
+
+// Longitud máxima de cada campo de texto (debe coincidir con la tabla).
+$LONGITUDES = [
+    'empresa'         => 50,
+    'version'         => 20,
+    'codigo_cliente'  => 20,
+    'nombre_cliente'  => 256,
+    'codigo_producto' => 20,
+    'nombre_producto' => 256,
 ];
 
 /**
@@ -50,6 +62,34 @@ function errorForecast($mensaje)
 {
     echo json_encode(['status' => 'error', 'message' => $mensaje]);
     exit;
+}
+
+/**
+ * Valida un registro de forecast ya mapeado. Devuelve el mensaje de error
+ * (string) si algo falla, o null si el registro es válido.
+ */
+function validarRegistroForecast(array $r, array $longitudes)
+{
+    $obligatorios = ['empresa', 'version', 'codigo_cliente', 'nombre_cliente', 'codigo_producto', 'nombre_producto'];
+
+    foreach ($obligatorios as $campo) {
+        if ($r[$campo] === '') {
+            return "el campo {$campo} está vacío.";
+        }
+        if (isset($longitudes[$campo]) && mb_strlen($r[$campo]) > $longitudes[$campo]) {
+            return "el campo {$campo} supera los {$longitudes[$campo]} caracteres.";
+        }
+    }
+
+    if ($r['fecha'] === null) {
+        return "la fecha está vacía o no es válida.";
+    }
+
+    if ($r['cantidad'] === null) {
+        return "la cantidad está vacía o no es numérica.";
+    }
+
+    return null;
 }
 
 $action = $_REQUEST['action'] ?? '';
@@ -106,12 +146,14 @@ switch ($action) {
             }
         }
 
-        // 5. Extraer los datos (desde la fila 2): mapear columnas y convertir la fecha.
+        // 5. Extraer y validar los datos (desde la fila 2).
         $registros  = [];
+        $errores    = [];
         $totalFilas = count($filas);
 
         for ($i = 1; $i < $totalFilas; $i++) {
-            $fila = $filas[$i];
+            $fila      = $filas[$i];
+            $filaExcel = $i + 1;   // número de fila real en el Excel (la 1 es la cabecera)
 
             // Omite filas completamente vacías.
             $tieneDatos = false;
@@ -125,6 +167,7 @@ switch ($action) {
                 continue;
             }
 
+            // Mapea las columnas a campos y convierte fecha/cantidad.
             $registro = [];
             foreach ($COLUMNAS_FORECAST as $col => $campo) {
                 $valor = trim($fila[$col] ?? '');
@@ -132,19 +175,49 @@ switch ($action) {
                 if ($campo === 'fecha') {
                     $valor = serialExcelAFecha($valor);
                 } elseif ($campo === 'cantidad') {
-                    $valor = ($valor === '') ? null : (int) $valor;
+                    $valor = is_numeric($valor) ? (int) $valor : null;
                 }
 
                 $registro[$campo] = $valor;
             }
 
+            // Valida el registro; si falla, se acumula el error con su fila.
+            $error = validarRegistroForecast($registro, $LONGITUDES);
+            if ($error !== null) {
+                $errores[] = "Fila {$filaExcel}: {$error}";
+                continue;
+            }
+
             $registros[] = $registro;
         }
 
+        // 6. Si hubo filas con errores, no se inserta nada (todo o nada).
+        if (!empty($errores)) {
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'El archivo tiene ' . count($errores) . ' fila(s) con errores. Corrígelo y vuelve a subirlo.',
+                'errores' => array_slice($errores, 0, 10)
+            ]);
+            exit;
+        }
+
+        if (empty($registros)) {
+            errorForecast('El archivo no contiene registros válidos para procesar.');
+        }
+
+        // 7. Insertar en la base de datos dentro de una transacción (todo o nada).
+        try {
+            $forecastModel = new Forecast($pdo);
+            $insertados    = $forecastModel->insertarMasivo($registros, $_SESSION['usuario_id']);
+        } catch (Throwable $e) {
+            error_log('[FORECAST] ' . $e->getMessage());
+            errorForecast('Ocurrió un error al guardar los registros. Intente nuevamente.');
+        }
+
         echo json_encode([
-            'status' => 'success',
-            'total'  => count($registros),
-            'data'   => $registros
+            'status'  => 'success',
+            'total'   => $insertados,
+            'message' => "Se cargaron {$insertados} registro(s) correctamente."
         ]);
         exit;
 

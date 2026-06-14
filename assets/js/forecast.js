@@ -53,10 +53,15 @@ $(document).ready(function() {
             success: function(res) {
                 resetBtnLoading(btn);
                 if (res.status === 'success') {
-                    mostrarMensajeFormulario(modalMensaje, 'Éxito', 'Se procesaron ' + res.total + ' registro(s).', 'success');
-                    console.log('Registros extraídos:', res.data);   // temporal: ver el resultado
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 } else {
-                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                    let msg = res.message;
+                    if (res.errores && res.errores.length) {
+                        msg += '<ul class="text-start small mb-0 mt-2">'
+                             + res.errores.map(function(e) { return '<li>' + e + '</li>'; }).join('')
+                             + '</ul>';
+                    }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', msg, 'danger');
                 }
             },
             error: function(jqXHR, textStatus) {
