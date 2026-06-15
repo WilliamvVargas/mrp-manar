@@ -54,6 +54,23 @@
                         </div>
                     </div>
 
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input_posicion">Posición</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   id="input_posicion"
+                                   disabled>
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    id="btn-asignar-posicion"
+                                    disabled>
+                                <i class="bi bi-sort-numeric-down me-1"></i> Asignar Posición
+                            </button>
+                        </div>
+                        <input type="hidden" id="posicion" name="posicion">
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button"

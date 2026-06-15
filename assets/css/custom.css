@@ -67,3 +67,24 @@
     color: #212529;             /* color del spinner (currentColor) y del texto */
     font-weight: 500;
 }
+
+
+/* Listado ordenable (drag & drop) de "Asignar Posición" */
+
+#lista-posicion .list-group-item {
+    cursor: default;            /* los menús existentes son estáticos */
+}
+
+#lista-posicion li[data-id="nuevo"] {
+    cursor: move;               /* solo el menú nuevo se puede tomar */
+}
+
+/* El menú restringido muestra un ícono de "estático" algo atenuado */
+#lista-posicion li:not([data-id="nuevo"]) .bi-dash-circle {
+    opacity: 0.6;
+}
+
+.lista-posicion-placeholder {
+    border: 1px dashed #adb5bd;
+    background-color: #f8f9fa;
+}

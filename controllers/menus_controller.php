@@ -24,8 +24,9 @@ switch ($action) {
 
         retrasar();
 
-        $nombre = trim($_POST['nombre'] ?? '');
-        $estado = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
+        $nombre   = trim($_POST['nombre'] ?? '');
+        $estado   = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
+        $posicion = $_POST['posicion'] ?? '';          // vacío = al final (MAX + 1)
 
         $errores = [];
 
@@ -37,8 +38,8 @@ switch ($action) {
 
         try {
 
-            // La posición se asigna sola en el modelo (MAX + 1).
-            if ($menuModel->crear($nombre, $estado)) {
+            // Si llega una posición se usa; si no, el modelo asigna MAX + 1.
+            if ($menuModel->crear($nombre, $estado, $posicion)) {
                 echo json_encode([
                     'status'  => 'success',
                     'message' => 'Menú creado con éxito.'
@@ -71,6 +72,18 @@ switch ($action) {
         }
 
         echo json_encode(['status' => 'success']);
+        exit;
+
+    case 'listar':
+
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $menuModel->listarOrdenados()
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e, null);
+        }
         exit;
 
     default:

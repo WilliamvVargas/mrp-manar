@@ -22,14 +22,44 @@
          * @param int    $estado 1 = activo, 0 = inactivo.
          * @return bool True si la inserción fue exitosa.
          */
-        public function crear($nombre, $estado)
+        public function crear($nombre, $estado, $posicion = null)
         {
-            $posicion = $this->siguientePosicion();
+            $this->pdo->beginTransaction();
 
-            $stmt = $this->pdo->prepare("INSERT INTO menus (nombre, estado, posicion)
-                                         VALUES (?, ?, ?)");
+            try {
 
-            return $stmt->execute([$nombre, $estado, $posicion]);
+                if (!is_numeric($posicion) || (int) $posicion < 1) {
+                    // Sin posición indicada: va al final, no hay que correr a nadie.
+                    $posicion = $this->siguientePosicion();
+                } else {
+                    $posicion = (int) $posicion;
+
+                    // No dejar huecos: como tope, al final (MAX + 1).
+                    $maximo = $this->siguientePosicion();
+                    if ($posicion > $maximo) {
+                        $posicion = $maximo;
+                    }
+
+                    // Hace espacio: corre +1 los menús en esa posición o posteriores.
+                    $corrimiento = $this->pdo->prepare(
+                        "UPDATE menus SET posicion = posicion + 1 WHERE posicion >= ?"
+                    );
+                    $corrimiento->execute([$posicion]);
+                }
+
+                $insert = $this->pdo->prepare(
+                    "INSERT INTO menus (nombre, estado, posicion) VALUES (?, ?, ?)"
+                );
+                $ok = $insert->execute([$nombre, $estado, $posicion]);
+
+                $this->pdo->commit();
+
+                return $ok;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
         }
 
         /**
@@ -43,5 +73,17 @@
             return (int) $this->pdo
                 ->query("SELECT COALESCE(MAX(posicion), 0) + 1 FROM menus")
                 ->fetchColumn();
+        }
+
+        /**
+         * Devuelve todos los menús ordenados por posición ascendente.
+         *
+         * @return array Lista de menús: [ ['id'=>.., 'nombre'=>.., 'posicion'=>..], ... ]
+         */
+        public function listarOrdenados()
+        {
+            return $this->pdo
+                ->query("SELECT id, nombre, posicion FROM menus ORDER BY posicion ASC")
+                ->fetchAll();
         }
     }
