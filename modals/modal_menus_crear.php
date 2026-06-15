@@ -11,7 +11,7 @@
                         aria-label="Close">
                 </button>
             </div>
-            <form id="form-menu" class="form-validado-estatico" action="controllers/menus_controller.php" novalidate>
+            <form id="form-menu" class="form-validado-estatico form-validar-instantaneo" action="controllers/menus_controller.php" novalidate>
                 <div class="modal-body py-2">
 
                     <input type="hidden"
@@ -33,7 +33,8 @@
                                    id="input_nombre"
                                    name="nombre"
                                    placeholder="Ej: Clientes"
-                                   maxlength="<?php echo MENU_NOMBRE_MAX_LENGTH;?>">
+                                   maxlength="<?php echo MENU_NOMBRE_MAX_LENGTH;?>"
+                                   data-check='true'>
                         </div>
                         <div class="invalid-feedback small" id="error-nombre"></div>
                     </div>

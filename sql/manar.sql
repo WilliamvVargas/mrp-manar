@@ -84,6 +84,20 @@ CREATE TABLE `forecast` (
   `updated_by` varchar(36) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `menus`
+--
+
+DROP TABLE IF EXISTS `menus`;
+CREATE TABLE `menus` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `nombre` varchar(30) NOT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `posicion` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Índices para tablas volcadas
 --
@@ -109,6 +123,12 @@ ALTER TABLE `forecast`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indices de la tabla `menus`
+--
+ALTER TABLE `menus`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- AUTO_INCREMENT de las tablas volcadas
 --
 
@@ -122,5 +142,11 @@ ALTER TABLE `login_intentos`
 -- AUTO_INCREMENT de la tabla `forecast`
 --
 ALTER TABLE `forecast`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `menus`
+--
+ALTER TABLE `menus`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 COMMIT;
