@@ -13,7 +13,7 @@
                 <div class="modal-body py-2">
 
                     <p class="small text-muted mb-2">
-                        <i class="bi bi-info-circle me-1"></i>Arrastra el <span class="badge bg-primary ms-auto">Nuevo</span> menú para asignar su posición.
+                        <i class="bi bi-info-circle me-1"></i>Arrastra el menú <span class="badge bg-primary">resaltado</span> para asignar su posición.
                     </p>
 
                     <ul class="list-group" id="lista-posicion"></ul>

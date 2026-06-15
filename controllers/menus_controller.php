@@ -51,6 +51,75 @@ switch ($action) {
         }
         exit;
 
+    case 'obtener':
+
+        $id = $_GET['id'] ?? '';
+
+        try {
+
+            $menu = $menuModel->buscarPorId($id);
+
+            if ($menu) {
+                echo json_encode([
+                    'status' => 'success',
+                    'data'   => $menu
+                ]);
+            } else {
+                echo json_encode([
+                    'status'  => 'error',
+                    'message' => 'Menú no encontrado.'
+                ]);
+            }
+
+        } catch (PDOException $e) {
+            responderErrorServidor($e, null);
+        }
+        exit;
+
+    case 'editar':
+
+        retrasar();
+
+        $id       = $_POST['id_registro'] ?? 0;
+        $nombre   = trim($_POST['nombre'] ?? '');
+        $estado   = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
+        $posicion = $_POST['posicion'] ?? '';          // vacío = no se reordena
+
+        $errores = [];
+
+        if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+            $errores['nombre'] = $err;
+        }
+
+        enviarErrorCamposFormulario($errores);
+
+        try {
+
+            $filasAfectadas = $menuModel->actualizar($id, $nombre, $estado);
+
+            // Solo reordena si se eligió una posición en el modal Asignar Posición.
+            $cambioPosicion = 0;
+            if (is_numeric($posicion) && (int) $posicion >= 1) {
+                $cambioPosicion = $menuModel->reposicionar($id, $posicion);
+            }
+
+            if ($filasAfectadas > 0 || $cambioPosicion > 0) {
+                echo json_encode([
+                    'status'  => 'success',
+                    'message' => 'Menú actualizado con éxito.'
+                ]);
+            } else {
+                echo json_encode([
+                    'status'  => 'no_changes',
+                    'message' => 'No se realizaron cambios.'
+                ]);
+            }
+
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'validar_campo':
 
         $campo = $_POST['campo'] ?? '';
