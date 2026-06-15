@@ -32,9 +32,9 @@
         <div class="card-body">
             <div class="table-responsive">
 
-                <div class="mb-2">
-                    <label class="form-label fw-bold small mb-1" for="consulta">Consulta</label>
-                    <div class="col-md-4 px-0">
+                <div class="row g-2 mb-2 mx-0">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small mb-1" for="consulta">Consulta</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                             <input type="text"
@@ -44,12 +44,20 @@
                                    placeholder="Ej: clientes">
                         </div>
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small mb-1" for="filtro-estado">Estado</label>
+                        <select class="form-select form-select-sm" id="filtro-estado">
+                            <option value="">Todos</option>
+                            <option value="1">Activo</option>
+                            <option value="0">Inactivo</option>
+                        </select>
+                    </div>
                 </div>
 
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 20%">Id</th>
+                            <th style="width: 20%">Posición</th>
                             <th style="width: 30%">Nombre</th>
                             <th style="width: 30%">Estado</th>
                             <th style="width: 20%" class="text-center">Acciones</th>

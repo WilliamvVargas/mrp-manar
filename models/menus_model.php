@@ -63,6 +63,20 @@
         }
 
         /**
+         * Alterna el estado de un menú: activo (1) pasa a inactivo (0) y viceversa.
+         *
+         * @param int $id Identificador del menú.
+         * @return bool True si se actualizó algún registro.
+         */
+        public function cambiarEstado($id)
+        {
+            $stmt = $this->pdo->prepare("UPDATE menus SET estado = 1 - estado WHERE id = ?");
+            $stmt->execute([(int) $id]);
+
+            return $stmt->rowCount() > 0;
+        }
+
+        /**
          * Devuelve la siguiente posición disponible: MAX(posicion) + 1
          * (1 si la tabla está vacía).
          *
@@ -85,5 +99,99 @@
             return $this->pdo
                 ->query("SELECT id, nombre, posicion FROM menus ORDER BY posicion ASC")
                 ->fetchAll();
+        }
+
+        /**
+         * Cantidad total de menús (sin filtro).
+         */
+        public function contarTodos()
+        {
+            return (int) $this->pdo->query("SELECT COUNT(*) FROM menus")->fetchColumn();
+        }
+
+        /**
+         * Cantidad de menús que coinciden con los filtros (nombre y estado).
+         * Si no hay filtros, equivale al total.
+         */
+        public function contarFiltrados($busqueda, $estado = '')
+        {
+            list($where, $params) = $this->construirFiltro($busqueda, $estado);
+
+            if ($where === '') {
+                return $this->contarTodos();
+            }
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM menus $where");
+            $stmt->execute($params);
+
+            return (int) $stmt->fetchColumn();
+        }
+
+        /**
+         * Devuelve una página de menús para DataTables (server-side).
+         * El filtro de búsqueda aplica al nombre; además se puede filtrar por estado.
+         *
+         * @param string $busqueda     Texto a buscar en el nombre.
+         * @param string $estado       '' (todos), '1' (activo) o '0' (inactivo).
+         * @param string $columnaOrden Nombre lógico de la columna a ordenar.
+         * @param string $dirOrden     'asc' o 'desc'.
+         * @param int    $inicio       Offset (registro inicial).
+         * @param int    $longitud     Cantidad de registros (-1 = todos).
+         */
+        public function listarPagina($busqueda, $estado, $columnaOrden, $dirOrden, $inicio, $longitud)
+        {
+            // Lista blanca de columnas ordenables: evita inyección en el ORDER BY.
+            $columnasValidas = [
+                'posicion' => 'posicion',
+                'nombre'   => 'nombre',
+                'estado'   => 'estado',
+            ];
+            $columna   = $columnasValidas[$columnaOrden] ?? 'posicion';
+            $direccion = (strtolower($dirOrden) === 'desc') ? 'DESC' : 'ASC';
+
+            $inicio   = max(0, (int) $inicio);
+            $longitud = (int) $longitud;
+
+            list($where, $params) = $this->construirFiltro($busqueda, $estado);
+
+            $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
+
+            $sql = "SELECT id, posicion, nombre, estado
+                    FROM menus
+                    $where
+                    ORDER BY $columna $direccion
+                    $limit";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Arma la cláusula WHERE y sus parámetros para los filtros de la consulta
+         * principal (nombre y/o estado). Compartida por contarFiltrados y listarPagina.
+         *
+         * @return array [string $where, array $params]
+         */
+        private function construirFiltro($busqueda, $estado)
+        {
+            $condiciones = [];
+            $params      = [];
+
+            if ($busqueda !== '') {
+                $condiciones[] = "nombre LIKE ?";
+                $params[]      = '%' . $busqueda . '%';
+            }
+
+            // '' = todos; '0'/'1' = filtra por ese estado.
+            if ($estado !== '') {
+                $condiciones[] = "estado = ?";
+                $params[]      = (int) $estado;
+            }
+
+            $where = $condiciones ? 'WHERE ' . implode(' AND ', $condiciones) : '';
+
+            return [$where, $params];
         }
     }

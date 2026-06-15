@@ -74,8 +74,27 @@ switch ($action) {
         echo json_encode(['status' => 'success']);
         exit;
 
-    case 'listar':
+    case 'cambiar_estado':
 
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id < 1) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            $menuModel->cambiarEstado($id);
+            echo json_encode(['status' => 'success']);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'listar_orden':
+
+        // Listado completo ordenado por posición (lo usa el modal de Asignar Posición).
         try {
             echo json_encode([
                 'status' => 'success',
@@ -83,6 +102,46 @@ switch ($action) {
             ]);
         } catch (PDOException $e) {
             responderErrorServidor($e, null);
+        }
+        exit;
+
+    case 'listar':
+
+        // Listado paginado para la tabla principal (DataTables server-side).
+        $draw     = (int) ($_GET['draw'] ?? 0);
+        $inicio   = (int) ($_GET['start'] ?? 0);
+        $longitud = (int) ($_GET['length'] ?? 10);
+
+        // Filtros: buscador (#consulta) por nombre, y filtro de estado.
+        $consulta = trim($_GET['consulta'] ?? '');
+        $estado   = $_GET['estado'] ?? '';   // '' = todos, '1' = activo, '0' = inactivo
+
+        // Columna y dirección de ordenamiento (índice -> nombre lógico).
+        $columnas     = ['posicion', 'nombre', 'estado'];
+        $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
+        $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'posicion';
+        $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';
+
+        try {
+            $totalRegistros = $menuModel->contarTodos();
+            $totalFiltrados = $menuModel->contarFiltrados($consulta, $estado);
+            $datos          = $menuModel->listarPagina($consulta, $estado, $columnaOrden, $dirOrden, $inicio, $longitud);
+
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => $totalRegistros,
+                'recordsFiltered' => $totalFiltrados,
+                'data'            => $datos
+            ]);
+        } catch (PDOException $e) {
+            error_log('[MENUS] ' . $e->getMessage());
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => 0,
+                'recordsFiltered' => 0,
+                'data'            => [],
+                'error'           => 'Ocurrió un error al cargar los menús.'
+            ]);
         }
         exit;
 

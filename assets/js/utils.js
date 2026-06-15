@@ -271,6 +271,8 @@ function debounce(func, delay = 400) {
  * @param {string} opciones.input    - Selector del input de búsqueda (ej: '#consulta').
  * @param {Array}  opciones.columnas - Definición de columnas de DataTables.
  * @param {Array}  opciones.orden    - Orden inicial (ej: [[3, 'desc']]).
+ * @param {Function} [opciones.extra] - Opcional. Recibe el objeto de datos de la
+ *                                      petición para agregar parámetros extra (filtros).
  * @returns {Object} La instancia de DataTable.
  */
 function inicializarTablaConsulta(opciones) {
@@ -291,6 +293,9 @@ function inicializarTablaConsulta(opciones) {
             type: 'GET',
             data: function(d) {
                 d.consulta = $(opciones.input).val();   // Texto del buscador propio
+                if (typeof opciones.extra === 'function') {
+                    opciones.extra(d);   // parámetros adicionales (filtros extra)
+                }
             }
         },
         // Layout: arriba [cantidad por página | info de registros], abajo la paginación.

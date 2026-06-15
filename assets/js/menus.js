@@ -1,5 +1,75 @@
 $(document).ready(function() {
 
+    // Tabla principal de menús (server-side, helper reutilizable de utils.js).
+    const tablaConsulta = inicializarTablaConsulta({
+        tabla: '#tabla-consulta',
+        url:   'controllers/menus_controller.php?action=listar',
+        input: '#consulta',
+        orden: [[0, 'asc']],   // por posición ascendente
+        extra: function(d) {
+            d.estado = $('#filtro-estado').val();   // '', '1' o '0'
+        },
+        columnas: [
+            { data: 'posicion', className: 'text-center' },
+            { data: 'nombre', render: $.fn.dataTable.render.text() },
+            {
+                data: 'estado',
+                className: 'text-center',
+                render: function(estado) {
+                    return Number(estado) === 1
+                        ? '<span class="badge bg-success">Activo</span>'
+                        : '<span class="badge bg-secondary">Inactivo</span>';
+                }
+            },
+            {
+                data: 'id',
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(id, type, fila) {
+                    const activo = Number(fila.estado) === 1;
+                    const titulo = activo ? 'Inactivar menú' : 'Activar menú';
+                    const clase  = activo ? 'btn-success' : 'btn-secondary';
+
+                    return '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-menu" '
+                         + 'data-id="' + id + '" title="' + titulo + '">'
+                         + '<i class="bi bi-power"></i></button>';
+                }
+            }
+        ]
+    });
+
+    // Recargar la tabla al cambiar el filtro de estado.
+    $('#filtro-estado').on('change', function() {
+        tablaConsulta.ajax.reload();
+    });
+
+    // Botón de la columna Acciones: alterna el estado del menú (activo <-> inactivo).
+    // Solo refresca la tabla ante un 'success'; no muestra mensajes en pantalla.
+    $('#tabla-consulta tbody').on('click', '.btn-estado-menu', function() {
+        const $btn = $(this);
+        const id   = $btn.data('id');
+
+        $btn.prop('disabled', true);
+
+        $.ajax({
+            url: 'controllers/menus_controller.php?action=cambiar_estado',
+            type: 'POST',
+            data: { id: id, csrf_token: $('#csrf_token').val() },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(null, false);   // el redibujo restituye el botón
+                } else {
+                    $btn.prop('disabled', false);
+                }
+            },
+            error: function() {
+                $btn.prop('disabled', false);
+            }
+        });
+    });
+
     // Limpia la alerta general al escribir en el formulario.
     activarLimpiezaMensajeAlEscribir('#form-menu', '#modal-mensajes');
 
@@ -43,6 +113,7 @@ $(document).ready(function() {
                     limpiarFormularioCompleto(formulario, modalMensaje, true);
                     $('#label-estado').text('Activo');   // el switch vuelve a su valor por defecto
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                    tablaConsulta.ajax.reload(null, false);   // refresca la tabla con el nuevo menú
                 }
                 else if (res.status === 'error') {
                     $(modalMensaje).slideUp(150);
@@ -117,7 +188,7 @@ $(document).ready(function() {
         $lista.html('<li class="list-group-item text-muted small">Cargando...</li>');
 
         $.ajax({
-            url: 'controllers/menus_controller.php?action=listar',
+            url: 'controllers/menus_controller.php?action=listar_orden',
             type: 'GET',
             dataType: 'json',
             success: function(res) {
