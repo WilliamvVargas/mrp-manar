@@ -188,7 +188,7 @@
         public function listarOrdenados()
         {
             return $this->pdo
-                ->query("SELECT id, nombre, posicion FROM menus ORDER BY posicion ASC")
+                ->query("SELECT id, nombre, posicion, estado FROM menus ORDER BY posicion ASC")
                 ->fetchAll();
         }
 

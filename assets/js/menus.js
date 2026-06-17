@@ -241,12 +241,13 @@ $(document).ready(function() {
         idMovible:    function() { return 'nuevo'; },
         construirItems: function(data) {
             const items = data.map(function(menu, i) {
-                return itemPosicion(menu.id, menu.nombre, i + 1, false, null);
+                return itemPosicion(menu.id, menu.nombre, i + 1, false, null, menu.estado);
             });
 
             // Ítem del menú que se está creando; su posición original es la última.
             const nombreNuevo = $('#input_nombre').val().trim() || '(nuevo menú)';
-            const itemNuevo   = itemPosicion('nuevo', nombreNuevo, items.length + 1, true, 'Nuevo');
+            const estadoNuevo = $('#input_estado').is(':checked') ? 1 : 0;
+            const itemNuevo   = itemPosicion('nuevo', nombreNuevo, items.length + 1, true, 'Nuevo', estadoNuevo);
 
             // Si ya se había elegido una posición se respeta; si no, va al final.
             let pos = parseInt($('#input_posicion').val(), 10);
@@ -268,15 +269,18 @@ $(document).ready(function() {
         inputHidden:  '#posicion_editar',
         idMovible:    function() { return String($('#id_menu_editar').val()); },
         construirItems: function(data) {
-            const idEditado   = String($('#id_menu_editar').val());
-            let indiceMovible = -1;
+            const idEditado     = String($('#id_menu_editar').val());
+            const estadoEdicion = $('#input_estado_editar').is(':checked') ? 1 : 0;
+            let indiceMovible   = -1;
 
             const items = data.map(function(menu, i) {
                 const esMovible = String(menu.id) === idEditado;
                 if (esMovible) {
                     indiceMovible = i;
                 }
-                return itemPosicion(menu.id, menu.nombre, i + 1, esMovible, 'Editando');
+                // El ítem en edición refleja el estado actual del switch; el resto, su estado de BD.
+                const estado = esMovible ? estadoEdicion : menu.estado;
+                return itemPosicion(menu.id, menu.nombre, i + 1, esMovible, 'Editando', estado);
             });
 
             // Si en esta sesión ya se eligió una posición distinta, recoloca el ítem.
@@ -422,15 +426,23 @@ $(document).ready(function() {
      * @param esMovible     Si el ítem es el que se puede arrastrar.
      * @param textoBadge    Texto de la insignia del ítem movible (ej: 'Nuevo', 'Editando').
      */
-    function itemPosicion(id, nombre, ordenOriginal, esMovible, textoBadge) {
+    function itemPosicion(id, nombre, ordenOriginal, esMovible, textoBadge, estado) {
         const nombreEsc = $('<div>').text(nombre).html();   // escapa el nombre (evita XSS)
         const clase     = esMovible ? ' list-group-item-primary' : '';
 
-        // El ítem movible lleva su insignia azul. Los existentes una etiqueta amarilla
-        // (oculta) que, al cambiar de posición, mostrará su posición original.
+        // Etiqueta contextual: insignia azul del ítem movible, o amarilla (oculta) que
+        // muestra la posición original cuando un menú existente cambia de lugar.
         const etiqueta = esMovible
-            ? ' <span class="badge bg-primary ms-auto">' + (textoBadge || 'Movible') + '</span>'
-            : ' <span class="badge bg-warning text-dark ms-auto badge-cambio d-none"></span>';
+            ? '<span class="badge bg-primary">' + (textoBadge || 'Movible') + '</span>'
+            : '<span class="badge bg-warning text-dark badge-cambio d-none"></span>';
+
+        // Estado actual del menú: verde (Activo) / gris (Inactivo).
+        const estadoBadge = Number(estado) === 1
+            ? '<span class="badge bg-success">Activo</span>'
+            : '<span class="badge bg-secondary">Inactivo</span>';
+
+        // Ambas etiquetas agrupadas a la DERECHA: contextual + estado (al extremo).
+        const etiquetas = '<span class="ms-auto d-flex align-items-center gap-1">' + etiqueta + estadoBadge + '</span>';
 
         // Ícono según si el ítem se puede mover o está restringido.
         const icono = esMovible
@@ -441,7 +453,7 @@ $(document).ready(function() {
              + icono
              + '<span class="numero-orden fw-semibold me-1">' + ordenOriginal + '.</span>'
              + '<span class="nombre-menu">' + nombreEsc + '</span>'
-             + etiqueta
+             + etiquetas
              + '</li>';
     }
 
