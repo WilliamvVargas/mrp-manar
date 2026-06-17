@@ -168,6 +168,48 @@
         }
 
         /**
+         * Elimina un menú y recompacta las posiciones: los menús posteriores al
+         * eliminado bajan -1 para no dejar huecos. Todo dentro de una transacción.
+         *
+         * @param int $id Identificador del menú.
+         * @return int Cantidad de filas eliminadas (0 si no existía).
+         */
+        public function eliminar($id)
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+
+                $menu = $this->buscarPorId($id);
+
+                if (!$menu) {
+                    $this->pdo->commit();
+                    return 0;
+                }
+
+                $posicion = (int) $menu['posicion'];
+
+                $borrar = $this->pdo->prepare("DELETE FROM menus WHERE id = ?");
+                $borrar->execute([(int) $id]);
+                $filas = $borrar->rowCount();
+
+                // Recompacta: los menús posteriores al eliminado bajan una posición.
+                $corrimiento = $this->pdo->prepare(
+                    "UPDATE menus SET posicion = posicion - 1 WHERE posicion > ?"
+                );
+                $corrimiento->execute([$posicion]);
+
+                $this->pdo->commit();
+
+                return $filas;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
          * Devuelve la siguiente posición disponible: MAX(posicion) + 1
          * (1 si la tabla está vacía).
          *

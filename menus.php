@@ -76,6 +76,7 @@
     include 'modals/modal_menus_crear.php';
     include 'modals/modal_menus_editar.php';
     include 'modals/modal_menus_asignar_posicion.php';
+    include 'modals/modal_menus_eliminar.php';
 
 ?>
 

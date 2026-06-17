@@ -37,7 +37,10 @@ $(document).ready(function() {
                     const btnEstado = '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-menu" '
                                     + 'data-id="' + id + '" title="' + titulo + '"><i class="bi bi-power"></i></button>';
 
-                    return btnEditar + btnEstado;
+                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-menu ms-1" '
+                                      + 'data-id="' + id + '" title="Eliminar menú"><i class="bi bi-trash"></i></button>';
+
+                    return btnEditar + btnEstado + btnEliminar;
                 }
             }
         ]
@@ -111,6 +114,36 @@ $(document).ready(function() {
         });
     });
 
+    // Abre el modal de eliminación y carga los datos del menú seleccionado.
+    $('#tabla-consulta tbody').on('click', '.btn-eliminar-menu', function() {
+        const id           = $(this).data('id');
+        const formulario   = '#form-menu-eliminar';
+        const modalMensaje = '#modal-mensajes-eliminar';
+
+        limpiarFormularioCompleto(formulario, modalMensaje, true);
+
+        $.ajax({
+            url: 'controllers/menus_controller.php?action=obtener',
+            type: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    $('#id_menu_eliminar').val(res.data.id);
+                    $('#input-nombre-eliminar').val(res.data.nombre);
+                } else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger', 0);
+                }
+            },
+            error: function() {
+                mostrarMensajeFormulario(modalMensaje, 'Error de Sistema', 'No se pudieron recuperar los datos del menú.', 'danger', 0);
+            },
+            complete: function() {
+                $('#modalMenuEliminar').modal('show');
+            }
+        });
+    });
+
     // Editar Menú
     $('#form-menu-editar').on('submit', function(e) {
         e.preventDefault();
@@ -141,6 +174,41 @@ $(document).ready(function() {
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
                     }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            },
+            complete: function() {
+                resetBtnLoading(btn);
+            }
+        });
+    });
+
+    // Confirmar Eliminación de Menú
+    $('#form-menu-eliminar').on('submit', function(e) {
+        e.preventDefault();
+        const btn          = $('#btnEliminarMenu');
+        const modalMensaje = '#modal-mensajes-eliminar';
+        setBtnLoading(btn, 'Eliminando...');
+
+        $.ajax({
+            url: 'controllers/menus_controller.php?action=eliminar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(function() {
+                        // Si la página actual quedó vacía, retrocede a la última con registros.
+                        const info = tablaConsulta.page.info();
+                        if (info.pages > 0 && info.page >= info.pages) {
+                            tablaConsulta.page(info.pages - 1).draw('page');
+                        }
+                    }, false);
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                } else {
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                 }
             },

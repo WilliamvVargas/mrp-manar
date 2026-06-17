@@ -161,6 +161,35 @@ switch ($action) {
         }
         exit;
 
+    case 'eliminar':
+
+        retrasar();
+
+        $id = (int) ($_POST['id_menu'] ?? 0);
+
+        if ($id < 1) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            if ($menuModel->eliminar($id) > 0) {
+                echo json_encode([
+                    'status'  => 'success',
+                    'message' => 'Menú eliminado con éxito.'
+                ]);
+            } else {
+                echo json_encode([
+                    'status'  => 'error',
+                    'message' => 'El menú que intenta eliminar no existe.'
+                ]);
+            }
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'listar_orden':
 
         // Listado completo ordenado por posición (lo usa el modal de Asignar Posición).
