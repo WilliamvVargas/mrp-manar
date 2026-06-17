@@ -202,7 +202,13 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(res) {
                 if (res.status === 'success') {
-                    tablaConsulta.ajax.reload(null, false);
+                    tablaConsulta.ajax.reload(function() {
+                        // Si la página actual quedó vacía, retrocede a la última con registros.
+                        const info = tablaConsulta.page.info();
+                        if (info.pages > 0 && info.page >= info.pages) {
+                            tablaConsulta.page(info.pages - 1).draw('page');
+                        }
+                    }, false);
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 } else {
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');

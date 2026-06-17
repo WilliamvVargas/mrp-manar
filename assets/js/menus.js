@@ -34,13 +34,13 @@ $(document).ready(function() {
                     const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-menu me-1" '
                                     + 'data-id="' + id + '" title="Editar menú"><i class="bi bi-pencil"></i></button>';
 
-                    const btnEstado = '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-menu" '
+                    const btnEstado = '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-menu me-1" '
                                     + 'data-id="' + id + '" title="' + titulo + '"><i class="bi bi-power"></i></button>';
 
-                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-menu ms-1" '
+                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-menu" '
                                       + 'data-id="' + id + '" title="Eliminar menú"><i class="bi bi-trash"></i></button>';
 
-                    return btnEditar + btnEstado + btnEliminar;
+                    return btnEstado + btnEditar + btnEliminar;
                 }
             }
         ]
