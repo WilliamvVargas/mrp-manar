@@ -190,6 +190,29 @@ switch ($action) {
         }
         exit;
 
+    case 'reordenar':
+
+        retrasar();
+
+        $orden = $_POST['orden'] ?? [];
+
+        if (!is_array($orden) || count($orden) === 0) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Orden no válido.']);
+            exit;
+        }
+
+        try {
+            $menuModel->reordenarTodos($orden);
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Orden actualizado con éxito.'
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'listar_orden':
 
         // Listado completo ordenado por posición (lo usa el modal de Asignar Posición).

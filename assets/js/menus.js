@@ -95,8 +95,10 @@ $(document).ready(function() {
                     const activo = Number(res.data.estado) === 1;
 
                     $('#id_menu_editar').val(res.data.id);
-                    // El nombre llega validado desde BD: lo marca válido (habilita Asignar Posición).
-                    $('#input_nombre_editar').val(res.data.nombre).addClass('is-valid');
+                    // El nombre llega válido desde BD, pero NO se marca con el check verde
+                    // (ese solo aparece tras la validación automática al escribir). Como ya
+                    // es válido, se habilita "Asignar Posición" directamente más abajo.
+                    $('#input_nombre_editar').val(res.data.nombre);
                     $('#input_estado_editar').prop('checked', activo);
                     $('#label-estado-editar').text(activo ? 'Activo' : 'Inactivo');
                     $('#input_posicion_editar').val(res.data.posicion);
@@ -292,30 +294,25 @@ $(document).ready(function() {
         });
     });
 
-    // --- Alternancia entre los modales de menú y el de Asignar Posición ---
-    const modalCrear   = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMenuCrear'));
-    const modalEditar  = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMenuEditar'));
-    const modalAsignar = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAsignarPosicion'));
-
-    let ctxPosicion       = null;    // contexto activo del modal Asignar Posición (creación o edición)
-    let saltandoAPosicion = false;   // true mientras se "salta" desde el modal padre a Asignar Posición
+    // --- Asignar Posición: contextos específicos del mantenedor de menús ---
+    // El motor reutilizable vive en utils.js (inicializarAsignadorPosicion / itemPosicion).
 
     // Contexto de CREACIÓN: el ítem movible es uno sintético ("nuevo") que se inserta en la lista.
     const ctxCrear = {
-        modalPadre:   modalCrear,
         boton:        '#btn-asignar-posicion',
+        modalPadre:   '#modalMenuCrear',
         inputVisible: '#input_posicion',
         inputHidden:  '#posicion',
         idMovible:    function() { return 'nuevo'; },
         construirItems: function(data) {
-            const items = data.map(function(menu, i) {
-                return itemPosicion(menu.id, menu.nombre, i + 1, false, null, menu.estado);
+            const items = data.map(function(registro, i) {
+                return itemPosicion(registro.id, registro.nombre, i + 1, 'fijo', null, registro.estado);
             });
 
-            // Ítem del menú que se está creando; su posición original es la última.
+            // Ítem del registro que se está creando; su posición original es la última.
             const nombreNuevo = $('#input_nombre').val().trim() || '(nuevo menú)';
             const estadoNuevo = $('#input_estado').is(':checked') ? 1 : 0;
-            const itemNuevo   = itemPosicion('nuevo', nombreNuevo, items.length + 1, true, 'Nuevo', estadoNuevo);
+            const itemNuevo   = itemPosicion('nuevo', nombreNuevo, items.length + 1, 'movible', 'Nuevo', estadoNuevo);
 
             // Si ya se había elegido una posición se respeta; si no, va al final.
             let pos = parseInt($('#input_posicion').val(), 10);
@@ -325,14 +322,19 @@ $(document).ready(function() {
             items.splice(pos - 1, 0, itemNuevo);
 
             return items;
+        },
+        alCerrarReal: function() {
+            // Cierre real del modal de creación: limpia el formulario y restablece el switch.
+            limpiarFormularioCompleto('#form-menu', '#modal-mensajes', true);
+            $('#label-estado').text('Activo');
         }
     };
 
     // Contexto de EDICIÓN: el ítem movible es el propio registro en edición, que ya
     // viene en el listado del backend (no se inserta nada, solo se marca como movible).
     const ctxEditar = {
-        modalPadre:   modalEditar,
         boton:        '#btn-asignar-posicion-editar',
+        modalPadre:   '#modalMenuEditar',
         inputVisible: '#input_posicion_editar',
         inputHidden:  '#posicion_editar',
         idMovible:    function() { return String($('#id_menu_editar').val()); },
@@ -341,14 +343,14 @@ $(document).ready(function() {
             const estadoEdicion = $('#input_estado_editar').is(':checked') ? 1 : 0;
             let indiceMovible   = -1;
 
-            const items = data.map(function(menu, i) {
-                const esMovible = String(menu.id) === idEditado;
+            const items = data.map(function(registro, i) {
+                const esMovible = String(registro.id) === idEditado;
                 if (esMovible) {
                     indiceMovible = i;
                 }
                 // El ítem en edición refleja el estado actual del switch; el resto, su estado de BD.
-                const estado = esMovible ? estadoEdicion : menu.estado;
-                return itemPosicion(menu.id, menu.nombre, i + 1, esMovible, 'Editando', estado);
+                const estado = esMovible ? estadoEdicion : registro.estado;
+                return itemPosicion(registro.id, registro.nombre, i + 1, esMovible ? 'movible' : 'fijo', 'Editando', estado);
             });
 
             // Si en esta sesión ya se eligió una posición distinta, recoloca el ítem.
@@ -360,223 +362,33 @@ $(document).ready(function() {
             }
 
             return items;
+        },
+        alCerrarReal: function() {
+            // Cierre real del modal de edición: limpia el formulario y restablece el switch.
+            limpiarFormularioCompleto('#form-menu-editar', '#modal-mensajes-editar', true);
+            $('#label-estado-editar').text('Activo');
         }
     };
 
-    // Abre Asignar Posición desde un contexto: arma TODO el listado con el modal padre
-    // aún visible y, solo cuando está listo, hace el cambio de modal (evita el destello).
-    function abrirAsignarPosicion(ctx) {
-        ctxPosicion = ctx;
-        setBtnLoading($(ctx.boton), 'Cargando...');
-
-        cargarListaPosicion(ctx, function() {
-            saltandoAPosicion = true;
-            ctx.modalPadre.hide();
-        });
-    }
-
-    $('#btn-asignar-posicion').on('click', function() {
-        abrirAsignarPosicion(ctxCrear);
-    });
-
-    $('#btn-asignar-posicion-editar').on('click', function() {
-        abrirAsignarPosicion(ctxEditar);
-    });
-
-    // Al ocultarse el modal de creación.
-    $('#modalMenuCrear').on('hidden.bs.modal', function() {
-        if (saltandoAPosicion && ctxPosicion === ctxCrear) {
-            saltandoAPosicion = false;
-            modalAsignar.show();   // conserva el formulario para poder volver luego
-            return;
+    // Contexto GLOBAL: TODOS los ítems son movibles. No hay modal padre ni input oculto;
+    // el nuevo orden completo se guarda directo en el backend con el botón "Guardar orden".
+    const ctxGlobal = {
+        global:    true,
+        boton:     '#btn-asignar-posiciones',
+        idMovible: function() { return null; },
+        construirItems: function(data) {
+            return data.map(function(registro, i) {
+                return itemPosicion(registro.id, registro.nombre, i + 1, 'libre', null, registro.estado);
+            });
         }
-        // Cierre real: limpia el formulario y restablece el switch.
-        limpiarFormularioCompleto('#form-menu', '#modal-mensajes', true);
-        $('#label-estado').text('Activo');
+    };
+
+    // Activa el motor reutilizable de Asignar Posición con los contextos de menús.
+    inicializarAsignadorPosicion({
+        urlListar:    'controllers/menus_controller.php?action=listar_orden',
+        urlReordenar: 'controllers/menus_controller.php?action=reordenar',
+        tabla:        tablaConsulta,
+        contextos:    [ctxCrear, ctxEditar, ctxGlobal]
     });
-
-    // Al ocultarse el modal de edición.
-    $('#modalMenuEditar').on('hidden.bs.modal', function() {
-        if (saltandoAPosicion && ctxPosicion === ctxEditar) {
-            saltandoAPosicion = false;
-            modalAsignar.show();   // conserva el formulario para poder volver luego
-            return;
-        }
-        // Cierre real: limpia el formulario y restablece el switch.
-        limpiarFormularioCompleto('#form-menu-editar', '#modal-mensajes-editar', true);
-        $('#label-estado-editar').text('Activo');
-    });
-
-    // Al cerrar Asignar Posición: guarda la posición elegida (visible + hidden) para el
-    // ítem movible del contexto activo, y vuelve a su modal padre.
-    $('#modalAsignarPosicion').on('hidden.bs.modal', function() {
-        if (!ctxPosicion) {
-            return;
-        }
-
-        const $lista   = $('#lista-posicion');
-        const $movible = $lista.children('li[data-id="' + ctxPosicion.idMovible() + '"]');
-
-        if ($movible.length) {
-            const posicion = $lista.children('li').index($movible) + 1;
-            $(ctxPosicion.inputVisible).val(posicion);   // visible (solo muestra)
-            $(ctxPosicion.inputHidden).val(posicion);    // hidden: valor real que se envía
-        }
-
-        ctxPosicion.modalPadre.show();
-    });
-
-    // Al abrir Asignar Posición (ya cargado), el botón del contexto vuelve a su estado original.
-    $('#modalAsignarPosicion').on('shown.bs.modal', function() {
-        if (ctxPosicion) {
-            resetBtnLoading($(ctxPosicion.boton));
-        }
-    });
-
-    /**
-     * Carga los menús (ordenados por posición ASC) del backend y, según el contexto,
-     * arma el listado ordenable con jQuery UI dejando movible solo el ítem indicado.
-     * El reordenamiento se aplica al guardar el formulario del modal padre.
-     */
-    function cargarListaPosicion(ctx, onReady) {
-        const $lista = $('#lista-posicion');
-        $lista.html('<li class="list-group-item text-muted small">Cargando...</li>');
-
-        $.ajax({
-            url: 'controllers/menus_controller.php?action=listar_orden',
-            type: 'GET',
-            dataType: 'json',
-            success: function(res) {
-                if (res.status !== 'success') {
-                    $lista.html('<li class="list-group-item text-danger small">No se pudo cargar el listado.</li>');
-                    if (typeof onReady === 'function') onReady();
-                    return;
-                }
-
-                const items     = ctx.construirItems(res.data);
-                const idMovible = ctx.idMovible();
-
-                $lista.html(items.join(''));
-
-                // (Re)inicializa el orden por arrastre.
-                if ($lista.hasClass('ui-sortable')) {
-                    $lista.sortable('destroy');
-                }
-                $lista.sortable({
-                    axis: 'y',
-                    placeholder: 'list-group-item lista-posicion-placeholder',
-                    forcePlaceholderSize: true,
-                    cancel: 'li:not([data-id="' + idMovible + '"])',   // solo el ítem movible se puede tomar
-                    change: function(event, ui) {
-                        renumerarPosiciones(ui.item, ui.placeholder);   // en vivo, durante el arrastre
-                    },
-                    update: function() {
-                        renumerarPosiciones();   // al soltar
-                    }
-                });
-
-                // Ajusta números y etiquetas según la posición actual del ítem movible.
-                renumerarPosiciones();
-
-                // Todo procesado: recién ahora se abre el modal (sin destello).
-                if (typeof onReady === 'function') onReady();
-            },
-            error: function() {
-                $lista.html('<li class="list-group-item text-danger small">Error al cargar el listado.</li>');
-                if (typeof onReady === 'function') onReady();
-            }
-        });
-    }
-
-    /**
-     * HTML de un ítem del listado ordenable.
-     * @param ordenOriginal Número de orden con el que se cargó (1..N).
-     * @param esMovible     Si el ítem es el que se puede arrastrar.
-     * @param textoBadge    Texto de la insignia del ítem movible (ej: 'Nuevo', 'Editando').
-     */
-    function itemPosicion(id, nombre, ordenOriginal, esMovible, textoBadge, estado) {
-        const nombreEsc = $('<div>').text(nombre).html();   // escapa el nombre (evita XSS)
-        const clase     = esMovible ? ' list-group-item-primary' : '';
-
-        // Etiqueta contextual: insignia azul del ítem movible, o amarilla (oculta) que
-        // muestra la posición original cuando un menú existente cambia de lugar.
-        const etiqueta = esMovible
-            ? '<span class="badge bg-primary">' + (textoBadge || 'Movible') + '</span>'
-            : '<span class="badge bg-warning text-dark badge-cambio d-none"></span>';
-
-        // Estado actual del menú: verde (Activo) / gris (Inactivo).
-        const estadoBadge = Number(estado) === 1
-            ? '<span class="badge bg-success">Activo</span>'
-            : '<span class="badge bg-secondary">Inactivo</span>';
-
-        // Ambas etiquetas agrupadas a la DERECHA: contextual + estado (al extremo).
-        const etiquetas = '<span class="ms-auto d-flex align-items-center gap-1">' + etiqueta + estadoBadge + '</span>';
-
-        // Ícono según si el ítem se puede mover o está restringido.
-        const icono = esMovible
-            ? '<i class="bi bi-arrows-vertical me-2 text-muted"></i>'
-            : '<i class="bi bi-dash-circle me-2 text-muted"></i>';
-
-        return '<li class="list-group-item d-flex align-items-center' + clase + '" data-id="' + id + '" data-original="' + ordenOriginal + '" data-movible="' + (esMovible ? '1' : '0') + '">'
-             + icono
-             + '<span class="numero-orden fw-semibold me-1">' + ordenOriginal + '.</span>'
-             + '<span class="nombre-menu">' + nombreEsc + '</span>'
-             + etiquetas
-             + '</li>';
-    }
-
-    /**
-     * Recalcula el número de orden de cada ítem según su posición actual.
-     * Durante el arrastre recibe el ítem arrastrado y el placeholder para ubicarlo
-     * en su nueva posición antes de soltar.
-     */
-    function renumerarPosiciones($arrastrado, $placeholder) {
-        let n = 0;
-
-        $('#lista-posicion').children('li').each(function() {
-            const $li = $(this);
-
-            // El ítem que se arrastra no cuenta en su posición antigua.
-            if ($arrastrado && $li.is($arrastrado)) {
-                return;
-            }
-
-            n++;
-
-            // Donde está el placeholder irá el ítem arrastrado.
-            if ($placeholder && $li.is($placeholder)) {
-                if ($arrastrado) {
-                    fijarNumeroOrden($arrastrado, n);
-                }
-            } else {
-                fijarNumeroOrden($li, n);
-            }
-        });
-    }
-
-    /**
-     * Aplica el número de orden a un ítem y muestra "Posición Original N"
-     * solo si su posición actual difiere de la original.
-     */
-    function fijarNumeroOrden($li, n) {
-        const original  = parseInt($li.attr('data-original'), 10);
-        const esMovible = $li.attr('data-movible') === '1';
-        const cambio    = (n !== original);
-
-        $li.find('.numero-orden').text(n + '.');
-
-        // Los menús EXISTENTES que cambian de posición se marcan en amarillo y la
-        // etiqueta muestra su posición original; el ítem movible conserva su estilo.
-        if (!esMovible) {
-            $li.toggleClass('list-group-item-warning', cambio);
-
-            const $badge = $li.find('.badge-cambio');
-            if (cambio) {
-                $badge.text('Posición Original ' + original).removeClass('d-none');
-            } else {
-                $badge.text('').addClass('d-none');
-            }
-        }
-    }
 
 });

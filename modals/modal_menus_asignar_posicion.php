@@ -12,8 +12,14 @@
             <form id="form-asignar-posicion" novalidate>
                 <div class="modal-body py-2">
 
-                    <p class="small text-muted mb-2">
+                    <div id="modal-mensajes-posicion"></div>
+
+                    <p class="small text-muted mb-2" id="instruccion-posicion-uno">
                         <i class="bi bi-info-circle me-1"></i>Arrastra el menú <span class="badge bg-primary">resaltado</span> para asignar su posición.
+                    </p>
+
+                    <p class="small text-muted mb-2 d-none" id="instruccion-posicion-todos">
+                        <i class="bi bi-info-circle me-1"></i>Arrastra cualquier menú para reordenar la lista completa.
                     </p>
 
                     <ul class="list-group" id="lista-posicion"></ul>
@@ -22,8 +28,20 @@
                 <div class="modal-footer bg-light py-2">
                     <button type="button"
                             class="btn btn-sm btn-secondary"
+                            id="btn-volver-posicion"
                             data-bs-dismiss="modal">
                         Volver
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-secondary d-none"
+                            id="btn-cancelar-posicion"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-primary d-none"
+                            id="btn-guardar-posicion">
+                        <i class="bi bi-save me-1"></i> Guardar orden
                     </button>
                 </div>
             </form>

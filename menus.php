@@ -23,11 +23,18 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><i class="bi bi-segmented-nav me-2"></i></i>Menús</h5>
-            <button class="btn btn-primary btn-sm" 
-                    data-bs-toggle="modal"
-                    data-bs-target="#modalMenuCrear">
-                <i class="bi bi-plus-lg"></i> Agregar Menú
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm"
+                        type="button"
+                        id="btn-asignar-posiciones">
+                    <i class="bi bi-sort-numeric-down"></i> Asignar Posición
+                </button>
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalMenuCrear">
+                    <i class="bi bi-plus-lg"></i> Agregar Menú
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">

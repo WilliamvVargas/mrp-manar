@@ -329,6 +329,321 @@ function inicializarTablaConsulta(opciones) {
     return tabla;
 }
 
+/**
+ * Construye el HTML de un ítem del listado ordenable de "Asignar Posición".
+ * Reutilizable por cualquier mantenedor (lo invoca el `construirItems` del contexto).
+ * @param {number|string} id     Identificador del registro.
+ * @param {string} nombre        Nombre visible del registro.
+ * @param {number} ordenOriginal Número de orden con el que se cargó (1..N).
+ * @param {string} tipo          'movible' (único arrastrable, insignia azul),
+ *                               'fijo' (restringido, no se arrastra) o
+ *                               'libre' (arrastrable en modo global, sin insignia azul).
+ * @param {string} textoBadge    Texto de la insignia del ítem movible (ej: 'Nuevo', 'Editando').
+ * @param {number} estado        1 = activo, 0 = inactivo.
+ * @returns {string} HTML del <li>.
+ */
+function itemPosicion(id, nombre, ordenOriginal, tipo, textoBadge, estado) {
+    const nombreEsc = $('<div>').text(nombre).html();   // escapa el nombre (evita XSS)
+    const esMovible = (tipo === 'movible');
+    const clase     = esMovible ? ' list-group-item-primary' : '';
+
+    // Etiqueta contextual: insignia azul del ítem movible, o amarilla (oculta) que
+    // muestra la posición original cuando un registro cambia de lugar.
+    const etiqueta = esMovible
+        ? '<span class="badge bg-primary">' + (textoBadge || 'Movible') + '</span>'
+        : '<span class="badge bg-warning text-dark badge-cambio d-none"></span>';
+
+    // Estado actual del registro: verde (Activo) / gris (Inactivo).
+    const estadoBadge = Number(estado) === 1
+        ? '<span class="badge bg-success">Activo</span>'
+        : '<span class="badge bg-secondary">Inactivo</span>';
+
+    // Ambas etiquetas agrupadas a la DERECHA: contextual + estado (al extremo).
+    const etiquetas = '<span class="ms-auto d-flex align-items-center gap-1">' + etiqueta + estadoBadge + '</span>';
+
+    // Ícono de flechas para los arrastrables ('movible' y 'libre'); círculo para los restringidos ('fijo').
+    const icono = (tipo === 'fijo')
+        ? '<i class="bi bi-dash-circle me-2 text-muted"></i>'
+        : '<i class="bi bi-arrows-vertical me-2 text-muted"></i>';
+
+    return '<li class="list-group-item d-flex align-items-center' + clase + '" data-id="' + id + '" data-original="' + ordenOriginal + '" data-movible="' + (esMovible ? '1' : '0') + '">'
+         + icono
+         + '<span class="numero-orden fw-semibold me-1">' + ordenOriginal + '.</span>'
+         + '<span class="nombre-registro">' + nombreEsc + '</span>'
+         + etiquetas
+         + '</li>';
+}
+
+/**
+ * Inicializa el modal "Asignar Posición" reutilizable (drag & drop con jQuery UI).
+ * Sirve para cualquier mantenedor con una columna de orden; el comportamiento
+ * específico de cada uno se define en los "contextos" que se le pasan.
+ *
+ * Markup requerido en la página (IDs fijos, ya genéricos):
+ *   #modalAsignarPosicion, #lista-posicion, #modal-mensajes-posicion,
+ *   #btn-volver-posicion, #btn-cancelar-posicion, #btn-guardar-posicion,
+ *   #instruccion-posicion-uno, #instruccion-posicion-todos
+ *
+ * @param {Object} config
+ * @param {string} config.urlListar    - URL GET que devuelve los registros ordenados ({status, data:[{id,nombre,estado,...}]}).
+ * @param {string} config.urlReordenar - URL POST que persiste el nuevo orden global (recibe orden[] + csrf_token).
+ * @param {Object} config.tabla        - Instancia de DataTable a recargar tras guardar el orden global.
+ * @param {Array}  config.contextos    - Lista de contextos (creación, edición, global...).
+ * @param {string} [config.csrf]       - Selector del input con el token CSRF (por defecto '#csrf_token').
+ *
+ * Forma de un contexto:
+ *   {
+ *     boton:          '#btn-...',                  // botón que dispara la apertura
+ *     global:         true|false,                 // true = todos los ítems movibles, guardado directo
+ *     // Solo contextos NO globales:
+ *     modalPadre:     '#modal...',                 // modal del que se "salta" y al que se vuelve
+ *     inputVisible:   '#...',                      // input visible donde se refleja la posición elegida
+ *     inputHidden:    '#...',                      // input oculto que viaja con el form padre
+ *     alCerrarReal:   function(){},                // limpieza al cerrar el modal padre de verdad (no salto)
+ *     // Todos:
+ *     idMovible:      function(){ return id|null },          // id del ítem arrastrable (null en global)
+ *     construirItems: function(data){ return [htmlLi, ...] } // arma el listado (usa itemPosicion)
+ *   }
+ */
+function inicializarAsignadorPosicion(config) {
+    const SEL_MODAL       = '#modalAsignarPosicion';
+    const SEL_LISTA       = '#lista-posicion';
+    const SEL_MENSAJES    = '#modal-mensajes-posicion';
+    const SEL_BTN_VOLVER  = '#btn-volver-posicion';
+    const SEL_BTN_CANCEL  = '#btn-cancelar-posicion';
+    const SEL_BTN_GUARDAR = '#btn-guardar-posicion';
+    const SEL_INSTR_UNO   = '#instruccion-posicion-uno';
+    const SEL_INSTR_TODOS = '#instruccion-posicion-todos';
+
+    const selectorCsrf = config.csrf || '#csrf_token';
+    const modalAsignar = bootstrap.Modal.getOrCreateInstance(document.querySelector(SEL_MODAL));
+
+    let ctxActivo = null;    // contexto activo del modal (creación, edición o global)
+    let saltando  = false;   // true mientras se "salta" desde el modal padre a Asignar Posición
+
+    // Abre el modal desde un contexto: arma el listado y, según el modo, salta del modal
+    // padre (evita el destello) o lo abre directo (global, sin modal padre).
+    function abrir(ctx) {
+        ctxActivo = ctx;
+        setBtnLoading($(ctx.boton), 'Cargando...');
+
+        const esGlobal = !!ctx.global;
+
+        // Limpia un posible mensaje previo y ajusta footer + instrucción según el modo.
+        $(SEL_MENSAJES).empty();
+        $(SEL_BTN_VOLVER).toggleClass('d-none', esGlobal);
+        $(SEL_BTN_CANCEL).toggleClass('d-none', !esGlobal);
+        $(SEL_BTN_GUARDAR).toggleClass('d-none', !esGlobal);
+        $(SEL_INSTR_UNO).toggleClass('d-none', esGlobal);
+        $(SEL_INSTR_TODOS).toggleClass('d-none', !esGlobal);
+
+        cargarLista(ctx, function() {
+            if (esGlobal) {
+                modalAsignar.show();   // sin modal padre: se abre directo
+            } else {
+                saltando = true;
+                bootstrap.Modal.getOrCreateInstance(document.querySelector(ctx.modalPadre)).hide();
+            }
+        });
+    }
+
+    // Carga los registros (ordenados por posición ASC) y arma la lista ordenable.
+    function cargarLista(ctx, onReady) {
+        const $lista = $(SEL_LISTA);
+        $lista.html('<li class="list-group-item text-muted small">Cargando...</li>');
+
+        $.ajax({
+            url: config.urlListar,
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $lista.html('<li class="list-group-item text-danger small">No se pudo cargar el listado.</li>');
+                    if (typeof onReady === 'function') onReady();
+                    return;
+                }
+
+                const items     = ctx.construirItems(res.data);
+                const idMovible = ctx.idMovible();
+
+                $lista.html(items.join(''));
+
+                // (Re)inicializa el orden por arrastre.
+                if ($lista.hasClass('ui-sortable')) {
+                    $lista.sortable('destroy');
+                }
+
+                const opcionesSortable = {
+                    axis: 'y',
+                    placeholder: 'list-group-item lista-posicion-placeholder',
+                    forcePlaceholderSize: true,
+                    change: function(event, ui) {
+                        renumerar(ui.item, ui.placeholder);   // en vivo, durante el arrastre
+                    },
+                    update: function() {
+                        renumerar();   // al soltar
+                    }
+                };
+
+                // En creación/edición solo el ítem movible se puede tomar; en global, todos.
+                if (!ctx.global) {
+                    opcionesSortable.cancel = 'li:not([data-id="' + idMovible + '"])';
+                }
+
+                $lista.sortable(opcionesSortable);
+
+                // Ajusta números y etiquetas según la posición actual de los ítems.
+                renumerar();
+
+                // Todo procesado: recién ahora se abre el modal (sin destello).
+                if (typeof onReady === 'function') onReady();
+            },
+            error: function() {
+                $lista.html('<li class="list-group-item text-danger small">Error al cargar el listado.</li>');
+                if (typeof onReady === 'function') onReady();
+            }
+        });
+    }
+
+    // Recalcula el número de orden de cada ítem según su posición actual. Durante el
+    // arrastre recibe el ítem arrastrado y el placeholder para ubicarlo antes de soltar.
+    function renumerar($arrastrado, $placeholder) {
+        let n = 0;
+
+        $(SEL_LISTA).children('li').each(function() {
+            const $li = $(this);
+
+            // El ítem que se arrastra no cuenta en su posición antigua.
+            if ($arrastrado && $li.is($arrastrado)) {
+                return;
+            }
+
+            n++;
+
+            // Donde está el placeholder irá el ítem arrastrado.
+            if ($placeholder && $li.is($placeholder)) {
+                if ($arrastrado) {
+                    fijarNumeroOrden($arrastrado, n);
+                }
+            } else {
+                fijarNumeroOrden($li, n);
+            }
+        });
+    }
+
+    // Aplica el número de orden a un ítem y muestra "Posición Original N" si difiere.
+    function fijarNumeroOrden($li, n) {
+        const original  = parseInt($li.attr('data-original'), 10);
+        const esMovible = $li.attr('data-movible') === '1';
+        const cambio    = (n !== original);
+
+        $li.find('.numero-orden').text(n + '.');
+
+        // Los registros EXISTENTES que cambian de posición se marcan en amarillo y la
+        // etiqueta muestra su posición original; el ítem movible conserva su estilo.
+        if (!esMovible) {
+            $li.toggleClass('list-group-item-warning', cambio);
+
+            const $badge = $li.find('.badge-cambio');
+            if (cambio) {
+                $badge.text('Posición Original ' + original).removeClass('d-none');
+            } else {
+                $badge.text('').addClass('d-none');
+            }
+        }
+    }
+
+    // --- Conexión de eventos ---
+
+    config.contextos.forEach(function(ctx) {
+        $(ctx.boton).on('click', function() {
+            abrir(ctx);
+        });
+
+        // Contextos con modal padre: gestiona el "salto" a Asignar Posición o el cierre real.
+        if (!ctx.global && ctx.modalPadre) {
+            $(ctx.modalPadre).on('hidden.bs.modal', function() {
+                if (saltando && ctxActivo === ctx) {
+                    saltando = false;
+                    modalAsignar.show();   // conserva el formulario para poder volver luego
+                    return;
+                }
+                if (typeof ctx.alCerrarReal === 'function') {
+                    ctx.alCerrarReal();
+                }
+            });
+        }
+    });
+
+    // Guardar orden (modo global): envía la secuencia completa de ids al backend.
+    $(SEL_BTN_GUARDAR).on('click', function() {
+        const $btn  = $(this);
+        const orden = $(SEL_LISTA).children('li').map(function() {
+            return $(this).attr('data-id');
+        }).get();
+
+        if (!orden.length) {
+            return;
+        }
+
+        setBtnLoading($btn, 'Guardando...');
+
+        $.ajax({
+            url: config.urlReordenar,
+            type: 'POST',
+            data: { orden: orden, csrf_token: $(selectorCsrf).val() },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    modalAsignar.hide();
+                    if (config.tabla) {
+                        config.tabla.ajax.reload(null, false);
+                    }
+                } else {
+                    resetBtnLoading($btn);
+                    mostrarMensajeFormulario(SEL_MENSAJES, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                resetBtnLoading($btn);
+                manejarErrorAjax(jqXHR, textStatus, SEL_MENSAJES);
+            }
+        });
+    });
+
+    // Al cerrar Asignar Posición: en global no hace nada (guardado explícito); en
+    // creación/edición guarda la posición elegida y vuelve al modal padre.
+    $(SEL_MODAL).on('hidden.bs.modal', function() {
+        if (!ctxActivo) {
+            return;
+        }
+
+        if (ctxActivo.global) {
+            resetBtnLoading($(SEL_BTN_GUARDAR));
+            ctxActivo = null;
+            return;
+        }
+
+        const $lista   = $(SEL_LISTA);
+        const $movible = $lista.children('li[data-id="' + ctxActivo.idMovible() + '"]');
+
+        if ($movible.length) {
+            const posicion = $lista.children('li').index($movible) + 1;
+            $(ctxActivo.inputVisible).val(posicion);   // visible (solo muestra)
+            $(ctxActivo.inputHidden).val(posicion);    // hidden: valor real que se envía
+        }
+
+        bootstrap.Modal.getOrCreateInstance(document.querySelector(ctxActivo.modalPadre)).show();
+    });
+
+    // Al abrir Asignar Posición (ya cargado), el botón del contexto vuelve a su estado original.
+    $(SEL_MODAL).on('shown.bs.modal', function() {
+        if (ctxActivo) {
+            resetBtnLoading($(ctxActivo.boton));
+        }
+    });
+}
+
 /** Trigger para cerrar mensajes con el boton cerrar*/
 $(document).on('click', '[id*="mensajes"] .btn-close', function(e) {
     e.preventDefault();

@@ -210,6 +210,38 @@
         }
 
         /**
+         * Reasigna las posiciones de TODOS los menús según el orden recibido:
+         * el primer id pasa a posición 1, el segundo a 2, y así sucesivamente.
+         * Todo dentro de una transacción.
+         *
+         * @param array $orden Lista de ids en el nuevo orden deseado.
+         * @return bool True al completar.
+         */
+        public function reordenarTodos(array $orden)
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+
+                $stmt     = $this->pdo->prepare("UPDATE menus SET posicion = ? WHERE id = ?");
+                $posicion = 1;
+
+                foreach ($orden as $id) {
+                    $stmt->execute([$posicion, (int) $id]);
+                    $posicion++;
+                }
+
+                $this->pdo->commit();
+
+                return true;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
          * Devuelve la siguiente posición disponible: MAX(posicion) + 1
          * (1 si la tabla está vacía).
          *
