@@ -23,6 +23,11 @@
                                 <i class="bi bi-segmented-nav me-2"></i>Menús
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'iconos.php') ? 'active' : ''; ?>" href="iconos">
+                                <i class="bi bi-emoji-smile-fill me-2"></i>Iconos
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item disabled" href="#">Configuración</a></li>
                     </ul>
