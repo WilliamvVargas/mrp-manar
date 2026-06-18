@@ -5,7 +5,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Forecast | MRP</title>
+    <title>MRP</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
@@ -22,7 +22,7 @@
 <div class="container">
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 text-black"><i class="bi bi-graph-up me-2"></i>Forecast</h5>
+            <h5 class="mb-0 text-black"><i class="bi bi-graph-up me-2"></i>MRP</h5>
             <div class="d-flex gap-2">
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
@@ -37,9 +37,6 @@
             </div>
         </div>
         <div class="card-body">
-            <p class="text-muted small mb-0 text-center py-3">
-                <i class="bi bi-info-circle me-1"></i>Usa el botón <strong>Carga Masiva</strong> para cargar y consultar los registros de forecast.
-            </p>
         </div>
     </div>
 </div>

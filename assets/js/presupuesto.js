@@ -4,6 +4,26 @@ $(document).ready(function() {
     const renderTexto  = function(d) { return (d === null || d === undefined) ? '' : $('<div>').text(d).html(); };
     const renderNumero = function(d) { return (d === null || d === undefined) ? '' : d; };
 
+    // Formatea un número al estilo chileno: miles con punto y decimales con coma.
+    // (Locale-independiente: no depende del soporte de Intl del navegador.)
+    function formatearNumero(valor, decimales) {
+        if (valor === null || valor === undefined || valor === '') {
+            return '';
+        }
+        const num = parseFloat(valor);
+        if (isNaN(num)) {
+            return '';
+        }
+        const partes = num.toFixed(decimales).split('.');
+        partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');   // punto de miles
+        return partes.length > 1 ? partes[0] + ',' + partes[1] : partes[0];
+    }
+
+    // Renders por tipo de medida.
+    const renderMoneda     = function(d) { return formatearNumero(d, 0) === '' ? '' : '$' + formatearNumero(d, 0); };  // Venta / MG Neto / PP: a la unidad, con $
+    const renderPorcentaje = function(d) { return formatearNumero(d, 1); };   // MG %: a la décima
+    const renderDecimal4   = function(d) { return formatearNumero(d, 4); };   // KG: 4 decimales
+
     // Tabla de presupuesto (server-side). Vive dentro del modal de Carga Masiva Presupuesto.
     const tablaPresupuesto = inicializarTablaConsulta({
         tabla: '#tabla-consulta-presupuesto',
@@ -18,11 +38,11 @@ $(document).ready(function() {
             { data: 'sub_canal',     render: renderTexto },
             { data: 'familia',       render: renderTexto },
             { data: 'sub_familia',   render: renderTexto },
-            { data: 'venta',         className: 'text-end', render: renderNumero },
-            { data: 'mg_porcentaje', className: 'text-end', render: renderNumero },
-            { data: 'mg_neto',       className: 'text-end', render: renderNumero },
-            { data: 'pp',            className: 'text-end', render: renderNumero },
-            { data: 'kg',            className: 'text-end', render: renderNumero }
+            { data: 'venta',         className: 'text-end', render: renderMoneda },
+            { data: 'mg_porcentaje', className: 'text-end', render: renderPorcentaje },
+            { data: 'mg_neto',       className: 'text-end', render: renderMoneda },
+            { data: 'pp',            className: 'text-end', render: renderMoneda },
+            { data: 'kg',            className: 'text-end', render: renderDecimal4 }
         ]
     });
 
