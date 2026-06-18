@@ -2,9 +2,9 @@ $(document).ready(function() {
 
     // Tabla principal de forecast (server-side, helper reutilizable de utils.js)
     const tablaConsulta = inicializarTablaConsulta({
-        tabla: '#tabla-consulta',
+        tabla: '#tabla-consulta-forecast',
         url:   'controllers/forecast_controller.php?action=listar',
-        input: '#consulta',
+        input: '#consulta-forecast',
         orden: [[0, 'desc']],   // por id, descendente (más recientes primero)
         columnas: [
             { data: 'id', className: 'text-center' },
@@ -17,6 +17,12 @@ $(document).ready(function() {
             { data: 'cantidad', className: 'text-end' },
             { data: null, orderable: false, searchable: false, className: 'text-center', render: function() { return ''; } }
         ]
+    });
+
+    // La tabla vive dentro del modal: al abrirlo recalcula el ancho de columnas
+    // (DataTables no puede medirlas mientras el modal está oculto).
+    $('#modalCargaMasiva').on('shown.bs.modal', function() {
+        tablaConsulta.columns.adjust();
     });
 
     // Carga masiva: solo se aceptan archivos Excel .xlsx
@@ -34,7 +40,7 @@ $(document).ready(function() {
         if (extension !== 'xlsx') {
             $input.val('');   // descarta el archivo no válido
             $input.addClass('is-invalid');
-            $input.siblings('.invalid-feedback')
+            $('#error-archivo')
                   .html('Solo se permiten archivos Excel (.xlsx).')
                   .addClass('d-block');
         } else {
@@ -54,7 +60,7 @@ $(document).ready(function() {
         // Debe haber un archivo seleccionado
         if (!$archivo[0].files.length) {
             $archivo.addClass('is-invalid');
-            $archivo.siblings('.invalid-feedback')
+            $('#error-archivo')
                     .html('Debe ingresar un archivo .xlsx.')
                     .addClass('d-block');
             return;

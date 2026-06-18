@@ -27,4 +27,8 @@
   define('FORECAST_MAX_FILAS', 5000);   // Máximo de filas de datos a procesar
   define('FORECAST_MAX_PESO_MB', 5);    // Peso máximo del archivo .xlsx (protege la memoria)
 
+  //Carga masiva de Presupuesto (.xlsx, hoja "base")
+  define('PRESUPUESTO_MAX_FILAS', 10000);  // Máximo de filas de datos a procesar
+  define('PRESUPUESTO_MAX_PESO_MB', 10);   // Peso máximo del archivo .xlsx
+
 ?>

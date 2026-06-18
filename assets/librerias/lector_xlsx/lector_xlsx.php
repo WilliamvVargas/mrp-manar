@@ -142,12 +142,93 @@ class LectorXlsx
      */
     public function leerFilas($numeroHoja = 1)
     {
-        $textos = $this->leerTextosCompartidos();
-
         $hojaXml = $this->obtenerContenido('xl/worksheets/sheet' . $numeroHoja . '.xml');
         if ($hojaXml === false) {
             throw new RuntimeException('No se encontró la hoja solicitada en el .xlsx.');
         }
+
+        return $this->parsearFilas($hojaXml);
+    }
+
+    /**
+     * Lee las filas de una hoja identificada por su NOMBRE de pestaña (ej: 'base'),
+     * resolviendo xl/workbook.xml + sus relaciones. Más robusto que asumir el número
+     * de archivo sheet{N}.xml, porque el orden de las pestañas no siempre coincide
+     * con el número de archivo interno.
+     *
+     * @param string $nombreHoja Nombre de la pestaña (no distingue mayúsculas/minúsculas).
+     * @return array Lista de filas; cada fila es ['A'=>valor, ...].
+     * @throws RuntimeException si no existe una hoja con ese nombre.
+     */
+    public function leerFilasPorNombre($nombreHoja)
+    {
+        $archivo = $this->resolverArchivoHoja($nombreHoja);
+        if ($archivo === null) {
+            throw new RuntimeException('No se encontró la hoja "' . $nombreHoja . '" en el archivo.');
+        }
+
+        $hojaXml = $this->obtenerContenido($archivo);
+        if ($hojaXml === false) {
+            throw new RuntimeException('No se pudo leer la hoja "' . $nombreHoja . '".');
+        }
+
+        return $this->parsearFilas($hojaXml);
+    }
+
+    /**
+     * Resuelve la ruta interna del XML de una hoja a partir de su nombre, usando
+     * xl/workbook.xml (nombre -> r:id) y xl/_rels/workbook.xml.rels (r:id -> archivo).
+     *
+     * @return string|null Ruta interna (ej: 'xl/worksheets/sheet8.xml') o null si no existe.
+     */
+    private function resolverArchivoHoja($nombreHoja)
+    {
+        $wbXml = $this->obtenerContenido('xl/workbook.xml');
+        if ($wbXml === false) {
+            return null;
+        }
+
+        // Mapa nombre -> r:id. El atributo r:id vive en el namespace de relaciones
+        // (se conserva tras quitarNamespace, que solo elimina el namespace por defecto).
+        $wb  = new SimpleXMLElement($this->quitarNamespace($wbXml));
+        $rid = null;
+
+        foreach ($wb->sheets->sheet as $hoja) {
+            if (strcasecmp(trim((string) $hoja['name']), trim($nombreHoja)) === 0) {
+                $attrs = $hoja->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+                $rid   = isset($attrs['id']) ? (string) $attrs['id'] : '';
+                break;
+            }
+        }
+
+        if ($rid === null || $rid === '') {
+            return null;
+        }
+
+        // Mapa r:id -> Target (archivo de la hoja, relativo a xl/).
+        $relsXml = $this->obtenerContenido('xl/_rels/workbook.xml.rels');
+        if ($relsXml === false) {
+            return null;
+        }
+
+        $rels = new SimpleXMLElement($this->quitarNamespace($relsXml));
+        foreach ($rels->Relationship as $rel) {
+            if ((string) $rel['Id'] === $rid) {
+                $target = ltrim((string) $rel['Target'], '/');
+                $target = preg_replace('#^xl/#', '', $target);
+                return 'xl/' . $target;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Parsea el XML de una hoja a una lista de filas (cada una ['A'=>valor, ...]).
+     */
+    private function parsearFilas($hojaXml)
+    {
+        $textos = $this->leerTextosCompartidos();
 
         $hoja  = new SimpleXMLElement($this->quitarNamespace($hojaXml));
         $filas = [];

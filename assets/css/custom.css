@@ -88,3 +88,13 @@
     border: 1px dashed #adb5bd;
     background-color: #f8f9fa;
 }
+
+
+/* Tablas de consulta de forecast y presupuesto: fuente más compacta */
+
+#tabla-consulta-forecast th,
+#tabla-consulta-forecast td,
+#tabla-consulta-presupuesto th,
+#tabla-consulta-presupuesto td {
+    font-size: 0.8rem;
+}
