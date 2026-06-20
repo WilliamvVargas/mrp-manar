@@ -45,9 +45,10 @@ $(document).ready(function() {
         },
         columnas: [
             { data: 'posicion', className: 'text-center' },
-            { data: null, orderable: false, searchable: false, className: 'text-center', render: renderVistaPrevia },
             { data: 'nombre', render: $.fn.dataTable.render.text() },
+            { data: 'valor', render: $.fn.dataTable.render.text() },
             { data: 'tipo', className: 'text-center', render: renderTipo },
+            { data: null, orderable: false, searchable: false, className: 'text-center', render: renderVistaPrevia },
             { data: 'id', orderable: false, searchable: false, className: 'text-center', render: function() { return ''; } }
         ]
     });
@@ -113,6 +114,22 @@ $(document).ready(function() {
             return '';
         }
         return nombre.charAt(0).toUpperCase() + nombre.slice(1);
+    }
+
+    // Deriva un Nombre legible a partir del nombre de un archivo: quita la extensión .svg
+    // y reemplaza cualquier carácter especial por espacios.
+    // 'mi_icono-bonito (2).svg' -> 'Mi icono bonito 2'.
+    function nombreDesdeArchivo(nombreArchivo) {
+        const base = nombreArchivo
+            .replace(/\.svg$/i, '')                          // quita la extensión .svg
+            .replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ]+/g, ' ')    // caracteres especiales -> espacio
+            .replace(/\s+/g, ' ')                            // colapsa espacios repetidos
+            .trim();
+
+        if (!base) {
+            return '';
+        }
+        return base.charAt(0).toUpperCase() + base.slice(1);
     }
 
     // ---------- Combobox de iconos de Bootstrap ----------
@@ -252,9 +269,15 @@ $(document).ready(function() {
         }
     });
 
-    // Vista previa del SVG personalizado al seleccionar el archivo.
+    // Vista previa + autocompletado del Nombre al seleccionar el SVG personalizado.
     $('#input_archivo').on('change', function() {
-        previewArchivo(this.files && this.files[0]);
+        const archivo = this.files && this.files[0];
+        previewArchivo(archivo);
+
+        // Propone el Nombre derivado del archivo, salvo que el usuario ya lo haya editado a mano.
+        if (archivo && !nombreEditadoManualmente) {
+            $('#input_nombre').val(nombreDesdeArchivo(archivo.name));
+        }
     });
 
     // Si el usuario escribe el Nombre a mano, deja de autocompletarse desde el icono.

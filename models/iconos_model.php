@@ -118,6 +118,7 @@
             $columnasValidas = [
                 'id'       => 'id',
                 'nombre'   => 'nombre',
+                'valor'    => 'valor',
                 'tipo'     => 'tipo',
                 'posicion' => 'posicion',
             ];

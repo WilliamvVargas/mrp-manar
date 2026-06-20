@@ -142,12 +142,7 @@ switch ($action) {
 
                 // No se permiten iconos duplicados (la columna `valor` es UNIQUE).
                 if ($iconoModel->existePorValor($valorNormalizado)) {
-                    echo json_encode([
-                        'status' => 'error',
-                        'type'   => 'fields',
-                        'errors' => ['valor_bootstrap' => 'Ese icono ya está registrado.']
-                    ]);
-                    exit;
+                    enviarErrorCamposFormulario(['valor_bootstrap' => 'Ese icono ya está registrado.']);
                 }
 
                 $iconoModel->crear([
@@ -171,29 +166,26 @@ switch ($action) {
 
         // ----- Tipo 'personalizado' (archivo SVG) -----
 
-        // Valida el Nombre.
+        // Valida Nombre y Archivo juntos (igual que el caso Bootstrap): ambos errores
+        // se acumulan y se devuelven con un mensaje general, marcando cada campo.
         $errores = [];
+
         if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
             $errores['nombre'] = $err;
         }
+
+        $sub = $_FILES['archivo'] ?? null;
+        if (!$sub || $sub['error'] === UPLOAD_ERR_NO_FILE) {
+            $errores['archivo'] = 'Debe seleccionar un archivo SVG.';
+        } elseif ($sub['error'] !== UPLOAD_ERR_OK) {
+            $errores['archivo'] = 'Hubo un error al subir el archivo.';
+        } elseif (strtolower(pathinfo($sub['name'], PATHINFO_EXTENSION)) !== 'svg') {
+            $errores['archivo'] = 'Solo se permiten archivos .svg.';
+        } elseif ($sub['size'] > ICONO_SVG_MAX_PESO_KB * 1024) {
+            $errores['archivo'] = 'El SVG supera el tamaño máximo (' . ICONO_SVG_MAX_PESO_KB . ' KB).';
+        }
+
         enviarErrorCamposFormulario($errores);
-
-        // Valida el archivo recibido.
-        if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
-            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'Debe seleccionar un archivo SVG.']]);
-            exit;
-        }
-
-        $sub = $_FILES['archivo'];
-
-        if (strtolower(pathinfo($sub['name'], PATHINFO_EXTENSION)) !== 'svg') {
-            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'Solo se permiten archivos .svg.']]);
-            exit;
-        }
-        if ($sub['size'] > ICONO_SVG_MAX_PESO_KB * 1024) {
-            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'El SVG supera el tamaño máximo (' . ICONO_SVG_MAX_PESO_KB . ' KB).']]);
-            exit;
-        }
 
         // Procesa el SVG: saneo + detección de color (+ currentColor si es monocromático).
         try {
@@ -206,21 +198,20 @@ switch ($action) {
             $svgFinal = $proc->svgComoString();
         } catch (Throwable $e) {
             error_log('[ICONOS] ' . $e->getMessage());
-            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'El archivo no es un SVG válido.']]);
-            exit;
+            enviarErrorCamposFormulario(['archivo' => 'El archivo no es un SVG válido.']);
         }
 
         try {
             $iconoModel = new Icono($pdo);
 
-            // Id de símbolo único: custom-<slug> (-2, -3... si ya existe).
-            $base  = 'custom-' . slugIcono($nombre);
-            $valor = $base;
-            $n     = 2;
-            while ($iconoModel->existePorValor($valor)) {
-                $valor = $base . '-' . $n;
-                $n++;
+            // El valor (id de símbolo) deriva del Nombre. No se permiten duplicados
+            // (mismo criterio que los iconos Bootstrap): si ya existe, se rechaza.
+            $valor = 'custom-' . slugIcono($nombre);
+
+            if ($iconoModel->existePorValor($valor)) {
+                enviarErrorCamposFormulario(['nombre' => 'Ya existe un icono con ese nombre.']);
             }
+
             $archivo = $valor . '.svg';
 
             $carpeta = __DIR__ . '/../assets/icons/personalizados';
@@ -274,8 +265,8 @@ switch ($action) {
         $consulta = trim($_GET['consulta'] ?? '');
         $tipo     = $_GET['tipo'] ?? '';
 
-        // Índice de columna -> nombre lógico (solo las ordenables: posición, nombre, tipo).
-        $columnas     = [0 => 'posicion', 2 => 'nombre', 3 => 'tipo'];
+        // Índice de columna -> nombre lógico (solo las ordenables: posición, nombre, valor, tipo).
+        $columnas     = [0 => 'posicion', 1 => 'nombre', 2 => 'valor', 3 => 'tipo'];
         $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : 0;
         $columnaOrden = $columnas[$idxOrden] ?? 'posicion';
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';

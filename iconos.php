@@ -54,11 +54,12 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 13%">Posición</th>
+                            <th style="width: 10%" class="text-center">Posición</th>
+                            <th style="width: 26%">Nombre</th>
+                            <th style="width: 26%">Valor</th>
+                            <th style="width: 13%" class="text-center">Tipo</th>
                             <th style="width: 12%" class="text-center">Vista previa</th>
-                            <th style="width: 35%">Nombre</th>
-                            <th style="width: 20%">Tipo</th>
-                            <th style="width: 20%" class="text-center">Acciones</th>
+                            <th style="width: 13%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
