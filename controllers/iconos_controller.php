@@ -347,6 +347,51 @@ switch ($action) {
         }
         exit;
 
+    case 'eliminar':
+
+        retrasar();
+
+        $id = (int) ($_POST['id_registro'] ?? 0);
+
+        if ($id < 1) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            $iconoModel = new Icono($pdo);
+            $icono      = $iconoModel->buscarPorId($id);
+
+            if (!$icono) {
+                echo json_encode(['status' => 'error', 'message' => 'El icono que intenta eliminar no existe.']);
+                exit;
+            }
+
+            if ($iconoModel->eliminar($id) > 0) {
+
+                // En personalizados: borra el archivo SVG y regenera el sprite.
+                if ($icono['tipo'] === 'personalizado') {
+                    $carpeta = __DIR__ . '/../assets/icons/personalizados';
+                    $ruta    = $carpeta . '/' . $icono['archivo'];
+
+                    if ($icono['archivo'] && is_file($ruta)) {
+                        @unlink($ruta);
+                    }
+
+                    regenerarSpriteIconos($iconoModel, $carpeta, __DIR__ . '/../assets/icons/sprite.svg');
+                }
+
+                echo json_encode(['status' => 'success', 'message' => 'Icono eliminado con éxito.']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'El icono que intenta eliminar no existe.']);
+            }
+
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'listar':
 
         $draw     = (int) ($_GET['draw'] ?? 0);

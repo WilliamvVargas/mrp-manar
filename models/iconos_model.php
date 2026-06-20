@@ -116,6 +116,19 @@
         }
 
         /**
+         * Elimina un icono por su id.
+         *
+         * @return int Filas eliminadas (0 si no existía).
+         */
+        public function eliminar($id)
+        {
+            $stmt = $this->pdo->prepare("DELETE FROM iconos WHERE id = ?");
+            $stmt->execute([(int) $id]);
+
+            return $stmt->rowCount();
+        }
+
+        /**
          * Devuelve los iconos personalizados (valor + archivo), ordenados por posición.
          * Lo usa la regeneración del sprite combinado.
          *

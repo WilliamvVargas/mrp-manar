@@ -55,8 +55,11 @@ $(document).ready(function() {
                 searchable: false,
                 className: 'text-center',
                 render: function(id) {
-                    return '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-icono" '
-                         + 'data-id="' + id + '" title="Editar icono"><i class="bi bi-pencil"></i></button>';
+                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-icono me-1" '
+                                    + 'data-id="' + id + '" title="Editar icono"><i class="bi bi-pencil"></i></button>';
+                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-icono" '
+                                      + 'data-id="' + id + '" title="Eliminar icono"><i class="bi bi-trash"></i></button>';
+                    return btnEditar + btnEliminar;
                 }
             }
         ]
@@ -163,6 +166,72 @@ $(document).ready(function() {
     $('#modalIconoEditar').on('hidden.bs.modal', function() {
         limpiarFormularioCompleto('#form-icono-editar', '#modal-mensajes-editar', true);
         $('#preview-icono-editar').empty();
+    });
+
+    // ============================================================
+    //  Eliminar Icono (frontend)
+    // ============================================================
+
+    // Abre el modal de eliminación con los datos de la fila.
+    function abrirEliminarIcono(fila) {
+        limpiarFormularioCompleto('#form-icono-eliminar', '#modal-mensajes-eliminar', true);
+        $('#id_icono_eliminar').val(fila.id);
+        $('#input-nombre-eliminar').val(fila.nombre);
+        $('#input-tipo-eliminar').val(fila.tipo === 'bootstrap' ? 'Bootstrap' : 'Personalizado');
+        $('#input-valor-eliminar').val(fila.valor);
+        $('#preview-icono-eliminar').html(previewIconoModalHtml(fila));
+        $('#modalIconoEliminar').modal('show');
+    }
+
+    // Botón Eliminar de la columna Acciones: toma la fila del DataTable y abre el modal.
+    $('#tabla-consulta tbody').on('click', '.btn-eliminar-icono', function() {
+        const fila = tablaConsulta.row($(this).closest('tr')).data();
+        if (fila) {
+            abrirEliminarIcono(fila);
+        }
+    });
+
+    // Envío del formulario de eliminación.
+    $('#form-icono-eliminar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btnEliminarIcono');
+        const modalMensaje = '#modal-mensajes-eliminar';
+
+        setBtnLoading(btn, 'Eliminando...');
+
+        $.ajax({
+            url: 'controllers/iconos_controller.php?action=eliminar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(function() {
+                        // Si la página actual quedó vacía, retrocede a la última con registros.
+                        const info = tablaConsulta.page.info();
+                        if (info.pages > 0 && info.page >= info.pages) {
+                            tablaConsulta.page(info.pages - 1).draw('page');
+                        }
+                    }, false);
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                } else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            },
+            complete: function() {
+                resetBtnLoading(btn);
+            }
+        });
+    });
+
+    // Al cerrar el modal de eliminación: limpia el formulario y la vista previa.
+    $('#modalIconoEliminar').on('hidden.bs.modal', function() {
+        limpiarFormularioCompleto('#form-icono-eliminar', '#modal-mensajes-eliminar', true);
+        $('#preview-icono-eliminar').empty();
     });
 
     // ============================================================

@@ -74,6 +74,7 @@
 
     include 'modals/modal_iconos_crear.php';
     include 'modals/modal_iconos_editar.php';
+    include 'modals/modal_iconos_eliminar.php';
 
 ?>
 
