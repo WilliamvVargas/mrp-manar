@@ -68,6 +68,47 @@ $(document).ready(function() {
     });
 
     // ============================================================
+    //  Asignar Posiciones (reordenar todos los iconos) — motor de utils.js, en GRILLA
+    // ============================================================
+
+    // Celda de la grilla: número de orden + vista previa del icono + nombre.
+    // Incluye .numero-orden y data-original/data-movible para que el motor renumere igual.
+    function celdaIconoPosicion(registro, orden) {
+        const preview = (registro.tipo === 'bootstrap')
+            ? '<i class="bi bi-' + registro.valor + '"></i>'
+            : '<img src="assets/icons/personalizados/' + registro.archivo + '" alt="">';
+
+        const nombreEsc = $('<div>').text(registro.nombre).html();
+
+        return '<li class="lista-posicion-celda" data-id="' + registro.id + '" data-original="' + orden + '" data-movible="0">'
+             + '<span class="numero-orden">' + orden + '.</span>'
+             + '<div class="celda-preview">' + preview + '</div>'
+             + '<span class="celda-nombre small text-truncate">' + nombreEsc + '</span>'
+             + '<span class="celda-cambio"><span class="badge bg-warning text-dark badge-cambio"></span></span>'
+             + '</li>';
+    }
+
+    inicializarAsignadorPosicion({
+        urlListar:    'controllers/iconos_controller.php?action=listar_orden',
+        urlReordenar: 'controllers/iconos_controller.php?action=reordenar',
+        tabla:        tablaConsulta,
+        grilla:       true,   // layout en grilla 2D (solo iconos; menús sigue en lista)
+        contextos: [{
+            global:    true,
+            boton:     '#btn-asignar-posiciones',
+            idMovible: function() { return null; },
+            construirItems: function(data) {
+                return data.map(function(registro, i) {
+                    return celdaIconoPosicion(registro, i + 1);
+                });
+            }
+        }]
+    });
+
+    // El modal de Asignar Posición de iconos usa el tamaño más grande (solo en esta página).
+    $('#modalAsignarPosicion .modal-dialog').removeClass('modal-md').addClass('modal-xl');
+
+    // ============================================================
     //  Editar Icono (frontend)
     // ============================================================
 

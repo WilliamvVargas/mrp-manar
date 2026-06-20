@@ -129,6 +129,48 @@
         }
 
         /**
+         * Lista todos los iconos ordenados por posición (lo usa el modal de Asignar Posición).
+         *
+         * @return array Lista de ['id' => ..., 'nombre' => ..., 'posicion' => ...].
+         */
+        public function listarOrdenados()
+        {
+            return $this->pdo
+                ->query("SELECT id, nombre, tipo, valor, archivo, posicion FROM iconos ORDER BY posicion ASC")
+                ->fetchAll();
+        }
+
+        /**
+         * Reasigna las posiciones de TODOS los iconos según el orden recibido:
+         * el primer id pasa a posición 1, el segundo a 2, y así. Todo en una transacción.
+         *
+         * @param array $orden Lista de ids en el nuevo orden deseado.
+         * @return bool True al completar.
+         */
+        public function reordenarTodos(array $orden)
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+                $stmt     = $this->pdo->prepare("UPDATE iconos SET posicion = ? WHERE id = ?");
+                $posicion = 1;
+
+                foreach ($orden as $id) {
+                    $stmt->execute([$posicion, (int) $id]);
+                    $posicion++;
+                }
+
+                $this->pdo->commit();
+
+                return true;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
          * Devuelve los iconos personalizados (valor + archivo), ordenados por posición.
          * Lo usa la regeneración del sprite combinado.
          *

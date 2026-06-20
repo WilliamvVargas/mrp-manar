@@ -420,10 +420,13 @@ function itemPosicion(id, nombre, ordenOriginal, tipo, textoBadge, estado) {
         ? '<span class="badge bg-primary">' + (textoBadge || 'Movible') + '</span>'
         : '<span class="badge bg-warning text-dark badge-cambio d-none"></span>';
 
-    // Estado actual del registro: verde (Activo) / gris (Inactivo).
-    const estadoBadge = Number(estado) === 1
-        ? '<span class="badge bg-success">Activo</span>'
-        : '<span class="badge bg-secondary">Inactivo</span>';
+    // Estado actual del registro: verde (Activo) / gris (Inactivo). Opcional:
+    // si no se pasa estado (null/undefined/''), no se muestra la insignia de estado.
+    const estadoBadge = (estado === null || estado === undefined || estado === '')
+        ? ''
+        : (Number(estado) === 1
+            ? '<span class="badge bg-success">Activo</span>'
+            : '<span class="badge bg-secondary">Inactivo</span>');
 
     // Ambas etiquetas agrupadas a la DERECHA: contextual + estado (al extremo).
     const etiquetas = '<span class="ms-auto d-flex align-items-center gap-1">' + etiqueta + estadoBadge + '</span>';
@@ -533,16 +536,20 @@ function inicializarAsignadorPosicion(config) {
                 const items     = ctx.construirItems(res.data);
                 const idMovible = ctx.idMovible();
 
-                $lista.html(items.join(''));
-
-                // (Re)inicializa el orden por arrastre.
+                // Destruye un sortable previo antes de re-pintar (mientras conserva 'ui-sortable').
                 if ($lista.hasClass('ui-sortable')) {
                     $lista.sortable('destroy');
                 }
 
+                // Layout: lista vertical (por defecto) o grilla 2D (opt-in con config.grilla).
+                // Menús no pasa config.grilla -> queda 'list-group' como siempre.
+                $lista.attr('class', config.grilla ? 'lista-posicion-grilla' : 'list-group');
+                $lista.html(items.join(''));
+
                 const opcionesSortable = {
-                    axis: 'y',
-                    placeholder: 'list-group-item lista-posicion-placeholder',
+                    placeholder: config.grilla
+                        ? 'lista-posicion-celda lista-posicion-celda-placeholder'
+                        : 'list-group-item lista-posicion-placeholder',
                     forcePlaceholderSize: true,
                     change: function(event, ui) {
                         renumerar(ui.item, ui.placeholder);   // en vivo, durante el arrastre
@@ -551,6 +558,11 @@ function inicializarAsignadorPosicion(config) {
                         renumerar();   // al soltar
                     }
                 };
+
+                // Sin grilla: movimiento solo vertical (lista). Con grilla: libre (2D).
+                if (!config.grilla) {
+                    opcionesSortable.axis = 'y';
+                }
 
                 // En creación/edición solo el ítem movible se puede tomar; en global, todos.
                 if (!ctx.global) {

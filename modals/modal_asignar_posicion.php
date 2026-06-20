@@ -15,11 +15,11 @@
                     <div id="modal-mensajes-posicion"></div>
 
                     <p class="small text-muted mb-2" id="instruccion-posicion-uno">
-                        <i class="bi bi-info-circle me-1"></i>Arrastra el menú <span class="badge bg-primary">resaltado</span> para asignar su posición.
+                        <i class="bi bi-info-circle me-1"></i>Arrastra el registro <span class="badge bg-primary">resaltado</span> para asignar su posición.
                     </p>
 
                     <p class="small text-muted mb-2 d-none" id="instruccion-posicion-todos">
-                        <i class="bi bi-info-circle me-1"></i>Arrastra cualquier menú para reordenar la lista completa.
+                        <i class="bi bi-info-circle me-1"></i>Arrastra cualquier registro para reordenar la lista completa.
                     </p>
 
                     <ul class="list-group" id="lista-posicion"></ul>

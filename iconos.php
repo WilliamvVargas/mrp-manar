@@ -23,12 +23,19 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Iconos</h5>
-            <button class="btn btn-primary btn-sm"
-                    type="button"
-                    data-bs-toggle="modal"
-                    data-bs-target="#modalIconoCrear">
-                <i class="bi bi-plus-lg"></i> Agregar Icono
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm"
+                        type="button"
+                        id="btn-asignar-posiciones">
+                    <i class="bi bi-sort-numeric-down"></i> Asignar Posiciones
+                </button>
+                <button class="btn btn-primary btn-sm"
+                        type="button"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalIconoCrear">
+                    <i class="bi bi-plus-lg"></i> Agregar Icono
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -76,10 +83,12 @@
     include 'modals/modal_iconos_editar.php';
     include 'modals/modal_iconos_eliminar.php';
     include 'modals/modal_iconos_vista_previa.php';
+    include 'modals/modal_asignar_posicion.php';
 
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

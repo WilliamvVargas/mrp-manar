@@ -98,3 +98,106 @@
 #tabla-consulta-presupuesto td {
     font-size: 0.8rem;
 }
+
+
+/* Asignar Posición en modo grilla (solo iconos): 8 columnas, celdas cuadradas.
+   Estas clases solo existen cuando el motor recibe config.grilla, así que no
+   afectan al mantenedor de menús (que sigue usando .list-group / lista vertical). */
+
+.lista-posicion-grilla {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.lista-posicion-celda {
+    /* 8 columnas: cada celda = (100% - 7 huecos) / 8 */
+    width: calc((100% - 7 * 0.4rem) / 8);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.25rem;
+    background: #fff;
+    cursor: move;
+    overflow: hidden;
+}
+
+.lista-posicion-celda .numero-orden {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+    line-height: 1;
+}
+
+/* El icono ocupa el espacio del medio y se centra, sin importar su alto:
+   así el número (arriba) y el nombre (abajo) quedan a la misma altura en todas las celdas.
+   container-type: size permite que el contenido se mida relativo a esta zona (cqmin). */
+.lista-posicion-celda .celda-preview {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    container-type: size;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* El icono escala con el tamaño de la celda (no fijo), así nunca se sale ni tapa
+   el número/nombre al hacer zoom o cambiar el tamaño de la ventana. */
+.lista-posicion-celda .celda-preview i.bi {
+    font-size: 2.4rem;     /* respaldo si el navegador no soporta unidades cq */
+    font-size: 60cqmin;
+    line-height: 1;
+}
+
+.lista-posicion-celda .celda-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.lista-posicion-celda .celda-nombre {
+    max-width: 100%;
+    font-size: 0.75rem;
+    line-height: 1.1;
+}
+
+/* Etiqueta inferior (posición original). El contenedor SIEMPRE reserva su espacio
+   (queda en blanco si la celda no cambió de lugar); el badge interno lo muestra/oculta
+   el motor con d-none, igual que en menús. */
+.lista-posicion-celda .celda-cambio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 1.4rem;
+    overflow: hidden;
+}
+
+.lista-posicion-celda .celda-cambio .badge-cambio {
+    max-width: 100%;
+    font-size: 0.55rem;
+    line-height: 1.05;
+    white-space: normal;
+}
+
+/* Celda movida de su posición original: resaltada (la pone el motor con list-group-item-warning). */
+.lista-posicion-celda.list-group-item-warning {
+    background: #fff3cd;
+    border-color: #ffe69c;
+}
+
+/* Placeholder de la grilla durante el arrastre. */
+.lista-posicion-celda-placeholder {
+    aspect-ratio: 1 / 1;
+    border: 1px dashed #adb5bd;
+    border-radius: 0.375rem;
+    background: #f8f9fa;
+}

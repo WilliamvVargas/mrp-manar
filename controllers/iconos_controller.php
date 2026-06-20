@@ -433,6 +433,42 @@ switch ($action) {
         }
         exit;
 
+    case 'listar_orden':
+
+        // Listado completo ordenado por posición (lo usa el modal de Asignar Posición).
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => (new Icono($pdo))->listarOrdenados()
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e, null);
+        }
+        exit;
+
+    case 'reordenar':
+
+        retrasar();
+
+        $orden = $_POST['orden'] ?? [];
+
+        if (!is_array($orden) || count($orden) === 0) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Orden no válido.']);
+            exit;
+        }
+
+        try {
+            (new Icono($pdo))->reordenarTodos($orden);
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Orden actualizado con éxito.'
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     default:
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida.']);
