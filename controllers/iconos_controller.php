@@ -255,6 +255,98 @@ switch ($action) {
         echo json_encode(['status' => 'success', 'message' => $mensaje]);
         exit;
 
+    case 'editar':
+
+        retrasar();
+
+        $id     = (int) ($_POST['id_registro'] ?? 0);
+        $nombre = trim($_POST['nombre'] ?? '');
+
+        if ($id < 1) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        // Valida el Nombre (lo único editable).
+        $errores = [];
+        if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+            $errores['nombre'] = $err;
+        }
+        enviarErrorCamposFormulario($errores);
+
+        try {
+            $iconoModel = new Icono($pdo);
+            $icono      = $iconoModel->buscarPorId($id);
+
+            if (!$icono) {
+                echo json_encode(['status' => 'error', 'message' => 'El icono que intenta editar no existe.']);
+                exit;
+            }
+
+            $usuario    = $_SESSION['usuario_id'];
+            $hayCambios = false;
+
+            if ($icono['tipo'] === 'bootstrap') {
+
+                // En Bootstrap el valor es fijo: solo cambia el Nombre.
+                $hayCambios = $iconoModel->actualizarNombre($id, $nombre, $usuario) > 0;
+
+            } else {
+
+                // Personalizado: el valor (y el archivo) derivan del Nombre.
+                $nuevoValor = 'custom-' . slugIcono($nombre);
+
+                if ($nuevoValor === $icono['valor']) {
+                    // El slug no cambió: solo se actualiza el Nombre.
+                    $hayCambios = $iconoModel->actualizarNombre($id, $nombre, $usuario) > 0;
+                } else {
+                    // No se permiten valores duplicados (excluyendo este mismo icono).
+                    if ($iconoModel->existePorValor($nuevoValor, $id)) {
+                        enviarErrorCamposFormulario(['nombre' => 'Ya existe un icono con ese nombre.']);
+                    }
+
+                    $carpeta      = __DIR__ . '/../assets/icons/personalizados';
+                    $nuevoArchivo = $nuevoValor . '.svg';
+                    $rutaVieja    = $carpeta . '/' . $icono['archivo'];
+                    $rutaNueva    = $carpeta . '/' . $nuevoArchivo;
+
+                    // Renombra el archivo físico primero.
+                    if ($icono['archivo'] && is_file($rutaVieja) && !@rename($rutaVieja, $rutaNueva)) {
+                        throw new RuntimeException('No se pudo renombrar el archivo del icono.');
+                    }
+
+                    try {
+                        $iconoModel->actualizarPersonalizado($id, $nombre, $nuevoValor, $nuevoArchivo, $usuario);
+                    } catch (PDOException $e) {
+                        // Si falla la BD, deshace el renombrado.
+                        if (is_file($rutaNueva)) {
+                            @rename($rutaNueva, $rutaVieja);
+                        }
+                        throw $e;
+                    }
+
+                    // Regenera el sprite con los archivos actualizados.
+                    regenerarSpriteIconos($iconoModel, $carpeta, __DIR__ . '/../assets/icons/sprite.svg');
+
+                    $hayCambios = true;
+                }
+            }
+
+            if ($hayCambios) {
+                echo json_encode(['status' => 'success', 'message' => 'Icono actualizado con éxito.']);
+            } else {
+                echo json_encode(['status' => 'no_changes', 'message' => 'No se realizaron cambios.']);
+            }
+
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        } catch (Throwable $e) {
+            error_log('[ICONOS] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'No se pudo actualizar el icono. Intente nuevamente.']);
+        }
+        exit;
+
     case 'listar':
 
         $draw     = (int) ($_GET['draw'] ?? 0);

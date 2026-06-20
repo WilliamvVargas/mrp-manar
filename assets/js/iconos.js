@@ -49,8 +49,120 @@ $(document).ready(function() {
             { data: 'valor', render: $.fn.dataTable.render.text() },
             { data: 'tipo', className: 'text-center', render: renderTipo },
             { data: null, orderable: false, searchable: false, className: 'text-center', render: renderVistaPrevia },
-            { data: 'id', orderable: false, searchable: false, className: 'text-center', render: function() { return ''; } }
+            {
+                data: 'id',
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(id) {
+                    return '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-icono" '
+                         + 'data-id="' + id + '" title="Editar icono"><i class="bi bi-pencil"></i></button>';
+                }
+            }
         ]
+    });
+
+    // ============================================================
+    //  Editar Icono (frontend)
+    // ============================================================
+
+    // Tipo del icono que se está editando (para recalcular el Valor solo en personalizados).
+    let tipoIconoEditando = null;
+
+    // Genera el slug del valor a partir del nombre, igual que el backend (slugIcono PHP):
+    // minúsculas, sin acentos, solo [a-z0-9-]. Ej: 'Engranaje Ñoño' -> 'engranaje-nono'.
+    function slugIcono(nombre) {
+        let s = (nombre || '').toLowerCase().trim();
+        s = s.replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i')
+             .replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u').replace(/ñ/g, 'n');
+        s = s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        return s === '' ? 'icono' : s;
+    }
+
+    // HTML del icono para el recuadro de vista previa del modal.
+    function previewIconoModalHtml(fila) {
+        if (fila.tipo === 'bootstrap') {
+            return '<i class="bi bi-' + fila.valor + '" style="font-size: 3rem;"></i>';
+        }
+        return '<img src="assets/icons/personalizados/' + fila.archivo + '" alt="" '
+             + 'style="max-width: 72%; max-height: 72%;">';
+    }
+
+    // Abre el modal de edición con los datos de la fila (sin llamar al backend).
+    function abrirEditarIcono(fila) {
+        limpiarFormularioCompleto('#form-icono-editar', '#modal-mensajes-editar', true);
+        tipoIconoEditando = fila.tipo;
+        $('#id_icono_editar').val(fila.id);
+        $('#input_tipo_editar').val(fila.tipo === 'bootstrap' ? 'Bootstrap' : 'Personalizado');
+        $('#input_valor_editar').val(fila.valor);
+        $('#input_nombre_editar').val(fila.nombre);
+        $('#preview-icono-editar').html(previewIconoModalHtml(fila));
+        $('#modalIconoEditar').modal('show');
+    }
+
+    // Botón Editar de la columna Acciones: toma la fila del DataTable y abre el modal.
+    $('#tabla-consulta tbody').on('click', '.btn-editar-icono', function() {
+        const fila = tablaConsulta.row($(this).closest('tr')).data();
+        if (fila) {
+            abrirEditarIcono(fila);
+        }
+    });
+
+    // Solo en personalizados: al editar el Nombre, el Valor se recalcula con el mismo
+    // formato que al crear (custom-<slug>). En Bootstrap el valor es fijo.
+    $('#input_nombre_editar').on('input', function() {
+        if (tipoIconoEditando === 'personalizado') {
+            $('#input_valor_editar').val('custom-' + slugIcono($(this).val()));
+        }
+    });
+
+    // Limpia la alerta general al escribir en el formulario de edición.
+    activarLimpiezaMensajeAlEscribir('#form-icono-editar', '#modal-mensajes-editar');
+
+    // Envío del formulario de edición.
+    $('#form-icono-editar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btnActualizarIcono');
+        const formulario   = '#form-icono-editar';
+        const modalMensaje = '#modal-mensajes-editar';
+
+        setBtnLoading(btn, 'Actualizando...');
+
+        $.ajax({
+            url: 'controllers/iconos_controller.php?action=editar',
+            type: 'POST',
+            data: $(this).serialize(),   // csrf_token, id_registro y nombre
+            dataType: 'json',
+            success: function(res) {
+                resetBtnLoading(btn);
+
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(null, false);
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                }
+                else if (res.status === 'no_changes') {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'warning');
+                }
+                else if (res.status === 'error') {
+                    $(modalMensaje).slideUp(150);
+                    if (res.type === 'fields') {
+                        renderizarErroresCampos(formulario, res.errors);
+                    }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                resetBtnLoading(btn);
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            }
+        });
+    });
+
+    // Al cerrar el modal de edición: limpia el formulario y la vista previa.
+    $('#modalIconoEditar').on('hidden.bs.modal', function() {
+        limpiarFormularioCompleto('#form-icono-editar', '#modal-mensajes-editar', true);
+        $('#preview-icono-editar').empty();
     });
 
     // ============================================================

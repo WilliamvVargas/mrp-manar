@@ -61,12 +61,58 @@
          * @param string $valor
          * @return bool
          */
-        public function existePorValor($valor)
+        public function existePorValor($valor, $excluirId = null)
         {
-            $stmt = $this->pdo->prepare("SELECT 1 FROM iconos WHERE valor = ? LIMIT 1");
-            $stmt->execute([$valor]);
+            $sql    = "SELECT 1 FROM iconos WHERE valor = ?";
+            $params = [$valor];
+
+            if ($excluirId !== null) {
+                $sql     .= " AND id <> ?";
+                $params[] = (int) $excluirId;
+            }
+            $sql .= " LIMIT 1";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
 
             return (bool) $stmt->fetchColumn();
+        }
+
+        /**
+         * Devuelve un icono por su id (o false si no existe).
+         */
+        public function buscarPorId($id)
+        {
+            $stmt = $this->pdo->prepare("SELECT id, nombre, tipo, valor, archivo, coloreable, posicion FROM iconos WHERE id = ?");
+            $stmt->execute([(int) $id]);
+
+            return $stmt->fetch();
+        }
+
+        /**
+         * Actualiza solo el nombre de un icono (caso Bootstrap o personalizado sin cambio de valor).
+         *
+         * @return int Filas afectadas (0 si no hubo cambios).
+         */
+        public function actualizarNombre($id, $nombre, $actualizadoPor = null)
+        {
+            $stmt = $this->pdo->prepare("UPDATE iconos SET nombre = ?, updated_by = ? WHERE id = ?");
+            $stmt->execute([$nombre, $actualizadoPor, (int) $id]);
+
+            return $stmt->rowCount();
+        }
+
+        /**
+         * Actualiza un icono personalizado cuando cambia su valor: nombre, valor y archivo.
+         *
+         * @return int Filas afectadas.
+         */
+        public function actualizarPersonalizado($id, $nombre, $valor, $archivo, $actualizadoPor = null)
+        {
+            $stmt = $this->pdo->prepare("UPDATE iconos SET nombre = ?, valor = ?, archivo = ?, updated_by = ? WHERE id = ?");
+            $stmt->execute([$nombre, $valor, $archivo, $actualizadoPor, (int) $id]);
+
+            return $stmt->rowCount();
         }
 
         /**
