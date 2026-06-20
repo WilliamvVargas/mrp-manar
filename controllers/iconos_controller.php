@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../config/conexion.php';
 require_once __DIR__ . '/../includes/funciones_validacion.php';
+require_once __DIR__ . '/../models/iconos_model.php';
+require_once __DIR__ . '/../assets/librerias/procesador_svg/procesador_svg.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -31,6 +34,51 @@ $REGLAS_VALOR_BOOTSTRAP = [
         }
     ]
 ];
+
+/**
+ * Convierte un nombre en un slug apto para id de símbolo: minúsculas, sin acentos,
+ * solo [a-z0-9-]. Ej: "Engranaje Ñoño" -> "engranaje-nono".
+ */
+function slugIcono($nombre)
+{
+    $s = mb_strtolower(trim($nombre), 'UTF-8');
+    $s = strtr($s, [
+        'á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ñ'=>'n','ü'=>'u',
+        'à'=>'a','è'=>'e','ì'=>'i','ò'=>'o','ù'=>'u'
+    ]);
+    $s = preg_replace('/[^a-z0-9]+/', '-', $s);
+    $s = trim($s, '-');
+
+    return $s === '' ? 'icono' : $s;
+}
+
+/**
+ * Regenera el sprite combinado (.svg) a partir de TODOS los iconos personalizados.
+ * El archivo original suelto es la fuente de verdad; el sprite es derivado/regenerable.
+ */
+function regenerarSpriteIconos(Icono $iconoModel, $carpeta, $rutaSprite)
+{
+    $simbolos = '';
+
+    foreach ($iconoModel->listarPersonalizados() as $ico) {
+        $ruta = $carpeta . '/' . $ico['archivo'];
+        if (!is_readable($ruta)) {
+            continue;
+        }
+        try {
+            $proc = new ProcesadorSvg(file_get_contents($ruta));
+            $simbolos .= $proc->comoSimbolo($ico['valor']) . "\n";
+        } catch (Throwable $e) {
+            error_log('[ICONOS] sprite: ' . $e->getMessage());
+        }
+    }
+
+    $sprite = '<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">' . "\n"
+            . $simbolos
+            . '</svg>' . "\n";
+
+    file_put_contents($rutaSprite, $sprite);
+}
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -63,6 +111,157 @@ switch ($action) {
         }
 
         echo json_encode(['status' => 'success']);
+        exit;
+
+    case 'registrar':
+
+        retrasar();
+
+        $tipo   = $_POST['tipo'] ?? '';
+        $nombre = trim($_POST['nombre'] ?? '');
+
+        if ($tipo === 'bootstrap') {
+
+            $valor = trim($_POST['valor_bootstrap'] ?? '');
+
+            // Validación de campos (mismas reglas que la validación instantánea).
+            $errores = [];
+            if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+                $errores['nombre'] = $err;
+            }
+            if ($err = validarCampoTexto($valor, 'Icono', $REGLAS_VALOR_BOOTSTRAP)) {
+                $errores['valor_bootstrap'] = $err;
+            }
+            enviarErrorCamposFormulario($errores);
+
+            // Se guarda el nombre del icono sin el prefijo 'bi-'.
+            $valorNormalizado = preg_replace('/^bi-/', '', $valor);
+
+            try {
+                $iconoModel = new Icono($pdo);
+
+                // No se permiten iconos duplicados (la columna `valor` es UNIQUE).
+                if ($iconoModel->existePorValor($valorNormalizado)) {
+                    echo json_encode([
+                        'status' => 'error',
+                        'type'   => 'fields',
+                        'errors' => ['valor_bootstrap' => 'Ese icono ya está registrado.']
+                    ]);
+                    exit;
+                }
+
+                $iconoModel->crear([
+                    'nombre'     => $nombre,
+                    'tipo'       => 'bootstrap',
+                    'valor'      => $valorNormalizado,
+                    'archivo'    => null,
+                    'coloreable' => 1,   // los iconos de Bootstrap son monocromáticos
+                ], $_SESSION['usuario_id']);
+
+                echo json_encode([
+                    'status'  => 'success',
+                    'message' => 'Icono creado con éxito.'
+                ]);
+
+            } catch (PDOException $e) {
+                responderErrorServidor($e);
+            }
+            exit;
+        }
+
+        // ----- Tipo 'personalizado' (archivo SVG) -----
+
+        // Valida el Nombre.
+        $errores = [];
+        if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+            $errores['nombre'] = $err;
+        }
+        enviarErrorCamposFormulario($errores);
+
+        // Valida el archivo recibido.
+        if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'Debe seleccionar un archivo SVG.']]);
+            exit;
+        }
+
+        $sub = $_FILES['archivo'];
+
+        if (strtolower(pathinfo($sub['name'], PATHINFO_EXTENSION)) !== 'svg') {
+            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'Solo se permiten archivos .svg.']]);
+            exit;
+        }
+        if ($sub['size'] > ICONO_SVG_MAX_PESO_KB * 1024) {
+            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'El SVG supera el tamaño máximo (' . ICONO_SVG_MAX_PESO_KB . ' KB).']]);
+            exit;
+        }
+
+        // Procesa el SVG: saneo + detección de color (+ currentColor si es monocromático).
+        try {
+            $proc = new ProcesadorSvg(file_get_contents($sub['tmp_name']));
+            $proc->sanear();
+            $coloreable = $proc->esMonocromatico() ? 1 : 0;
+            if ($coloreable) {
+                $proc->aplicarCurrentColor();
+            }
+            $svgFinal = $proc->svgComoString();
+        } catch (Throwable $e) {
+            error_log('[ICONOS] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'type' => 'fields', 'errors' => ['archivo' => 'El archivo no es un SVG válido.']]);
+            exit;
+        }
+
+        try {
+            $iconoModel = new Icono($pdo);
+
+            // Id de símbolo único: custom-<slug> (-2, -3... si ya existe).
+            $base  = 'custom-' . slugIcono($nombre);
+            $valor = $base;
+            $n     = 2;
+            while ($iconoModel->existePorValor($valor)) {
+                $valor = $base . '-' . $n;
+                $n++;
+            }
+            $archivo = $valor . '.svg';
+
+            $carpeta = __DIR__ . '/../assets/icons/personalizados';
+            if (!is_dir($carpeta) && !mkdir($carpeta, 0775, true) && !is_dir($carpeta)) {
+                throw new RuntimeException('No se pudo crear la carpeta de iconos.');
+            }
+
+            if (file_put_contents($carpeta . '/' . $archivo, $svgFinal) === false) {
+                throw new RuntimeException('No se pudo guardar el archivo SVG.');
+            }
+
+            try {
+                $iconoModel->crear([
+                    'nombre'     => $nombre,
+                    'tipo'       => 'personalizado',
+                    'valor'      => $valor,
+                    'archivo'    => $archivo,
+                    'coloreable' => $coloreable,
+                ], $_SESSION['usuario_id']);
+            } catch (PDOException $e) {
+                @unlink($carpeta . '/' . $archivo);   // no dejar el archivo huérfano
+                throw $e;
+            }
+
+            // Regenera el sprite combinado con todos los personalizados.
+            regenerarSpriteIconos($iconoModel, $carpeta, __DIR__ . '/../assets/icons/sprite.svg');
+
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        } catch (Throwable $e) {
+            error_log('[ICONOS] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'No se pudo guardar el icono. Intente nuevamente.']);
+            exit;
+        }
+
+        $mensaje = 'Icono creado con éxito.';
+        if (!$coloreable) {
+            $mensaje .= ' Se detectó multicolor: conserva sus colores originales.';
+        }
+
+        echo json_encode(['status' => 'success', 'message' => $mensaje]);
         exit;
 
     default:

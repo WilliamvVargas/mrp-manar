@@ -31,4 +31,7 @@
   define('PRESUPUESTO_MAX_FILAS', 10000);  // Máximo de filas de datos a procesar
   define('PRESUPUESTO_MAX_PESO_MB', 10);   // Peso máximo del archivo .xlsx
 
+  //Iconos personalizados (.svg)
+  define('ICONO_SVG_MAX_PESO_KB', 200);    // Peso máximo del archivo SVG
+
 ?>

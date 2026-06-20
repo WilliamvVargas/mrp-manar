@@ -229,16 +229,58 @@ $(document).ready(function() {
     // Limpia la alerta general al escribir en el formulario.
     activarLimpiezaMensajeAlEscribir('#form-icono', '#modal-mensajes');
 
-    // Al cerrar el modal: restablece el formulario a su estado inicial.
-    $('#modalIconoCrear').on('hidden.bs.modal', function() {
+    // Restablece el formulario a su estado inicial (form, combobox y vista previa).
+    function resetearFormularioIcono() {
         limpiarFormularioCompleto('#form-icono', '#modal-mensajes', true);
-
         cerrarListaIconos();
         $('#tipo-bootstrap').prop('checked', true);
         $('#bloque-bootstrap').removeClass('d-none');
         $('#bloque-personalizado').addClass('d-none');
         nombreEditadoManualmente = false;
         previewPlaceholder();
+    }
+
+    // Guardar Icono.
+    $('#form-icono').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btnGuardarIcono');
+        const formulario   = '#form-icono';
+        const modalMensaje = '#modal-mensajes';
+
+        setBtnLoading(btn, 'Guardando...');
+
+        $.ajax({
+            url: 'controllers/iconos_controller.php?action=registrar',
+            type: 'POST',
+            data: new FormData(this),   // incluye el csrf_token (y el archivo cuando aplique)
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(res) {
+                resetBtnLoading(btn);
+
+                if (res.status === 'success') {
+                    resetearFormularioIcono();
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                    // Cuando exista el listado: tablaIconos.ajax.reload(null, false);
+                }
+                else if (res.status === 'error') {
+                    $(modalMensaje).slideUp(150);
+                    if (res.type === 'fields') {
+                        renderizarErroresCampos(formulario, res.errors);
+                    }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                resetBtnLoading(btn);
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            }
+        });
     });
+
+    // Al cerrar el modal: restablece el formulario a su estado inicial.
+    $('#modalIconoCrear').on('hidden.bs.modal', resetearFormularioIcono);
 
 });

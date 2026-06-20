@@ -8,3 +8,9 @@ Thumbs.db
 
 # Ignorar carpetas de uploads si no quieres que tus fotos de prueba se suban
 assets/img/uploads/*
+
+# Ignorar iconos personalizados subidos y el sprite generado a partir de ellos
+# (se conserva la carpeta con .gitkeep, pero no su contenido)
+assets/icons/personalizados/*
+!assets/icons/personalizados/.gitkeep
+assets/icons/sprite.svg
