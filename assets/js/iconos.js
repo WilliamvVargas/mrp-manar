@@ -244,6 +244,17 @@ $(document).ready(function() {
         return base.charAt(0).toUpperCase() + base.slice(1);
     }
 
+    // Muestra en el input "Valor" lo que se guardaría: en Bootstrap el nombre del icono;
+    // en Personalizado, custom-<slug del Nombre> (misma lógica que en edición).
+    function actualizarValorCrear() {
+        if ($('#tipo-bootstrap').is(':checked')) {
+            $('#input_valor_crear').val($('#input_valor_bootstrap').val().trim().replace(/^bi-/, ''));
+        } else {
+            const nombre = $('#input_nombre').val().trim();
+            $('#input_valor_crear').val(nombre ? 'custom-' + slugIcono(nombre) : '');
+        }
+    }
+
     // ---------- Combobox de iconos de Bootstrap ----------
 
     // Filtra el catálogo por la consulta (ignora el prefijo 'bi-').
@@ -303,6 +314,7 @@ $(document).ready(function() {
         cerrarListaIconos();
         previewBootstrap();
         ejecutarValidacionUniversal($inputIcono);
+        actualizarValorCrear();
     }
 
     // Abrir/filtrar al enfocar.
@@ -312,6 +324,7 @@ $(document).ready(function() {
     $inputIcono.on('input', function() {
         abrirListaIconos();
         previewBootstrap();
+        actualizarValorCrear();
     });
 
     // Navegación con teclado dentro del desplegable.
@@ -379,6 +392,8 @@ $(document).ready(function() {
         } else {
             previewArchivo($('#input_archivo')[0].files[0]);
         }
+
+        actualizarValorCrear();
     });
 
     // Vista previa + autocompletado del Nombre al seleccionar el SVG personalizado.
@@ -388,13 +403,18 @@ $(document).ready(function() {
 
         // Propone el Nombre derivado del archivo, salvo que el usuario ya lo haya editado a mano.
         if (archivo && !nombreEditadoManualmente) {
-            $('#input_nombre').val(nombreDesdeArchivo(archivo.name));
+            $('#input_nombre').val(nombreDesdeArchivo(archivo.name)).removeClass('is-valid');
+            limpiarErrorCampo($('#input_nombre'));   // el valor cambió: descarta un error/estado previo
         }
+
+        actualizarValorCrear();
     });
 
-    // Si el usuario escribe el Nombre a mano, deja de autocompletarse desde el icono.
+    // Marca el Nombre como editado a mano SOLO si tiene contenido. Si el usuario lo deja
+    // en blanco, se "libera" y vuelve a permitir el autocompletado (desde archivo o icono).
     $('#input_nombre').on('input', function() {
-        nombreEditadoManualmente = true;
+        nombreEditadoManualmente = $(this).val().trim() !== '';
+        actualizarValorCrear();   // en Personalizado el Valor sigue al Nombre
     });
 
     // Observa la validación del icono de Bootstrap: cuando queda válido (clase is-valid),
@@ -405,7 +425,8 @@ $(document).ready(function() {
             const valido = $inputIcono.hasClass('is-valid') && !$inputIcono.hasClass('is-invalid');
 
             if (valido && !nombreEditadoManualmente) {
-                $('#input_nombre').val(humanizarNombreIcono($inputIcono.val()));
+                $('#input_nombre').val(humanizarNombreIcono($inputIcono.val())).removeClass('is-valid');
+                limpiarErrorCampo($('#input_nombre'));   // el valor cambió: descarta un error/estado previo
             }
         });
         observadorIcono.observe(inputIconoDom, { attributes: true, attributeFilter: ['class'] });
@@ -423,6 +444,7 @@ $(document).ready(function() {
         $('#bloque-personalizado').addClass('d-none');
         nombreEditadoManualmente = false;
         previewPlaceholder();
+        actualizarValorCrear();
     }
 
     // Guardar Icono.

@@ -808,6 +808,12 @@ function ejecutarValidacionUniversal($input, aprobar_input = true) {
         dataType: 'json',
         success: function(response) {
 
+            // Respuesta obsoleta: si el valor del input cambió desde que se disparó esta
+            // validación (p. ej. se autocompletó), no se aplica (evita re-marcar lo viejo).
+            if ($input.val() !== value) {
+                return;
+            }
+
             if (response.status === 'error') {
 
                 if(usar_check == true)

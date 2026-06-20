@@ -124,6 +124,18 @@
                         <div class="invalid-feedback small" id="error-nombre"></div>
                     </div>
 
+                    <!-- Valor (solo lectura): refleja lo que se guardará -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input_valor_crear">Valor</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input_valor_crear"
+                                   disabled>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button"
