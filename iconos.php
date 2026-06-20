@@ -46,12 +46,8 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-bold small mb-1" for="filtro-tipo">Tipo</label>
-                        <select class="form-select form-select-sm" id="filtro-tipo">
-                            <option value="">Todos</option>
-                            <option value="bootstrap">Bootstrap</option>
-                            <option value="personalizado">Personalizado</option>
-                        </select>
+                        <label class="form-label fw-bold small mb-1">Tipo</label>
+                        <div id="filtro-tipo-contenedor"></div>
                     </div>
                 </div>
 

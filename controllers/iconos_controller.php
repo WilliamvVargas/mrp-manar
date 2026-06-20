@@ -264,6 +264,46 @@ switch ($action) {
         echo json_encode(['status' => 'success', 'message' => $mensaje]);
         exit;
 
+    case 'listar':
+
+        $draw     = (int) ($_GET['draw'] ?? 0);
+        $inicio   = (int) ($_GET['start'] ?? 0);
+        $longitud = (int) ($_GET['length'] ?? 10);
+
+        // Buscador (#consulta): por nombre o valor. Filtro de tipo (#filtro-tipo).
+        $consulta = trim($_GET['consulta'] ?? '');
+        $tipo     = $_GET['tipo'] ?? '';
+
+        // Índice de columna -> nombre lógico (solo las ordenables: posición, nombre, tipo).
+        $columnas     = [0 => 'posicion', 2 => 'nombre', 3 => 'tipo'];
+        $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : 0;
+        $columnaOrden = $columnas[$idxOrden] ?? 'posicion';
+        $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';
+
+        try {
+            $iconoModel     = new Icono($pdo);
+            $totalRegistros = $iconoModel->contarTodos();
+            $totalFiltrados = $iconoModel->contarFiltrados($consulta, $tipo);
+            $datos          = $iconoModel->listarPagina($consulta, $tipo, $columnaOrden, $dirOrden, $inicio, $longitud);
+
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => $totalRegistros,
+                'recordsFiltered' => $totalFiltrados,
+                'data'            => $datos
+            ]);
+        } catch (PDOException $e) {
+            error_log('[ICONOS] ' . $e->getMessage());
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => 0,
+                'recordsFiltered' => 0,
+                'data'            => [],
+                'error'           => 'Ocurrió un error al cargar los iconos.'
+            ]);
+        }
+        exit;
+
     default:
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida.']);

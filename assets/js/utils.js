@@ -330,6 +330,73 @@ function inicializarTablaConsulta(opciones) {
 }
 
 /**
+ * Inicializa un "select con iconos": un dropdown de Bootstrap que se comporta como
+ * un <select> pero permite icono + texto en cada opción (los <option> nativos no).
+ * Reutilizable por cualquier mantenedor.
+ *
+ * Inyecta el dropdown dentro del contenedor indicado y guarda el valor elegido en un
+ * <input type="hidden" id={idValor}>, de modo que se lea igual que un select normal
+ * (p. ej. desde el `extra` de inicializarTablaConsulta: $('#idValor').val()).
+ *
+ * @param {Object}    config
+ * @param {string}    config.contenedor    - Selector del contenedor donde se inyecta.
+ * @param {string}    config.idValor       - Id del input hidden que guardará el valor.
+ * @param {Array}     config.opciones      - [{ valor, texto, icono }] (icono = clase bi, opcional).
+ * @param {string}   [config.valorInicial] - Valor seleccionado por defecto (por defecto, el primero).
+ * @param {Function} [config.onCambio]     - Callback(valor) al cambiar la selección.
+ */
+function inicializarSelectIconos(config) {
+    const $cont    = $(config.contenedor);
+    const opciones = config.opciones || [];
+
+    const iconoHtml = function(icono) {
+        return icono ? '<i class="bi ' + icono + ' me-2"></i>' : '';
+    };
+
+    let itemsHtml = '';
+    opciones.forEach(function(op) {
+        itemsHtml += '<li><button type="button" class="dropdown-item d-flex align-items-center select-iconos-item" '
+                   + 'data-valor="' + op.valor + '">' + iconoHtml(op.icono) + op.texto + '</button></li>';
+    });
+
+    $cont.html(
+        '<div class="dropdown">'
+        +   '<button class="btn btn-sm border bg-white dropdown-toggle w-100 d-flex align-items-center text-start" '
+        +           'type="button" data-bs-toggle="dropdown" aria-expanded="false">'
+        +       '<span class="select-iconos-texto flex-grow-1"></span>'
+        +   '</button>'
+        +   '<ul class="dropdown-menu w-100">' + itemsHtml + '</ul>'
+        +   '<input type="hidden" id="' + config.idValor + '">'
+        + '</div>'
+    );
+
+    const $texto  = $cont.find('.select-iconos-texto');
+    const $hidden = $cont.find('#' + config.idValor);
+
+    // Aplica una selección: actualiza la etiqueta visible y el valor; dispara el callback si corresponde.
+    function seleccionar(valor, disparar) {
+        const op = opciones.find(function(o) { return o.valor === valor; }) || opciones[0];
+        if (!op) {
+            return;
+        }
+        $texto.html(iconoHtml(op.icono) + op.texto);
+        $hidden.val(op.valor);
+        if (disparar && typeof config.onCambio === 'function') {
+            config.onCambio(op.valor);
+        }
+    }
+
+    $cont.on('click', '.select-iconos-item', function() {
+        seleccionar($(this).attr('data-valor'), true);
+    });
+
+    const inicial = (config.valorInicial !== undefined)
+        ? config.valorInicial
+        : (opciones[0] ? opciones[0].valor : '');
+    seleccionar(inicial, false);
+}
+
+/**
  * Construye el HTML de un ítem del listado ordenable de "Asignar Posición".
  * Reutilizable por cualquier mantenedor (lo invoca el `construirItems` del contexto).
  * @param {number|string} id     Identificador del registro.

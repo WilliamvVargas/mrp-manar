@@ -48,7 +48,7 @@
 
                             <input type="radio" class="btn-check" name="tipo" id="tipo-personalizado" value="personalizado">
                             <label class="btn btn-outline-primary" for="tipo-personalizado">
-                                <i class="bi bi-upload me-1"></i> Personalizado
+                                <i class="bi bi-tools me-1"></i> Personalizado
                             </label>
                         </div>
                     </div>

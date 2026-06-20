@@ -81,4 +81,91 @@
                 ->query("SELECT valor, archivo FROM iconos WHERE tipo = 'personalizado' ORDER BY posicion")
                 ->fetchAll();
         }
+
+        /**
+         * Cantidad total de iconos (sin filtro).
+         */
+        public function contarTodos()
+        {
+            return (int) $this->pdo->query("SELECT COUNT(*) FROM iconos")->fetchColumn();
+        }
+
+        /**
+         * Cantidad de iconos que coinciden con el buscador (nombre/valor) y el filtro de tipo.
+         */
+        public function contarFiltrados($busqueda, $tipo)
+        {
+            [$where, $params] = $this->construirFiltro($busqueda, $tipo);
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM iconos $where");
+            $stmt->execute($params);
+
+            return (int) $stmt->fetchColumn();
+        }
+
+        /**
+         * Página de iconos para DataTables (server-side).
+         *
+         * @param string $busqueda     Texto a buscar en nombre o valor.
+         * @param string $tipo         '' (todos), 'bootstrap' o 'personalizado'.
+         * @param string $columnaOrden Nombre lógico de la columna a ordenar.
+         * @param string $dirOrden     'asc' o 'desc'.
+         * @param int    $inicio       Offset.
+         * @param int    $longitud     Cantidad (-1 = todos).
+         */
+        public function listarPagina($busqueda, $tipo, $columnaOrden, $dirOrden, $inicio, $longitud)
+        {
+            $columnasValidas = [
+                'id'       => 'id',
+                'nombre'   => 'nombre',
+                'tipo'     => 'tipo',
+                'posicion' => 'posicion',
+            ];
+            $columna   = $columnasValidas[$columnaOrden] ?? 'posicion';
+            $direccion = (strtolower($dirOrden) === 'asc') ? 'ASC' : 'DESC';
+
+            $inicio   = max(0, (int) $inicio);
+            $longitud = (int) $longitud;
+
+            [$where, $params] = $this->construirFiltro($busqueda, $tipo);
+            $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
+
+            $sql = "SELECT id, nombre, tipo, valor, archivo, coloreable, posicion
+                    FROM iconos
+                    $where
+                    ORDER BY $columna $direccion
+                    $limit";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Arma el WHERE y los parámetros del buscador (nombre/valor) + filtro de tipo.
+         *
+         * @return array [string $where, array $params]
+         */
+        private function construirFiltro($busqueda, $tipo)
+        {
+            $condiciones = [];
+            $params      = [];
+
+            if ($busqueda !== '') {
+                $condiciones[] = '(nombre LIKE ? OR valor LIKE ?)';
+                $like = '%' . $busqueda . '%';
+                $params[] = $like;
+                $params[] = $like;
+            }
+
+            if ($tipo === 'bootstrap' || $tipo === 'personalizado') {
+                $condiciones[] = 'tipo = ?';
+                $params[] = $tipo;
+            }
+
+            $where = $condiciones ? 'WHERE ' . implode(' AND ', $condiciones) : '';
+
+            return [$where, $params];
+        }
     }

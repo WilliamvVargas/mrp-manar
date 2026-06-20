@@ -1,9 +1,59 @@
 $(document).ready(function() {
 
     // ============================================================
-    //  Formulario Crear Icono — interactividad de la vista (frontend)
-    //  El listado (DataTables server-side) y el envío AJAX del formulario
-    //  se implementarán junto con el backend (controlador + modelo de iconos).
+    //  Listado de iconos (DataTable server-side)
+    // ============================================================
+
+    // Vista previa según el tipo: Bootstrap con la fuente; personalizado con su archivo SVG.
+    function renderVistaPrevia(d, type, fila) {
+        if (fila.tipo === 'bootstrap') {
+            return '<i class="bi bi-' + fila.valor + '" style="font-size: 1.4rem;"></i>';
+        }
+        return '<img src="assets/icons/personalizados/' + fila.archivo + '" alt="" '
+             + 'style="width: 22px; height: 22px; object-fit: contain;">';
+    }
+
+    function renderTipo(tipo) {
+        return tipo === 'bootstrap'
+            ? '<span class="badge bg-primary"><i class="bi bi-bootstrap-fill me-1"></i>Bootstrap</span>'
+            : '<span class="badge bg-secondary"><i class="bi bi-tools me-1"></i>Personalizado</span>';
+    }
+
+    // Filtro Tipo: dropdown con iconos (componente reutilizable de utils.js).
+    // Se inicializa ANTES de la tabla para que el hidden #filtro-tipo ya exista
+    // (con su valor por defecto) en la primera carga.
+    inicializarSelectIconos({
+        contenedor: '#filtro-tipo-contenedor',
+        idValor:    'filtro-tipo',
+        opciones: [
+            { valor: '',              texto: 'Todos' },
+            { valor: 'bootstrap',     texto: 'Bootstrap',     icono: 'bi-bootstrap-fill' },
+            { valor: 'personalizado', texto: 'Personalizado', icono: 'bi-tools' }
+        ],
+        onCambio: function() {
+            tablaConsulta.ajax.reload();
+        }
+    });
+
+    const tablaConsulta = inicializarTablaConsulta({
+        tabla: '#tabla-consulta',
+        url:   'controllers/iconos_controller.php?action=listar',
+        input: '#consulta',
+        orden: [[0, 'asc']],   // por posición ascendente
+        extra: function(d) {
+            d.tipo = $('#filtro-tipo').val();   // '', 'bootstrap' o 'personalizado'
+        },
+        columnas: [
+            { data: 'posicion', className: 'text-center' },
+            { data: null, orderable: false, searchable: false, className: 'text-center', render: renderVistaPrevia },
+            { data: 'nombre', render: $.fn.dataTable.render.text() },
+            { data: 'tipo', className: 'text-center', render: renderTipo },
+            { data: 'id', orderable: false, searchable: false, className: 'text-center', render: function() { return ''; } }
+        ]
+    });
+
+    // ============================================================
+    //  Formulario Crear Icono — interactividad y envío
     // ============================================================
 
     // Catálogo de iconos de Bootstrap embebido desde la vista (ver iconos.php).
@@ -263,7 +313,7 @@ $(document).ready(function() {
                 if (res.status === 'success') {
                     resetearFormularioIcono();
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
-                    // Cuando exista el listado: tablaIconos.ajax.reload(null, false);
+                    tablaConsulta.ajax.reload(null, false);
                 }
                 else if (res.status === 'error') {
                     $(modalMensaje).slideUp(150);
