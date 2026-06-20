@@ -188,6 +188,63 @@ class ProcesadorSvg
              . '</symbol>';
     }
 
+    /**
+     * Renombra todos los ids internos del SVG (y sus referencias) con un prefijo único,
+     * para evitar colisiones cuando varios SVG se combinan en un mismo sprite.
+     * Ej: id="b" -> id="<prefijo>-1", y url(#b) / href="#b" se actualizan en consecuencia.
+     *
+     * @param string $prefijo Prefijo único (p. ej. el valor/id del símbolo).
+     */
+    public function prefijarIds($prefijo)
+    {
+        $mapa     = [];
+        $contador = 0;
+
+        // 1. Asigna un id nuevo y único a cada elemento que tenga id.
+        foreach ($this->todosLosElementos() as $el) {
+            if ($el->hasAttribute('id') && $el->getAttribute('id') !== '') {
+                $viejo        = $el->getAttribute('id');
+                $nuevo        = $prefijo . '-' . (++$contador);
+                $mapa[$viejo] = $nuevo;
+                $el->setAttribute('id', $nuevo);
+            }
+        }
+
+        if (empty($mapa)) {
+            return $this;
+        }
+
+        // 2. Actualiza las referencias: #id en href/xlink:href y url(#id) en cualquier atributo o estilo.
+        foreach ($this->todosLosElementos() as $el) {
+            if (!$el->attributes) {
+                continue;
+            }
+            foreach (iterator_to_array($el->attributes) as $attr) {
+                $nombre     = $attr->nodeName;
+                $valor      = $attr->nodeValue;
+                $nuevoValor = $valor;
+
+                foreach ($mapa as $viejo => $nuevo) {
+                    if (($nombre === 'href' || $nombre === 'xlink:href') && $valor === '#' . $viejo) {
+                        $nuevoValor = '#' . $nuevo;
+                        break;
+                    }
+                    $nuevoValor = str_replace(
+                        ['url(#' . $viejo . ')', "url('#" . $viejo . "')", 'url("#' . $viejo . '")'],
+                        ['url(#' . $nuevo . ')', "url('#" . $nuevo . "')", 'url("#' . $nuevo . '")'],
+                        $nuevoValor
+                    );
+                }
+
+                if ($nuevoValor !== $valor) {
+                    $attr->nodeValue = $nuevoValor;
+                }
+            }
+        }
+
+        return $this;
+    }
+
     // ---------- Auxiliares ----------
 
     /** Snapshot de todos los elementos (para iterar mientras se modifica el árbol). */

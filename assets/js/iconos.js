@@ -55,11 +55,13 @@ $(document).ready(function() {
                 searchable: false,
                 className: 'text-center',
                 render: function(id) {
+                    const btnVista = '<button type="button" class="btn btn-sm btn-outline-secondary btn-vista-previa-icono me-1" '
+                                   + 'data-id="' + id + '" title="Vista Previa"><i class="bi bi-eye"></i></button>';
                     const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-icono me-1" '
                                     + 'data-id="' + id + '" title="Editar icono"><i class="bi bi-pencil"></i></button>';
                     const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-icono" '
                                       + 'data-id="' + id + '" title="Eliminar icono"><i class="bi bi-trash"></i></button>';
-                    return btnEditar + btnEliminar;
+                    return btnVista + btnEditar + btnEliminar;
                 }
             }
         ]
@@ -232,6 +234,69 @@ $(document).ready(function() {
     $('#modalIconoEliminar').on('hidden.bs.modal', function() {
         limpiarFormularioCompleto('#form-icono-eliminar', '#modal-mensajes-eliminar', true);
         $('#preview-icono-eliminar').empty();
+    });
+
+    // ============================================================
+    //  Vista Previa de Icono (con selector de color)
+    // ============================================================
+
+    const COLOR_PREVIEW_DEFECTO = '#212529';
+    const FONDO_PREVIEW_DEFECTO = '#ffffff';
+
+    // Renderiza el icono en grande y aplica el color actual. Los personalizados se cargan
+    // INLINE para que los monocromáticos hereden el color vía currentColor (un <img> no se tiñe).
+    function mostrarVistaPrevia(fila) {
+        const $cont      = $('#vista-previa-icono');
+        const coloreable = Number(fila.coloreable) === 1;
+
+        // Datos del icono (solo lectura).
+        $('#input-nombre-preview').val(fila.nombre);
+        $('#input-valor-preview').val(fila.valor);
+        $('#input-tipo-preview').val(fila.tipo === 'bootstrap' ? 'Bootstrap' : 'Personalizado');
+
+        // El color solo aplica a iconos coloreables (Bootstrap y personalizados monocromáticos);
+        // en multicolor se oculta el selector.
+        $('#contenedor-color-preview').toggleClass('d-none', !coloreable);
+        $('#mensaje-multicolor-preview').toggleClass('d-none', coloreable);
+        $('#input-color-preview').val(COLOR_PREVIEW_DEFECTO);
+        $('#input-fondo-preview').val(FONDO_PREVIEW_DEFECTO);
+        $cont.css({ 'color': COLOR_PREVIEW_DEFECTO, 'background-color': FONDO_PREVIEW_DEFECTO });
+
+        if (fila.tipo === 'bootstrap') {
+            $cont.html('<i class="bi bi-' + fila.valor + '" style="font-size: 12rem; line-height: 1;"></i>');
+        } else {
+            $cont.html('<span class="text-muted small">Cargando…</span>');
+            $.get('assets/icons/personalizados/' + fila.archivo, function(svg) {
+                $cont.html(svg);
+                $cont.find('svg').css({ width: '12rem', height: '12rem', maxWidth: '100%', maxHeight: '300px' });
+            }, 'text').fail(function() {
+                $cont.html('<span class="text-danger small">No se pudo cargar el icono.</span>');
+            });
+        }
+    }
+
+    // Botón Vista Previa de la columna Acciones.
+    $('#tabla-consulta tbody').on('click', '.btn-vista-previa-icono', function() {
+        const fila = tablaConsulta.row($(this).closest('tr')).data();
+        if (fila) {
+            mostrarVistaPrevia(fila);
+            $('#modalIconoVistaPrevia').modal('show');
+        }
+    });
+
+    // Al cambiar el color, tiñe el icono del body (Bootstrap y SVG monocromático vía currentColor).
+    $('#input-color-preview').on('input', function() {
+        $('#vista-previa-icono').css('color', $(this).val());
+    });
+
+    // Al cambiar el fondo, cambia el color de fondo del contenedor del icono.
+    $('#input-fondo-preview').on('input', function() {
+        $('#vista-previa-icono').css('background-color', $(this).val());
+    });
+
+    // Al cerrar el modal de vista previa: limpia el contenido.
+    $('#modalIconoVistaPrevia').on('hidden.bs.modal', function() {
+        $('#vista-previa-icono').empty();
     });
 
     // ============================================================

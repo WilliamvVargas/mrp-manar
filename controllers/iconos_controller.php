@@ -67,6 +67,7 @@ function regenerarSpriteIconos(Icono $iconoModel, $carpeta, $rutaSprite)
         }
         try {
             $proc = new ProcesadorSvg(file_get_contents($ruta));
+            $proc->prefijarIds($ico['valor']);   // ids únicos por símbolo (evita colisiones)
             $simbolos .= $proc->comoSimbolo($ico['valor']) . "\n";
         } catch (Throwable $e) {
             error_log('[ICONOS] sprite: ' . $e->getMessage());
