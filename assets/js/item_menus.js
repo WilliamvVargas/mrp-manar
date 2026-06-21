@@ -7,8 +7,7 @@ $(document).ready(function() {
     // ============================================================
 
     let MENUS = [];                       // catálogo de menús {id, nombre, estado, posicion}
-    const $inputMenu  = $('#input_menu');
-    const $listaMenus = $('#lista-menus');
+    const $inputMenu = $('#input_menu');
 
     // Carga los menús para el combobox (id, nombre, estado).
     function cargarMenus() {
@@ -31,70 +30,43 @@ $(document).ready(function() {
             : '<span class="badge bg-secondary">Inactivo</span>';
     }
 
-    // Muestra (o limpia) el badge de estado del menú seleccionado, junto a la etiqueta.
-    function mostrarEstadoMenu(estado) {
-        const $badge = $('#badge-estado-menu');
+    // HTML del badge (gris/secundario) con la cantidad de ítems asociados al menú.
+    function badgeItemsHtml(total) {
+        return '<span class="badge bg-secondary">Ítem menús: ' + (Number(total) || 0) + '</span>';
+    }
 
-        if (estado === null || estado === undefined) {
-            $badge.addClass('d-none').removeClass('bg-success bg-secondary').text('');
+    // Badges de un menú agrupados a la derecha: cantidad de ítems + estado.
+    function badgesMenuHtml(menu) {
+        return '<span class="d-flex align-items-center gap-1">'
+             + badgeItemsHtml(menu.total_items) + badgeEstadoHtml(menu.estado)
+             + '</span>';
+    }
+
+    // Nombre del menú con su posición delante. Ej: "1. Clientes".
+    function nombreMenu(menu) {
+        return menu.posicion + '. ' + menu.nombre;
+    }
+
+    // Muestra (o limpia) los badges del menú seleccionado junto a la etiqueta: estado +
+    // cantidad de ítems. Recibe el menú (o null para limpiar).
+    function mostrarEstadoMenu(menu) {
+        pintarBadgesMenu(menu, '#badge-estado-menu', '#badge-items-menu');
+    }
+
+    // Rellena (o limpia) los badges de estado y de conteo de un menú en sus contenedores.
+    function pintarBadgesMenu(menu, selEstado, selItems) {
+        const $estado = $(selEstado);
+        const $items  = $(selItems);
+
+        if (!menu) {
+            $estado.addClass('d-none').removeClass('bg-success bg-secondary').text('');
+            $items.addClass('d-none').text('');
             return;
         }
-        $badge.removeClass('d-none bg-success bg-secondary')
-              .addClass(Number(estado) === 1 ? 'bg-success' : 'bg-secondary')
-              .text(Number(estado) === 1 ? 'Activo' : 'Inactivo');
-    }
-
-    // Filtra los menús por la consulta (por nombre).
-    function filtrarMenus(consulta) {
-        const q = consulta.trim().toLowerCase();
-        if (!q) {
-            return MENUS;
-        }
-        return MENUS.filter(function(m) {
-            return m.nombre.toLowerCase().indexOf(q) !== -1;
-        });
-    }
-
-    // Dibuja el desplegable. Con `todos` muestra el catálogo completo (al enfocar / chevron);
-    // si no, filtra por el texto del input (al escribir).
-    function abrirListaMenus(todos) {
-        const coincidencias = todos ? MENUS : filtrarMenus($inputMenu.val());
-        const mostradas     = coincidencias.slice(0, MAX_RESULTADOS);
-        let html = '';
-
-        if (!mostradas.length) {
-            html = '<li class="list-group-item small text-muted">Sin coincidencias</li>';
-        } else {
-            html = mostradas.map(function(m) {
-                const nombreEsc = $('<div>').text(m.nombre).html();
-                return '<li class="list-group-item list-group-item-action d-flex align-items-center justify-content-between gap-2 py-1 item-menu" '
-                     + 'role="button" data-id="' + m.id + '">'
-                     + '<span class="small text-truncate">' + nombreEsc + '</span>'
-                     + badgeEstadoHtml(m.estado)
-                     + '</li>';
-            }).join('');
-
-            if (coincidencias.length > MAX_RESULTADOS) {
-                html += '<li class="list-group-item small text-muted text-center">'
-                      + (coincidencias.length - MAX_RESULTADOS) + ' resultados más… afina tu búsqueda'
-                      + '</li>';
-            }
-        }
-
-        $listaMenus.html(html).removeClass('d-none');
-    }
-
-    function cerrarListaMenus() {
-        $listaMenus.addClass('d-none').empty();
-    }
-
-    // Resalta un ítem del desplegable (navegación con teclado).
-    function resaltarItemMenu($item) {
-        $listaMenus.children('.item-menu').removeClass('active');
-        if ($item && $item.length) {
-            $item.addClass('active');
-            $item[0].scrollIntoView({ block: 'nearest' });
-        }
+        $estado.removeClass('d-none bg-success bg-secondary')
+               .addClass(Number(menu.estado) === 1 ? 'bg-success' : 'bg-secondary')
+               .text(Number(menu.estado) === 1 ? 'Activo' : 'Inactivo');
+        $items.removeClass('d-none').text('Ítem menús: ' + (Number(menu.total_items) || 0));
     }
 
     // Limpia la selección de menú (cuando se edita el texto sin elegir de la lista).
@@ -106,85 +78,35 @@ $(document).ready(function() {
         actualizarBotonPosicion();
     }
 
-    // Selecciona un menú: refleja su nombre, guarda el id real y muestra su estado.
-    function seleccionarMenu(id) {
-        const menu = MENUS.find(function(m) { return String(m.id) === String(id); });
-        if (!menu) {
-            return;
+    // Combobox reutilizable (utils.js). cerrarListaMenus se mantiene como envoltura porque
+    // se usa también en el reseteo del formulario.
+    const comboMenu = inicializarCombobox({
+        input:      '#input_menu',
+        lista:      '#lista-menus',
+        chevron:    '#btn-abrir-menus',
+        contenedor: '#combobox-menu',
+        max:        MAX_RESULTADOS,
+        campo:      'nombre',
+        claseItem:  'd-flex align-items-center justify-content-between gap-2',
+        opciones:   function() { return MENUS; },
+        render: function(m) {
+            const nombreEsc = $('<div>').text(nombreMenu(m)).html();
+            return '<span class="small text-truncate">' + nombreEsc + '</span>' + badgesMenuHtml(m);
+        },
+        onInput:  limpiarSeleccionMenu,
+        onSelect: function(menu) {
+            $inputMenu.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
+            $('#menu_id').val(menu.id);
+            mostrarEstadoMenu(menu);
+            limpiarErrorCampo($inputMenu);
+            limpiarPosicionElegida();      // cambió el menú: se descarta la posición previa
+            actualizarBotonPosicion();
         }
+    });
 
-        $inputMenu.val(menu.nombre).addClass('is-valid').removeClass('is-invalid');
-        $('#menu_id').val(menu.id);
-        mostrarEstadoMenu(menu.estado);
-        limpiarErrorCampo($inputMenu);
-        limpiarPosicionElegida();      // cambió el menú: se descarta la posición previa
-        actualizarBotonPosicion();
-        cerrarListaMenus();
+    function cerrarListaMenus() {
+        comboMenu.cerrar();
     }
-
-    // Al enfocar: muestra TODAS las opciones y selecciona el texto (para sobrescribirlo
-    // sin tener que borrarlo). El setTimeout evita que el clic del mouse deshaga la selección.
-    $inputMenu.on('focus', function() {
-        const el = this;
-        setTimeout(function() { el.select(); }, 0);
-        abrirListaMenus(true);
-    });
-
-    // Al escribir: invalida la selección previa y filtra el desplegable.
-    $inputMenu.on('input', function() {
-        limpiarSeleccionMenu();
-        abrirListaMenus();
-    });
-
-    // Navegación con teclado dentro del desplegable.
-    $inputMenu.on('keydown', function(e) {
-        if ($listaMenus.hasClass('d-none')) {
-            return;
-        }
-        const $items = $listaMenus.children('.item-menu');
-        let idx = $items.index($items.filter('.active'));
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            idx = (idx + 1 >= $items.length) ? 0 : idx + 1;
-            resaltarItemMenu($items.eq(idx));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            idx = (idx <= 0) ? $items.length - 1 : idx - 1;
-            resaltarItemMenu($items.eq(idx));
-        } else if (e.key === 'Enter') {
-            if (idx >= 0) {
-                e.preventDefault();
-                seleccionarMenu($items.eq(idx).attr('data-id'));
-            }
-        } else if (e.key === 'Escape') {
-            cerrarListaMenus();
-        }
-    });
-
-    // Selección con el mouse (mousedown para no perder el foco antes del click).
-    $listaMenus.on('mousedown', '.item-menu', function(e) {
-        e.preventDefault();
-        seleccionarMenu($(this).attr('data-id'));
-    });
-
-    // La flecha de la derecha abre/cierra el listado (mousedown para no robar el foco).
-    $('#btn-abrir-menus').on('mousedown', function(e) {
-        e.preventDefault();
-        if ($listaMenus.hasClass('d-none')) {
-            $inputMenu.trigger('focus');
-            abrirListaMenus(true);      // muestra todas las opciones
-        } else {
-            cerrarListaMenus();
-        }
-    });
-
-    // Cierra el desplegable al hacer clic fuera del combobox.
-    $(document).on('mousedown', function(e) {
-        if (!$(e.target).closest('#combobox-menu').length) {
-            cerrarListaMenus();
-        }
-    });
 
     // ============================================================
     //  Selector de íconos (botones, 10 por fila)
@@ -408,6 +330,7 @@ $(document).ready(function() {
 
                 if (res.status === 'success') {
                     resetearFormularioItemMenu();
+                    cargarMenus();   // refresca la cantidad de ítems por menú del combobox
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 }
                 else if (res.status === 'error') {
@@ -446,8 +369,8 @@ $(document).ready(function() {
 
                 // Refleja el menú elegido en el combobox del modal (input + badge) y lo muestra.
                 const menuSel = MENUS.find(function(m) { return String(m.id) === menuId; });
-                $('#input-menu-posicion').val(menuSel ? menuSel.nombre : '');
-                mostrarEstadoMenuPos(menuSel ? menuSel.estado : null);
+                $('#input-menu-posicion').val(menuSel ? nombreMenu(menuSel) : '');
+                mostrarEstadoMenuPos(menuSel || null);
                 $('#campo-menu-posicion').removeClass('d-none');
 
                 // Solo los ítems del menú elegido (la posición es relativa a ese menú).
@@ -480,139 +403,47 @@ $(document).ready(function() {
     // ---------- Combobox de Menú dentro del modal Asignar Posición ----------
     // Igual que el del formulario: al cambiar el menú, sincroniza la selección, recarga
     // los ítems de ese menú y deja el nuevo en la última posición.
-    const $inputMenuPos  = $('#input-menu-posicion');
-    const $listaMenusPos = $('#lista-menus-posicion');
+    const $inputMenuPos = $('#input-menu-posicion');
 
-    function mostrarEstadoMenuPos(estado) {
-        const $b = $('#badge-estado-menu-posicion');
-        if (estado === null || estado === undefined) {
-            $b.addClass('d-none').removeClass('bg-success bg-secondary').text('');
-            return;
-        }
-        $b.removeClass('d-none bg-success bg-secondary')
-          .addClass(Number(estado) === 1 ? 'bg-success' : 'bg-secondary')
-          .text(Number(estado) === 1 ? 'Activo' : 'Inactivo');
-    }
-
-    function abrirListaMenusPos(todos) {
-        const coincidencias = todos ? MENUS : filtrarMenus($inputMenuPos.val());
-        const mostradas     = coincidencias.slice(0, MAX_RESULTADOS);
-        let html = '';
-
-        if (!mostradas.length) {
-            html = '<li class="list-group-item small text-muted">Sin coincidencias</li>';
-        } else {
-            html = mostradas.map(function(m) {
-                const nombreEsc = $('<div>').text(m.nombre).html();
-                return '<li class="list-group-item list-group-item-action d-flex align-items-center justify-content-between gap-2 py-1 item-menu-pos" '
-                     + 'role="button" data-id="' + m.id + '">'
-                     + '<span class="small text-truncate">' + nombreEsc + '</span>'
-                     + badgeEstadoHtml(m.estado)
-                     + '</li>';
-            }).join('');
-
-            if (coincidencias.length > MAX_RESULTADOS) {
-                html += '<li class="list-group-item small text-muted text-center">'
-                      + (coincidencias.length - MAX_RESULTADOS) + ' resultados más… afina tu búsqueda'
-                      + '</li>';
-            }
-        }
-        $listaMenusPos.html(html).removeClass('d-none');
-    }
-
-    function cerrarListaMenusPos() {
-        $listaMenusPos.addClass('d-none').empty();
-    }
-
-    function resaltarItemMenuPos($item) {
-        $listaMenusPos.children('.item-menu-pos').removeClass('active');
-        if ($item && $item.length) {
-            $item.addClass('active');
-            $item[0].scrollIntoView({ block: 'nearest' });
-        }
+    // Badges (estado + conteo) del menú en la etiqueta del modal. Recibe el menú (o null).
+    function mostrarEstadoMenuPos(menu) {
+        pintarBadgesMenu(menu, '#badge-estado-menu-posicion', '#badge-items-menu-posicion');
     }
 
     // Cambia el menú desde el modal: sincroniza con el formulario, reinicia la posición
     // (el nuevo va al final) y recarga la lista con los ítems del nuevo menú.
-    function seleccionarMenuPos(id) {
-        const menu = MENUS.find(function(m) { return String(m.id) === String(id); });
-        if (!menu) {
-            return;
-        }
-
+    function seleccionarMenuPos(menu) {
         // Sincroniza con el formulario de creación.
-        $inputMenu.val(menu.nombre).addClass('is-valid').removeClass('is-invalid');
+        $inputMenu.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
         $('#menu_id').val(menu.id);
-        mostrarEstadoMenu(menu.estado);
+        mostrarEstadoMenu(menu);
         limpiarErrorCampo($inputMenu);
         limpiarPosicionElegida();      // el ítem nuevo pasa a la última posición
         actualizarBotonPosicion();
 
         // Refleja en el combobox del modal.
-        $inputMenuPos.val(menu.nombre).removeClass('is-invalid');
-        mostrarEstadoMenuPos(menu.estado);
-        cerrarListaMenusPos();
+        $inputMenuPos.val(nombreMenu(menu)).removeClass('is-invalid');
+        mostrarEstadoMenuPos(menu);
 
         // Recarga la lista con los ítems del nuevo menú.
         asignador.recargar();
     }
 
-    // Al enfocar: muestra TODAS las opciones y selecciona el texto (para sobrescribirlo).
-    $inputMenuPos.on('focus', function() {
-        const el = this;
-        setTimeout(function() { el.select(); }, 0);
-        abrirListaMenusPos(true);
-    });
-
-    // Al escribir: filtra por el texto.
-    $inputMenuPos.on('input', function() {
-        abrirListaMenusPos();
-    });
-
-    $inputMenuPos.on('keydown', function(e) {
-        if ($listaMenusPos.hasClass('d-none')) {
-            return;
-        }
-        const $items = $listaMenusPos.children('.item-menu-pos');
-        let idx = $items.index($items.filter('.active'));
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            idx = (idx + 1 >= $items.length) ? 0 : idx + 1;
-            resaltarItemMenuPos($items.eq(idx));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            idx = (idx <= 0) ? $items.length - 1 : idx - 1;
-            resaltarItemMenuPos($items.eq(idx));
-        } else if (e.key === 'Enter') {
-            if (idx >= 0) {
-                e.preventDefault();
-                seleccionarMenuPos($items.eq(idx).attr('data-id'));
-            }
-        } else if (e.key === 'Escape') {
-            cerrarListaMenusPos();
-        }
-    });
-
-    $listaMenusPos.on('mousedown', '.item-menu-pos', function(e) {
-        e.preventDefault();
-        seleccionarMenuPos($(this).attr('data-id'));
-    });
-
-    $('#btn-abrir-menus-posicion').on('mousedown', function(e) {
-        e.preventDefault();
-        if ($listaMenusPos.hasClass('d-none')) {
-            $inputMenuPos.trigger('focus');
-            abrirListaMenusPos(true);      // muestra todas las opciones
-        } else {
-            cerrarListaMenusPos();
-        }
-    });
-
-    $(document).on('mousedown', function(e) {
-        if (!$(e.target).closest('#combobox-menu-posicion').length) {
-            cerrarListaMenusPos();
-        }
+    // Combobox reutilizable (utils.js) del menú dentro del modal Asignar Posición.
+    inicializarCombobox({
+        input:      '#input-menu-posicion',
+        lista:      '#lista-menus-posicion',
+        chevron:    '#btn-abrir-menus-posicion',
+        contenedor: '#combobox-menu-posicion',
+        max:        MAX_RESULTADOS,
+        campo:      'nombre',
+        claseItem:  'd-flex align-items-center justify-content-between gap-2',
+        opciones:   function() { return MENUS; },
+        render: function(m) {
+            const nombreEsc = $('<div>').text(nombreMenu(m)).html();
+            return '<span class="small text-truncate">' + nombreEsc + '</span>' + badgesMenuHtml(m);
+        },
+        onSelect: seleccionarMenuPos
     });
 
     // Carga inicial: menús para el combobox e íconos para el selector de botones.

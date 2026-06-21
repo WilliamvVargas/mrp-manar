@@ -31,7 +31,7 @@
                     <div class="d-flex justify-content-center mb-3">
                         <div class="border rounded d-flex align-items-center justify-content-center bg-light"
                              style="width: 25%; aspect-ratio: 1 / 1;">
-                            <i class="bi bi-image text-muted" id="preview-bootstrap" style="font-size: 3rem;"></i>
+                            <i class="bi bi-question-square text-muted" id="preview-bootstrap" style="font-size: 3rem;"></i>
                             <img id="preview-personalizado" src="" alt="Vista previa" class="d-none"
                                  style="max-width: 72%; max-height: 72%;">
                         </div>

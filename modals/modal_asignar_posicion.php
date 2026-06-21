@@ -19,7 +19,8 @@
                     <div class="mb-2 d-none" id="campo-menu-posicion">
                         <label class="form-label fw-bold small mb-1 d-flex align-items-center" for="input-menu-posicion">
                             <span>Menú</span>
-                            <span class="badge bg-secondary ms-2 d-none" id="badge-estado-menu-posicion"></span>
+                            <span class="badge bg-secondary ms-2 d-none" id="badge-items-menu-posicion"></span>
+                            <span class="badge bg-secondary ms-1 d-none" id="badge-estado-menu-posicion"></span>
                         </label>
                         <div class="position-relative" id="combobox-menu-posicion">
                             <div class="input-group input-group-sm">

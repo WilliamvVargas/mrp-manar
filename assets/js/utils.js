@@ -259,6 +259,164 @@ function debounce(func, delay = 400) {
 }
 
 /**
+ * Combobox reutilizable con búsqueda: un input de texto + un desplegable <ul>.
+ * Al enfocar o pulsar el chevron muestra TODAS las opciones y selecciona el texto del
+ * input (para sobrescribirlo sin borrarlo); al escribir filtra. Maneja teclado
+ * (flechas/Enter/Escape), selección con mouse y cierre al hacer clic fuera. El
+ * comportamiento específico de cada mantenedor se define con los callbacks de `config`.
+ *
+ * Markup esperado: un input, un <ul> para los resultados (oculto con d-none) y un
+ * contenedor que envuelva a ambos. Opcionalmente un botón "chevron" para abrir/cerrar.
+ *
+ * @param {Object}   config
+ * @param {string}   config.input       Selector del input de texto.
+ * @param {string}   config.lista       Selector del <ul> desplegable.
+ * @param {string}   config.contenedor  Selector del contenedor (para cerrar al clic fuera).
+ * @param {Function} config.opciones    () => Array con TODAS las opciones (puede ser dinámico).
+ * @param {Function} config.render      (opcion) => HTML interno de cada <li>.
+ * @param {Function} config.onSelect    (opcion) => void al elegir una opción.
+ * @param {string}   [config.chevron]   Selector del botón que abre/cierra el listado.
+ * @param {Function} [config.filtrar]   (opciones, q) => Array filtrado (q ya en minúsculas).
+ * @param {string}   [config.campo]     Campo del filtro por defecto si no se pasa `filtrar` (def: 'nombre').
+ * @param {Function} [config.onInput]   () => void efecto adicional al escribir en el input.
+ * @param {string}   [config.claseItem] Clases extra para cada <li> (ej: layout flex).
+ * @param {number}   [config.max]       Máximo de coincidencias mostradas (def: 50).
+ * @returns {{abrir: Function, cerrar: Function}} API para abrir/cerrar el listado.
+ */
+function inicializarCombobox(config) {
+    const $input  = $(config.input);
+    const $lista  = $(config.lista);
+    const MAX     = config.max || 50;
+    const claseLi = 'list-group-item list-group-item-action py-1 combobox-item'
+                  + (config.claseItem ? ' ' + config.claseItem : '');
+
+    let visibles = [];   // opciones actualmente renderizadas (para resolver el índice elegido)
+
+    function filtrar(texto) {
+        const opciones = config.opciones() || [];
+        const q = (texto || '').trim().toLowerCase();
+
+        if (!q) {
+            return opciones;
+        }
+        if (typeof config.filtrar === 'function') {
+            return config.filtrar(opciones, q);
+        }
+        const campo = config.campo || 'nombre';
+        return opciones.filter(function(o) {
+            return String(o[campo]).toLowerCase().indexOf(q) !== -1;
+        });
+    }
+
+    function abrir(todos) {
+        const coincidencias = todos ? (config.opciones() || []) : filtrar($input.val());
+        visibles = coincidencias.slice(0, MAX);
+        let html = '';
+
+        if (!visibles.length) {
+            html = '<li class="list-group-item small text-muted">Sin coincidencias</li>';
+        } else {
+            html = visibles.map(function(o, i) {
+                return '<li class="' + claseLi + '" role="button" data-index="' + i + '">' + config.render(o) + '</li>';
+            }).join('');
+
+            if (coincidencias.length > visibles.length) {
+                html += '<li class="list-group-item small text-muted text-center">'
+                      + (coincidencias.length - visibles.length) + ' resultados más… afina tu búsqueda'
+                      + '</li>';
+            }
+        }
+        $lista.html(html).removeClass('d-none');
+    }
+
+    function cerrar() {
+        $lista.addClass('d-none').empty();
+    }
+
+    function resaltar($item) {
+        $lista.children('.combobox-item').removeClass('active');
+        if ($item && $item.length) {
+            $item.addClass('active');
+            $item[0].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function elegir(idx) {
+        const opcion = visibles[idx];
+        if (opcion === undefined) {
+            return;
+        }
+        cerrar();
+        config.onSelect(opcion);
+    }
+
+    // Al enfocar: muestra todas las opciones y selecciona el texto (para sobrescribirlo
+    // sin borrarlo). El setTimeout evita que el clic del mouse deshaga la selección.
+    $input.on('focus', function() {
+        const el = this;
+        setTimeout(function() { el.select(); }, 0);
+        abrir(true);
+    });
+
+    $input.on('input', function() {
+        if (typeof config.onInput === 'function') {
+            config.onInput();
+        }
+        abrir(false);
+    });
+
+    $input.on('keydown', function(e) {
+        if ($lista.hasClass('d-none')) {
+            return;
+        }
+        const $items = $lista.children('.combobox-item');
+        let idx = $items.index($items.filter('.active'));
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            idx = (idx + 1 >= $items.length) ? 0 : idx + 1;
+            resaltar($items.eq(idx));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            idx = (idx <= 0) ? $items.length - 1 : idx - 1;
+            resaltar($items.eq(idx));
+        } else if (e.key === 'Enter') {
+            if (idx >= 0) {
+                e.preventDefault();
+                elegir($items.eq(idx).data('index'));
+            }
+        } else if (e.key === 'Escape') {
+            cerrar();
+        }
+    });
+
+    $lista.on('mousedown', '.combobox-item', function(e) {
+        e.preventDefault();
+        elegir($(this).data('index'));
+    });
+
+    if (config.chevron) {
+        $(config.chevron).on('mousedown', function(e) {
+            e.preventDefault();
+            if ($lista.hasClass('d-none')) {
+                $input.trigger('focus');
+                abrir(true);
+            } else {
+                cerrar();
+            }
+        });
+    }
+
+    $(document).on('mousedown', function(e) {
+        if (!$(e.target).closest(config.contenedor).length) {
+            cerrar();
+        }
+    });
+
+    return { abrir: abrir, cerrar: cerrar };
+}
+
+/**
  * Inicializa una tabla de DataTables en modo server-side, reutilizable por
  * cualquier mantenedor. Incluye:
  *   - Buscador propio (input externo) con debounce, que envía el parámetro 'consulta'.

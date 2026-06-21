@@ -49,8 +49,9 @@
                             <div class="mb-2">
                                 <label class="form-label fw-bold small mb-1 d-flex align-items-center" for="input_menu">
                                     <span>Menú <span class="text-danger">*</span></span>
-                                    <!-- Estado del menú seleccionado (lo completa el JS) -->
-                                    <span class="badge bg-secondary ms-2 d-none" id="badge-estado-menu"></span>
+                                    <!-- Cantidad de ítems + estado del menú seleccionado (los completa el JS) -->
+                                    <span class="badge bg-secondary ms-2 d-none" id="badge-items-menu"></span>
+                                    <span class="badge bg-secondary ms-1 d-none" id="badge-estado-menu"></span>
                                 </label>
 
                                 <div class="position-relative" id="combobox-menu">

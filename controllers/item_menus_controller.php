@@ -103,11 +103,19 @@ switch ($action) {
 
     case 'menus':
 
-        // Lista de menús para el combobox del formulario (id, nombre, estado).
+        // Lista de menús para el combobox (id, nombre, estado + cantidad de ítems asociados).
         try {
+            $menus    = $menuModel->listarOrdenados();
+            $conteos  = $itemMenuModel->contarPorTodosLosMenus();
+
+            foreach ($menus as &$m) {
+                $m['total_items'] = $conteos[(int) $m['id']] ?? 0;
+            }
+            unset($m);
+
             echo json_encode([
                 'status' => 'success',
-                'data'   => $menuModel->listarOrdenados()
+                'data'   => $menus
             ]);
         } catch (PDOException $e) {
             responderErrorServidor($e);

@@ -103,6 +103,26 @@
         }
 
         /**
+         * Cantidad de ítems agrupada por menú. Lo usa el combobox para mostrar cuántos
+         * ítems tiene cada menú.
+         *
+         * @return array Mapa [menu_id => total].
+         */
+        public function contarPorTodosLosMenus()
+        {
+            $filas = $this->pdo
+                ->query("SELECT menu_id, COUNT(*) AS total FROM item_menus GROUP BY menu_id")
+                ->fetchAll();
+
+            $mapa = [];
+            foreach ($filas as $f) {
+                $mapa[(int) $f['menu_id']] = (int) $f['total'];
+            }
+
+            return $mapa;
+        }
+
+        /**
          * Lista todos los ítems con su menú, ordenados por menú y posición. Lo usa el
          * modal de Asignar Posición (que filtra por el menú elegido en el formulario).
          *
