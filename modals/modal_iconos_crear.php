@@ -136,6 +136,25 @@
                         </div>
                     </div>
 
+                    <!-- Posición: se elige en la grilla de Asignar Posición -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input_posicion">Posición</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input_posicion"
+                                   placeholder="Al final"
+                                   disabled>
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    id="btn-asignar-posicion"
+                                    disabled>
+                                <i class="bi bi-grid-3x3-gap me-1"></i> Asignar Posición
+                            </button>
+                        </div>
+                        <input type="hidden" id="posicion" name="posicion">
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button"

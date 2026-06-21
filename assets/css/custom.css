@@ -201,3 +201,14 @@
     border-radius: 0.375rem;
     background: #f8f9fa;
 }
+
+/* Icono NUEVO que se está creando: única celda arrastrable, resaltada en azul. */
+.lista-posicion-celda-nueva {
+    background: #e7f1ff;
+    border-color: #9ec5fe;
+}
+
+/* Iconos existentes en el formulario de creación: fijos, no se arrastran. */
+.lista-posicion-celda-fija {
+    cursor: default;
+}

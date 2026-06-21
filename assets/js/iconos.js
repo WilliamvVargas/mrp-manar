@@ -71,20 +71,42 @@ $(document).ready(function() {
     //  Asignar Posiciones (reordenar todos los iconos) — motor de utils.js, en GRILLA
     // ============================================================
 
-    // Celda de la grilla: número de orden + vista previa del icono + nombre.
-    // Incluye .numero-orden y data-original/data-movible para que el motor renumere igual.
-    function celdaIconoPosicion(registro, orden) {
-        const preview = (registro.tipo === 'bootstrap')
+    // Vista previa (HTML) de un icono existente, para la celda.
+    function previewCeldaIcono(registro) {
+        return (registro.tipo === 'bootstrap')
             ? '<i class="bi bi-' + registro.valor + '"></i>'
             : '<img src="assets/icons/personalizados/' + registro.archivo + '" alt="">';
+    }
 
-        const nombreEsc = $('<div>').text(registro.nombre).html();
+    // Vista previa (HTML) del icono que se está CREANDO, según el estado del formulario.
+    function previewNuevoIcono() {
+        if ($('#tipo-bootstrap').is(':checked')) {
+            const valor = $('#input_valor_bootstrap').val().trim().replace(/^bi-/, '');
+            return valor ? '<i class="bi bi-' + valor + '"></i>' : '<i class="bi bi-image text-muted"></i>';
+        }
+        const src = $('#preview-personalizado').attr('src');
+        return src ? '<img src="' + src + '" alt="">' : '<i class="bi bi-image text-muted"></i>';
+    }
 
-        return '<li class="lista-posicion-celda" data-id="' + registro.id + '" data-original="' + orden + '" data-movible="0">'
+    // Celda de la grilla. tipo: 'libre' (reordenamiento global), 'fijo' (icono existente en
+    // creación, no se arrastra) o 'movible' (el icono nuevo que se está creando).
+    function celdaIconoPosicion(id, nombre, orden, tipo, previewHtml) {
+        const movible    = (tipo === 'movible');
+        const nombreEsc  = $('<div>').text(nombre).html();
+        const claseExtra = (tipo === 'movible') ? ' lista-posicion-celda-nueva'
+                         : (tipo === 'fijo')    ? ' lista-posicion-celda-fija'
+                         : '';
+
+        // El nuevo lleva un badge azul fijo "Nuevo"; los demás, el badge-cambio (lo maneja el motor).
+        const badgeInferior = movible
+            ? '<span class="celda-cambio"><span class="badge bg-primary">Nuevo</span></span>'
+            : '<span class="celda-cambio"><span class="badge bg-warning text-dark badge-cambio"></span></span>';
+
+        return '<li class="lista-posicion-celda' + claseExtra + '" data-id="' + id + '" data-original="' + orden + '" data-movible="' + (movible ? '1' : '0') + '">'
              + '<span class="numero-orden">' + orden + '.</span>'
-             + '<div class="celda-preview">' + preview + '</div>'
+             + '<div class="celda-preview">' + previewHtml + '</div>'
              + '<span class="celda-nombre small text-truncate">' + nombreEsc + '</span>'
-             + '<span class="celda-cambio"><span class="badge bg-warning text-dark badge-cambio"></span></span>'
+             + badgeInferior
              + '</li>';
     }
 
@@ -93,16 +115,44 @@ $(document).ready(function() {
         urlReordenar: 'controllers/iconos_controller.php?action=reordenar',
         tabla:        tablaConsulta,
         grilla:       true,   // layout en grilla 2D (solo iconos; menús sigue en lista)
-        contextos: [{
-            global:    true,
-            boton:     '#btn-asignar-posiciones',
-            idMovible: function() { return null; },
-            construirItems: function(data) {
-                return data.map(function(registro, i) {
-                    return celdaIconoPosicion(registro, i + 1);
-                });
+        contextos: [
+            // CREACIÓN: el icono nuevo es el único movible; se inserta en la grilla. El motor
+            // gestiona el salto entre el modal de creación y el de Asignar Posición.
+            {
+                boton:        '#btn-asignar-posicion',
+                modalPadre:   '#modalIconoCrear',
+                inputVisible: '#input_posicion',
+                inputHidden:  '#posicion',
+                idMovible:    function() { return 'nuevo'; },
+                construirItems: function(data) {
+                    const items = data.map(function(registro, i) {
+                        return celdaIconoPosicion(registro.id, registro.nombre, i + 1, 'fijo', previewCeldaIcono(registro));
+                    });
+
+                    const nombreNuevo = $('#input_nombre').val().trim() || '(nuevo)';
+                    const itemNuevo   = celdaIconoPosicion('nuevo', nombreNuevo, items.length + 1, 'movible', previewNuevoIcono());
+
+                    let pos = parseInt($('#input_posicion').val(), 10);
+                    if (isNaN(pos) || pos < 1 || pos > items.length + 1) {
+                        pos = items.length + 1;
+                    }
+                    items.splice(pos - 1, 0, itemNuevo);
+                    return items;
+                },
+                alCerrarReal: resetearFormularioIcono
+            },
+            // GLOBAL: todos los iconos movibles (reordenar la lista completa).
+            {
+                global:    true,
+                boton:     '#btn-asignar-posiciones',
+                idMovible: function() { return null; },
+                construirItems: function(data) {
+                    return data.map(function(registro, i) {
+                        return celdaIconoPosicion(registro.id, registro.nombre, i + 1, 'libre', previewCeldaIcono(registro));
+                    });
+                }
             }
-        }]
+        ]
     });
 
     // El modal de Asignar Posición de iconos usa el tamaño más grande (solo en esta página).
@@ -428,6 +478,8 @@ $(document).ready(function() {
             const nombre = $('#input_nombre').val().trim();
             $('#input_valor_crear').val(nombre ? 'custom-' + slugIcono(nombre) : '');
         }
+        // "Asignar Posición" se habilita en cuanto hay un Nombre.
+        $('#btn-asignar-posicion').prop('disabled', $('#input_nombre').val().trim() === '');
     }
 
     // ---------- Combobox de iconos de Bootstrap ----------
@@ -602,6 +654,7 @@ $(document).ready(function() {
             if (valido && !nombreEditadoManualmente) {
                 $('#input_nombre').val(humanizarNombreIcono($inputIcono.val())).removeClass('is-valid');
                 limpiarErrorCampo($('#input_nombre'));   // el valor cambió: descarta un error/estado previo
+                actualizarValorCrear();   // el Nombre se autocompletó: refresca Valor y habilita "Asignar Posición"
             }
         });
         observadorIcono.observe(inputIconoDom, { attributes: true, attributeFilter: ['class'] });
@@ -662,7 +715,7 @@ $(document).ready(function() {
         });
     });
 
-    // Al cerrar el modal: restablece el formulario a su estado inicial.
-    $('#modalIconoCrear').on('hidden.bs.modal', resetearFormularioIcono);
+    // Nota: el reseteo al cerrar el modal de creación lo gestiona el motor de Asignar
+    // Posición (ctxCrear.alCerrarReal), para no resetear durante el salto a la grilla.
 
 });

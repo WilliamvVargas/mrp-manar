@@ -152,6 +152,7 @@ switch ($action) {
                     'valor'      => $valorNormalizado,
                     'archivo'    => null,
                     'coloreable' => 1,   // los iconos de Bootstrap son monocromáticos
+                    'posicion'   => $_POST['posicion'] ?? '',
                 ], $_SESSION['usuario_id']);
 
                 echo json_encode([
@@ -231,6 +232,7 @@ switch ($action) {
                     'valor'      => $valor,
                     'archivo'    => $archivo,
                     'coloreable' => $coloreable,
+                    'posicion'   => $_POST['posicion'] ?? '',
                 ], $_SESSION['usuario_id']);
             } catch (PDOException $e) {
                 @unlink($carpeta . '/' . $archivo);   // no dejar el archivo huérfano

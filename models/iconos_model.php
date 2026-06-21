@@ -24,23 +24,45 @@
          */
         public function crear(array $d, $creadoPor = null)
         {
-            $posicion = $this->siguientePosicion();
+            $this->pdo->beginTransaction();
 
-            $sql = "INSERT INTO iconos (nombre, tipo, valor, archivo, coloreable, posicion, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+            try {
+                $elegida = $d['posicion'] ?? '';
 
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                $d['nombre'],
-                $d['tipo'],
-                $d['valor'],
-                $d['archivo'],
-                (int) $d['coloreable'],
-                $posicion,
-                $creadoPor,
-            ]);
+                if (is_numeric($elegida) && (int) $elegida >= 1) {
+                    // Posición elegida: corre +1 a los iconos en esa posición o posteriores.
+                    $posicion = (int) $elegida;
+                    $total    = (int) $this->pdo->query("SELECT COUNT(*) FROM iconos")->fetchColumn();
+                    if ($posicion > $total + 1) {
+                        $posicion = $total + 1;
+                    }
+                    $this->pdo->prepare("UPDATE iconos SET posicion = posicion + 1 WHERE posicion >= ?")->execute([$posicion]);
+                } else {
+                    // Sin posición elegida: al final (MAX + 1).
+                    $posicion = $this->siguientePosicion();
+                }
 
-            return (int) $this->pdo->lastInsertId();
+                $stmt = $this->pdo->prepare("INSERT INTO iconos (nombre, tipo, valor, archivo, coloreable, posicion, created_by)
+                                             VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $d['nombre'],
+                    $d['tipo'],
+                    $d['valor'],
+                    $d['archivo'],
+                    (int) $d['coloreable'],
+                    $posicion,
+                    $creadoPor,
+                ]);
+
+                $id = (int) $this->pdo->lastInsertId();
+                $this->pdo->commit();
+
+                return $id;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
         }
 
         /**
