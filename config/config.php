@@ -40,4 +40,8 @@
   //Iconos personalizados (.svg)
   define('ICONO_SVG_MAX_PESO_KB', 200);    // Peso máximo del archivo SVG
 
+  //Carga masiva de Ventas Históricas (.xlsx)
+  define('VENTAS_MAX_FILAS', 100000);      // Máximo de filas de datos a procesar
+  define('VENTAS_MAX_PESO_MB', 25);        // Peso máximo del archivo .xlsx
+
 ?>

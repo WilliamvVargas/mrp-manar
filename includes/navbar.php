@@ -53,6 +53,11 @@
                                 <i class="bi bi-graph-up me-2"></i>MRP
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'ventas_historicas.php') ? 'active' : ''; ?>" href="ventas_historicas">
+                                <i class="bi bi-currency-dollar me-2"></i>Ventas Historicas
+                            </a>
+                        </li>
                     </ul>
                 </li>
             </ul>
