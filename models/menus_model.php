@@ -255,6 +255,65 @@
         }
 
         /**
+         * Renumera TODAS las posiciones de forma continua (1..N) respetando el orden
+         * actual. Sirve para "sanar" huecos o duplicados dejados por cambios hechos
+         * directamente en la base de datos (fuera de la aplicación).
+         *
+         * @return void
+         */
+        public function normalizarPosiciones()
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+                $ids = $this->pdo
+                    ->query("SELECT id FROM menus ORDER BY posicion ASC, id ASC")
+                    ->fetchAll(PDO::FETCH_COLUMN);
+
+                $stmt     = $this->pdo->prepare("UPDATE menus SET posicion = ? WHERE id = ?");
+                $posicion = 1;
+
+                foreach ($ids as $id) {
+                    $stmt->execute([$posicion++, (int) $id]);
+                }
+
+                $this->pdo->commit();
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
+         * Normaliza las posiciones solo si detecta que NO son continuas: hueco
+         * (MAX != total), desface (MIN != 1) o duplicados (distintos != total).
+         * El chequeo es una sola consulta de agregado, barata para llamar al listar.
+         *
+         * @return void
+         */
+        public function normalizarPosicionesSiHayHuecos()
+        {
+            $fila = $this->pdo->query(
+                "SELECT COUNT(*) AS total,
+                        COUNT(DISTINCT posicion) AS distintos,
+                        COALESCE(MAX(posicion), 0) AS maxpos,
+                        COALESCE(MIN(posicion), 0) AS minpos
+                 FROM menus"
+            )->fetch();
+
+            $total = (int) $fila['total'];
+
+            if ($total > 0 && (
+                    (int) $fila['maxpos']    !== $total ||
+                    (int) $fila['minpos']    !== 1      ||
+                    (int) $fila['distintos'] !== $total
+                )) {
+                $this->normalizarPosiciones();
+            }
+        }
+
+        /**
          * Devuelve todos los menús ordenados por posición ascendente.
          *
          * @return array Lista de menús: [ ['id'=>.., 'nombre'=>.., 'posicion'=>..], ... ]

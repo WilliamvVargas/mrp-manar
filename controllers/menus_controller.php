@@ -244,6 +244,9 @@ switch ($action) {
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';
 
         try {
+            // Sana posiciones no continuas (p. ej. por borrados hechos directo en la BD).
+            $menuModel->normalizarPosicionesSiHayHuecos();
+
             $totalRegistros = $menuModel->contarTodos();
             $totalFiltrados = $menuModel->contarFiltrados($consulta, $estado);
             $datos          = $menuModel->listarPagina($consulta, $estado, $columnaOrden, $dirOrden, $inicio, $longitud);

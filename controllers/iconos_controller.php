@@ -420,7 +420,11 @@ switch ($action) {
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';
 
         try {
-            $iconoModel     = new Icono($pdo);
+            $iconoModel = new Icono($pdo);
+
+            // Sana posiciones no continuas (p. ej. por borrados hechos directo en la BD).
+            $iconoModel->normalizarPosicionesSiHayHuecos();
+
             $totalRegistros = $iconoModel->contarTodos();
             $totalFiltrados = $iconoModel->contarFiltrados($consulta, $tipo);
             $datos          = $iconoModel->listarPagina($consulta, $tipo, $columnaOrden, $dirOrden, $inicio, $longitud);

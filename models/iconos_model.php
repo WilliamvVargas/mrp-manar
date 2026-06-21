@@ -66,6 +66,65 @@
         }
 
         /**
+         * Renumera TODAS las posiciones de forma continua (1..N) respetando el orden
+         * actual. Sirve para "sanar" huecos o duplicados dejados por cambios hechos
+         * directamente en la base de datos (fuera de la aplicación).
+         *
+         * @return void
+         */
+        public function normalizarPosiciones()
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+                $ids = $this->pdo
+                    ->query("SELECT id FROM iconos ORDER BY posicion ASC, id ASC")
+                    ->fetchAll(PDO::FETCH_COLUMN);
+
+                $stmt     = $this->pdo->prepare("UPDATE iconos SET posicion = ? WHERE id = ?");
+                $posicion = 1;
+
+                foreach ($ids as $id) {
+                    $stmt->execute([$posicion++, (int) $id]);
+                }
+
+                $this->pdo->commit();
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
+         * Normaliza las posiciones solo si detecta que NO son continuas: hueco
+         * (MAX != total), desface (MIN != 1) o duplicados (distintos != total).
+         * El chequeo es una sola consulta de agregado, barata para llamar al listar.
+         *
+         * @return void
+         */
+        public function normalizarPosicionesSiHayHuecos()
+        {
+            $fila = $this->pdo->query(
+                "SELECT COUNT(*) AS total,
+                        COUNT(DISTINCT posicion) AS distintos,
+                        COALESCE(MAX(posicion), 0) AS maxpos,
+                        COALESCE(MIN(posicion), 0) AS minpos
+                 FROM iconos"
+            )->fetch();
+
+            $total = (int) $fila['total'];
+
+            if ($total > 0 && (
+                    (int) $fila['maxpos']    !== $total ||
+                    (int) $fila['minpos']    !== 1      ||
+                    (int) $fila['distintos'] !== $total
+                )) {
+                $this->normalizarPosiciones();
+            }
+        }
+
+        /**
          * Siguiente posición disponible: MAX(posicion) + 1 (1 si la tabla está vacía).
          *
          * @return int
@@ -195,16 +254,42 @@
         }
 
         /**
-         * Elimina un icono por su id.
+         * Elimina un icono y recompacta las posiciones: los iconos posteriores al
+         * eliminado bajan -1 para no dejar huecos. Todo dentro de una transacción.
          *
          * @return int Filas eliminadas (0 si no existía).
          */
         public function eliminar($id)
         {
-            $stmt = $this->pdo->prepare("DELETE FROM iconos WHERE id = ?");
-            $stmt->execute([(int) $id]);
+            $this->pdo->beginTransaction();
 
-            return $stmt->rowCount();
+            try {
+                $icono = $this->buscarPorId($id);
+
+                if (!$icono) {
+                    $this->pdo->commit();
+                    return 0;
+                }
+
+                $posicion = (int) $icono['posicion'];
+
+                $borrar = $this->pdo->prepare("DELETE FROM iconos WHERE id = ?");
+                $borrar->execute([(int) $id]);
+                $filas = $borrar->rowCount();
+
+                // Recompacta: los iconos posteriores al eliminado bajan una posición.
+                $this->pdo->prepare(
+                    "UPDATE iconos SET posicion = posicion - 1 WHERE posicion > ?"
+                )->execute([$posicion]);
+
+                $this->pdo->commit();
+
+                return $filas;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
         }
 
         /**
