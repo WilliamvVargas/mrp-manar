@@ -15,7 +15,12 @@
                     <ul class="dropdown-menu dropdown-menu-dark">
                         <li>
                             <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'usuarios.php') ? 'active' : ''; ?>" href="usuarios">
-                                <i class="bi bi-people me-2"></i>Usuarios
+                                <i class="bi bi-people-fill me-2"></i>Usuarios
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'perfiles.php') ? 'active' : ''; ?>" href="perfiles">
+                                <i class="bi bi-person-badge me-2"></i>Perfiles
                             </a>
                         </li>
                         <li>
@@ -24,8 +29,13 @@
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'item_menus.php') ? 'active' : ''; ?>" href="item_menus">
+                                <i class="bi bi-menu-app-fill me-2"></i>Ítem Menús
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'iconos.php') ? 'active' : ''; ?>" href="iconos">
-                                <i class="bi bi-emoji-smile-fill me-2"></i>Iconos
+                                <i class="bi bi-grid-3x3-gap-fill me-2"></i>Íconos
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>

@@ -409,7 +409,7 @@ function inicializarSelectIconos(config) {
  * @param {number} estado        1 = activo, 0 = inactivo.
  * @returns {string} HTML del <li>.
  */
-function itemPosicion(id, nombre, ordenOriginal, tipo, textoBadge, estado) {
+function itemPosicion(id, nombre, ordenOriginal, tipo, textoBadge, estado, iconoHtml) {
     const nombreEsc = $('<div>').text(nombre).html();   // escapa el nombre (evita XSS)
     const esMovible = (tipo === 'movible');
     const clase     = esMovible       ? ' list-group-item-primary'
@@ -441,6 +441,7 @@ function itemPosicion(id, nombre, ordenOriginal, tipo, textoBadge, estado) {
     return '<li class="list-group-item d-flex align-items-center' + clase + '" data-id="' + id + '" data-original="' + ordenOriginal + '" data-movible="' + (esMovible ? '1' : '0') + '">'
          + icono
          + '<span class="numero-orden fw-semibold me-1">' + ordenOriginal + '.</span>'
+         + (iconoHtml || '')   // ícono del registro (opcional): entre el número y el nombre
          + '<span class="nombre-registro">' + nombreEsc + '</span>'
          + etiquetas
          + '</li>';
@@ -723,6 +724,16 @@ function inicializarAsignadorPosicion(config) {
             resetBtnLoading($(ctxActivo.boton));
         }
     });
+
+    // API: permite a un mantenedor recargar la lista del contexto activo sin reabrir el
+    // modal (p. ej. al cambiar de menú padre en Ítem Menús).
+    return {
+        recargar: function() {
+            if (ctxActivo) {
+                cargarLista(ctxActivo);
+            }
+        }
+    };
 }
 
 /** Trigger para cerrar mensajes con el boton cerrar*/

@@ -1,0 +1,225 @@
+<?php
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../config/conexion.php';
+require_once __DIR__ . '/../includes/funciones_validacion.php';
+require_once __DIR__ . '/../models/menus_model.php';
+require_once __DIR__ . '/../models/iconos_model.php';
+require_once __DIR__ . '/../models/item_menus_model.php';
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+
+$menuModel     = new Menu($pdo);
+$iconoModel    = new Icono($pdo);
+$itemMenuModel = new ItemMenu($pdo);
+
+// Reglas de validación del Nombre del ítem.
+$REGLAS_NOMBRE = [
+    'requerido' => true,
+    'min'       => ITEM_MENU_NOMBRE_MIN_LENGTH,
+    'max'       => ITEM_MENU_NOMBRE_MAX_LENGTH,
+];
+
+/**
+ * Valida el Menú padre elegido: requerido + que exista en la BD.
+ *
+ * @return string|null Error si falla, null si pasa.
+ */
+function validarMenuPadre($valor, Menu $menuModel)
+{
+    $valor = trim((string) $valor);
+
+    if ($valor === '') {
+        return 'Debe seleccionar un <b>Menú</b>.';
+    }
+    if (!ctype_digit($valor) || !$menuModel->buscarPorId((int) $valor)) {
+        return 'El <b>Menú</b> seleccionado no es válido.';
+    }
+    return null;
+}
+
+/**
+ * Valida el Ícono elegido (opcional): si viene, debe ser un id existente en la
+ * tabla de iconos (se guarda como llave foránea icono_id).
+ *
+ * @return string|null Error si falla, null si pasa.
+ */
+function validarIconoId($valor, Icono $iconoModel)
+{
+    $valor = trim((string) $valor);
+
+    if ($valor === '') {
+        return null;   // el ícono es opcional
+    }
+    if (!ctype_digit($valor) || !$iconoModel->buscarPorId((int) $valor)) {
+        return 'El <b>Ícono</b> seleccionado no existe en el catálogo.';
+    }
+    return null;
+}
+
+/**
+ * Normaliza el Enlace a un valor apto para usarse como ruta/URL: minúsculas, sin
+ * acentos, espacios convertidos a guiones y sin caracteres ajenos a una ruta.
+ *
+ * @return string Enlace normalizado (puede quedar vacío si no había nada válido).
+ */
+function normalizarEnlace($valor)
+{
+    $e = mb_strtolower(trim((string) $valor), 'UTF-8');
+    $e = strtr($e, [
+        'á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ñ'=>'n','ü'=>'u',
+        'à'=>'a','è'=>'e','ì'=>'i','ò'=>'o','ù'=>'u'
+    ]);
+    $e = preg_replace('/\s+/', '-', $e);          // espacios -> guiones
+    $e = preg_replace('#[^a-z0-9/_.-]+#', '', $e); // solo caracteres aptos para una ruta
+    $e = preg_replace('#/{2,}#', '/', $e);         // colapsa barras repetidas
+    $e = trim($e, '/-');                            // sin barras/guiones en los extremos
+
+    return $e;
+}
+
+/**
+ * Valida el Enlace (obligatorio): se normaliza por referencia a un formato apto para
+ * URL y debe quedar con contenido y dentro del largo máximo.
+ *
+ * @return string|null Error si falla, null si pasa.
+ */
+function validarEnlace(&$enlace)
+{
+    $enlace = normalizarEnlace($enlace);
+
+    if ($enlace === '') {
+        return 'El campo <b>Enlace</b> es obligatorio.';
+    }
+    if (mb_strlen($enlace) > ITEM_MENU_ENLACE_MAX_LENGTH) {
+        return 'El campo <b>Enlace</b> no puede superar los ' . ITEM_MENU_ENLACE_MAX_LENGTH . ' caracteres.';
+    }
+    return null;
+}
+
+$action = $_REQUEST['action'] ?? '';
+
+switch ($action) {
+
+    case 'menus':
+
+        // Lista de menús para el combobox del formulario (id, nombre, estado).
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $menuModel->listarOrdenados()
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'iconos':
+
+        // Catálogo de iconos para el selector de botones (id, nombre, tipo, valor, archivo).
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $iconoModel->listarOrdenados()
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'listar_orden':
+
+        // Ítems (de todos los menús) ordenados; el modal Asignar Posición filtra por el
+        // menú elegido en el formulario. La posición es relativa a cada menú.
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $itemMenuModel->listarOrdenados()
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'validar_campo':
+
+        $campo = $_POST['campo'] ?? '';
+        $valor = $_POST['valor'] ?? '';
+
+        $errores = [];
+
+        if ($campo === 'nombre') {
+            $errores['nombre'] = validarCampoTexto($valor, 'Nombre', $REGLAS_NOMBRE);
+        }
+        else if ($campo === 'icono_id') {
+            $errores['icono_id'] = validarIconoId($valor, $iconoModel);
+        }
+        else if ($campo === 'enlace') {
+            $errores['enlace'] = validarEnlace($valor);
+        }
+        else if ($campo === 'menu_id') {
+            $errores['menu_id'] = validarMenuPadre($valor, $menuModel);
+        }
+
+        // Descarta los campos sin error (validarCampoTexto devuelve null si pasa).
+        $errores = array_filter($errores);
+
+        if (!empty($errores)) {
+            echo json_encode([
+                'status' => 'error',
+                'type'   => 'fields',
+                'errors' => $errores
+            ]);
+            exit;
+        }
+
+        echo json_encode(['status' => 'success']);
+        exit;
+
+    case 'registrar':
+
+        retrasar();
+
+        $menuId   = $_POST['menu_id'] ?? '';
+        $nombre   = trim($_POST['nombre'] ?? '');
+        $iconoId  = trim($_POST['icono_id'] ?? '');
+        $enlace   = trim($_POST['enlace'] ?? '');
+        $estado   = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
+        $posicion = $_POST['posicion'] ?? '';          // vacío = al final (dentro del menú)
+
+        // Validación de campos (mismas reglas que la validación instantánea).
+        $errores = [];
+        if ($err = validarMenuPadre($menuId, $menuModel)) {
+            $errores['menu_id'] = $err;
+        }
+        if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+            $errores['nombre'] = $err;
+        }
+        if ($err = validarIconoId($iconoId, $iconoModel)) {
+            $errores['icono_id'] = $err;
+        }
+        if ($err = validarEnlace($enlace)) {   // normaliza $enlace por referencia
+            $errores['enlace'] = $err;
+        }
+        enviarErrorCamposFormulario($errores);
+
+        try {
+            $itemMenuModel->crear([
+                'menu_id'  => (int) $menuId,
+                'nombre'   => $nombre,
+                'icono_id' => $iconoId,   // FK al catálogo de iconos (o vacío)
+                'enlace'   => $enlace,  // normalizado (apto para URL) por validarEnlace
+                'estado'   => $estado,
+                'posicion' => $posicion,
+            ], $_SESSION['usuario_id']);
+
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Ítem menú creado con éxito.'
+            ]);
+
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+}

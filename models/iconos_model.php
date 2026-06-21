@@ -300,7 +300,7 @@
         public function listarOrdenados()
         {
             return $this->pdo
-                ->query("SELECT id, nombre, tipo, valor, archivo, posicion FROM iconos ORDER BY posicion ASC")
+                ->query("SELECT id, nombre, tipo, valor, archivo, coloreable, posicion FROM iconos ORDER BY posicion ASC")
                 ->fetchAll();
         }
 
