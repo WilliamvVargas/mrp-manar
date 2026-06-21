@@ -149,6 +149,48 @@ switch ($action) {
         }
         exit;
 
+    case 'listar':
+
+        // Listado paginado para la tabla principal (DataTables server-side).
+        $draw     = (int) ($_GET['draw'] ?? 0);
+        $inicio   = (int) ($_GET['start'] ?? 0);
+        $longitud = (int) ($_GET['length'] ?? 10);
+
+        // Filtros: buscador (nombre/enlace), menú y estado.
+        $consulta = trim($_GET['consulta'] ?? '');
+        $menuId   = $_GET['menu_id'] ?? '';   // '' = todos
+        $estado   = $_GET['estado'] ?? '';    // '' = todos, '1' = activo, '0' = inactivo
+
+        // Columna y dirección de ordenamiento (índice -> nombre lógico). Ícono (5) y
+        // Acciones (7) no son ordenables.
+        $columnas     = [0 => 'id', 1 => 'nombre', 2 => 'enlace', 3 => 'menu', 4 => 'posicion', 6 => 'estado'];
+        $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
+        $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'id';
+        $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';
+
+        try {
+            $totalRegistros = $itemMenuModel->contarTodos();
+            $totalFiltrados = $itemMenuModel->contarFiltrados($consulta, $menuId, $estado);
+            $datos          = $itemMenuModel->listarPagina($consulta, $menuId, $estado, $columnaOrden, $dirOrden, $inicio, $longitud);
+
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => $totalRegistros,
+                'recordsFiltered' => $totalFiltrados,
+                'data'            => $datos
+            ]);
+        } catch (PDOException $e) {
+            error_log('[ITEM_MENUS] ' . $e->getMessage());
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => 0,
+                'recordsFiltered' => 0,
+                'data'            => [],
+                'error'           => 'Ocurrió un error al cargar los ítems menú.'
+            ]);
+        }
+        exit;
+
     case 'validar_campo':
 
         $campo = $_POST['campo'] ?? '';

@@ -3,13 +3,82 @@ $(document).ready(function() {
     const MAX_RESULTADOS = 50;   // tope de coincidencias mostradas en el combobox.
 
     // ============================================================
+    //  Tabla principal de ítems menú (DataTable server-side)
+    // ============================================================
+
+    // Ícono del ítem para su columna (Bootstrap con la fuente; personalizado con su archivo).
+    function iconoTablaHtml(fila) {
+        if (!fila.icono_id) {
+            return '';
+        }
+        return fila.icono_tipo === 'bootstrap'
+            ? '<i class="bi bi-' + fila.icono_valor + '"></i>'
+            : '<img src="assets/icons/personalizados/' + fila.icono_archivo + '" alt="" '
+              + 'style="width: 18px; height: 18px; object-fit: contain;">';
+    }
+
+    const tablaConsulta = inicializarTablaConsulta({
+        tabla: '#tabla-consulta',
+        url:   'controllers/item_menus_controller.php?action=listar',
+        input: '#consulta',
+        orden: [[0, 'asc']],   // ascendente por Id del ítem menú
+        extra: function(d) {
+            d.menu_id = $('#filtro-menu').val();    // '' o id del menú
+            d.estado  = $('#filtro-estado').val();  // '', '1' o '0'
+        },
+        columnas: [
+            { data: 'id', className: 'text-center' },
+            { data: 'nombre', render: $.fn.dataTable.render.text() },
+            { data: 'enlace', render: $.fn.dataTable.render.text() },
+            { data: 'menu_nombre', render: $.fn.dataTable.render.text() },
+            { data: 'posicion', className: 'text-center' },
+            {
+                data: null,
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(d, type, fila) {
+                    return iconoTablaHtml(fila);
+                }
+            },
+            {
+                data: 'estado',
+                className: 'text-center',
+                render: function(estado) {
+                    return Number(estado) === 1
+                        ? '<span class="badge bg-success">Activo</span>'
+                        : '<span class="badge bg-secondary">Inactivo</span>';
+                }
+            },
+            {
+                data: 'id',
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(id) {
+                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-item me-1" '
+                                    + 'data-id="' + id + '" title="Editar ítem"><i class="bi bi-pencil"></i></button>';
+                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-item" '
+                                      + 'data-id="' + id + '" title="Eliminar ítem"><i class="bi bi-trash"></i></button>';
+                    return btnEditar + btnEliminar;
+                }
+            }
+        ]
+    });
+
+    // Recargar la tabla al cambiar los filtros de menú o estado.
+    $('#filtro-menu, #filtro-estado').on('change', function() {
+        tablaConsulta.ajax.reload();
+    });
+
+    // ============================================================
     //  Combobox de Menú padre (con búsqueda + badge de estado)
     // ============================================================
 
     let MENUS = [];                       // catálogo de menús {id, nombre, estado, posicion}
     const $inputMenu = $('#input_menu');
 
-    // Carga los menús para el combobox (id, nombre, estado).
+    // Carga los menús para el combobox y el filtro (id, nombre, estado, total_items).
     function cargarMenus() {
         $.ajax({
             url: 'controllers/item_menus_controller.php?action=menus',
@@ -18,9 +87,19 @@ $(document).ready(function() {
             success: function(res) {
                 if (res.status === 'success') {
                     MENUS = res.data || [];
+                    poblarFiltroMenu();
                 }
             }
         });
+    }
+
+    // Llena el <select> del filtro de Menú con el catálogo (conserva la selección actual).
+    function poblarFiltroMenu() {
+        const seleccion = $('#filtro-menu').val();
+        const opciones  = MENUS.map(function(m) {
+            return '<option value="' + m.id + '">' + $('<div>').text(nombreMenu(m)).html() + '</option>';
+        }).join('');
+        $('#filtro-menu').html('<option value="">Todos</option>' + opciones).val(seleccion);
     }
 
     // HTML del badge de estado (verde Activo / gris Inactivo).
@@ -330,7 +409,8 @@ $(document).ready(function() {
 
                 if (res.status === 'success') {
                     resetearFormularioItemMenu();
-                    cargarMenus();   // refresca la cantidad de ítems por menú del combobox
+                    cargarMenus();                          // refresca la cantidad de ítems por menú
+                    tablaConsulta.ajax.reload(null, false); // muestra el nuevo ítem en la tabla
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                 }
                 else if (res.status === 'error') {

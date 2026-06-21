@@ -134,4 +134,112 @@
                 ->query("SELECT id, menu_id, nombre, icono_id, estado, posicion FROM item_menus ORDER BY menu_id ASC, posicion ASC")
                 ->fetchAll();
         }
+
+        /**
+         * Cantidad total de ítems (sin filtro).
+         */
+        public function contarTodos()
+        {
+            return (int) $this->pdo->query("SELECT COUNT(*) FROM item_menus")->fetchColumn();
+        }
+
+        /**
+         * Cantidad de ítems que coinciden con los filtros (búsqueda, menú y estado).
+         */
+        public function contarFiltrados($busqueda, $menuId, $estado)
+        {
+            list($where, $params) = $this->construirFiltro($busqueda, $menuId, $estado);
+
+            if ($where === '') {
+                return $this->contarTodos();
+            }
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM item_menus im $where");
+            $stmt->execute($params);
+
+            return (int) $stmt->fetchColumn();
+        }
+
+        /**
+         * Página de ítems para DataTables (server-side). Incluye el nombre del menú padre
+         * y los datos del ícono (para mostrarlo). La búsqueda aplica a nombre y enlace;
+         * además se puede filtrar por menú y por estado.
+         *
+         * @param string $busqueda     Texto a buscar en nombre o enlace.
+         * @param string $menuId       '' (todos) o el id del menú a filtrar.
+         * @param string $estado       '' (todos), '1' (activo) o '0' (inactivo).
+         * @param string $columnaOrden Nombre lógico de la columna a ordenar.
+         * @param string $dirOrden     'asc' o 'desc'.
+         * @param int    $inicio       Offset.
+         * @param int    $longitud     Cantidad (-1 = todos).
+         */
+        public function listarPagina($busqueda, $menuId, $estado, $columnaOrden, $dirOrden, $inicio, $longitud)
+        {
+            // Lista blanca de columnas ordenables (evita inyección en el ORDER BY).
+            $columnasValidas = [
+                'id'       => 'im.id',
+                'posicion' => 'im.posicion',
+                'menu'     => 'm.nombre',
+                'nombre'   => 'im.nombre',
+                'enlace'   => 'im.enlace',
+                'estado'   => 'im.estado',
+            ];
+            $columna   = $columnasValidas[$columnaOrden] ?? 'im.id';
+            $direccion = (strtolower($dirOrden) === 'desc') ? 'DESC' : 'ASC';
+
+            $inicio   = max(0, (int) $inicio);
+            $longitud = (int) $longitud;
+
+            list($where, $params) = $this->construirFiltro($busqueda, $menuId, $estado);
+            $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
+
+            // Desempate por menú + posición para que los ítems de un mismo menú salgan en orden.
+            $sql = "SELECT im.id, im.menu_id, m.nombre AS menu_nombre, im.nombre, im.enlace,
+                           im.icono_id, ic.tipo AS icono_tipo, ic.valor AS icono_valor, ic.archivo AS icono_archivo,
+                           im.estado, im.posicion
+                    FROM item_menus im
+                    INNER JOIN menus m  ON m.id  = im.menu_id
+                    LEFT JOIN  iconos ic ON ic.id = im.icono_id
+                    $where
+                    ORDER BY $columna $direccion, m.nombre ASC, im.posicion ASC
+                    $limit";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Arma el WHERE y los parámetros de los filtros de la consulta principal
+         * (búsqueda en nombre/enlace, menú y estado). Usa el alias `im` de item_menus.
+         *
+         * @return array [string $where, array $params]
+         */
+        private function construirFiltro($busqueda, $menuId, $estado)
+        {
+            $condiciones = [];
+            $params      = [];
+
+            if ($busqueda !== '') {
+                $condiciones[] = '(im.nombre LIKE ? OR im.enlace LIKE ?)';
+                $like = '%' . $busqueda . '%';
+                $params[] = $like;
+                $params[] = $like;
+            }
+
+            if ($menuId !== '' && ctype_digit((string) $menuId)) {
+                $condiciones[] = 'im.menu_id = ?';
+                $params[]      = (int) $menuId;
+            }
+
+            if ($estado !== '') {
+                $condiciones[] = 'im.estado = ?';
+                $params[]      = (int) $estado;
+            }
+
+            $where = $condiciones ? 'WHERE ' . implode(' AND ', $condiciones) : '';
+
+            return [$where, $params];
+        }
     }
