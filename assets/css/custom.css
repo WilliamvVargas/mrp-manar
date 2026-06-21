@@ -309,3 +309,20 @@
     max-height: 70%;
     object-fit: contain;
 }
+
+/* Tabla compacta con letra pequeña (para listados de muchas columnas, ej. Ventas
+   Históricas). Se aplica solo a las tablas que llevan la clase, no a todas. */
+.tabla-compacta {
+    font-size: 0.78rem;
+}
+
+.tabla-compacta thead th {
+    font-size: 0.74rem;
+    white-space: nowrap;   /* mantiene los títulos en una línea */
+}
+
+.tabla-compacta td,
+.tabla-compacta th {
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+}

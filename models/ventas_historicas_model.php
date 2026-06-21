@@ -107,6 +107,18 @@
         }
 
         /**
+         * Devuelve un registro completo (todos los campos) por su id, o false si no existe.
+         * Lo usa el detalle (modal de "Ver detalle").
+         */
+        public function buscarPorId($id)
+        {
+            $stmt = $this->pdo->prepare("SELECT * FROM ventas_historicas WHERE id = ?");
+            $stmt->execute([(int) $id]);
+
+            return $stmt->fetch();
+        }
+
+        /**
          * Cantidad total de registros (sin filtro).
          */
         public function contarTodos()
@@ -117,9 +129,9 @@
         /**
          * Cantidad de registros que coinciden con los filtros (búsqueda, versión y año).
          */
-        public function contarFiltrados($busqueda, $version, $anio)
+        public function contarFiltrados($busqueda, $version, $grupo, $familia, $fechaAnio, $fechaMes)
         {
-            list($where, $params) = $this->construirFiltro($busqueda, $version, $anio);
+            list($where, $params) = $this->construirFiltro($busqueda, $version, $grupo, $familia, $fechaAnio, $fechaMes);
 
             if ($where === '') {
                 return $this->contarTodos();
@@ -144,19 +156,22 @@
          * @param int    $inicio       Offset.
          * @param int    $longitud     Cantidad (-1 = todos).
          */
-        public function listarPagina($busqueda, $version, $anio, $columnaOrden, $dirOrden, $inicio, $longitud)
+        public function listarPagina($busqueda, $version, $grupo, $familia, $fechaAnio, $fechaMes, $columnaOrden, $dirOrden, $inicio, $longitud)
         {
             $columnasValidas = [
                 'id'                   => 'id',
                 'version'              => 'version',
                 'fecha_docto'          => 'fecha_docto',
                 'nro_docto'            => 'nro_docto',
+                'tipo_docto'           => 'tipo_docto',
+                'rut_cliente'          => 'rut_cliente',
                 'razon_social'         => 'razon_social',
+                'cod_articulo'         => 'cod_articulo',
                 'descripcion_articulo' => 'descripcion_articulo',
+                'grupo_articulo'       => 'grupo_articulo',
+                'familia'              => 'familia',
                 'cant_docto'           => 'cant_docto',
                 'venta_bruta'          => 'venta_bruta',
-                'anio'                 => 'anio',
-                'mes'                  => 'mes',
             ];
             $columna   = $columnasValidas[$columnaOrden] ?? 'id';
             $direccion = (strtolower($dirOrden) === 'asc') ? 'ASC' : 'DESC';
@@ -164,11 +179,11 @@
             $inicio   = max(0, (int) $inicio);
             $longitud = (int) $longitud;
 
-            list($where, $params) = $this->construirFiltro($busqueda, $version, $anio);
+            list($where, $params) = $this->construirFiltro($busqueda, $version, $grupo, $familia, $fechaAnio, $fechaMes);
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
-            $sql = "SELECT id, version, fecha_docto, nro_docto, razon_social,
-                           descripcion_articulo, cant_docto, venta_bruta, anio, mes
+            $sql = "SELECT id, version, fecha_docto, nro_docto, tipo_docto, rut_cliente, razon_social,
+                           cod_articulo, descripcion_articulo, grupo_articulo, familia, cant_docto, venta_bruta
                     FROM ventas_historicas
                     $where
                     ORDER BY $columna $direccion
@@ -185,7 +200,7 @@
          *
          * @return array [string $where, array $params]
          */
-        private function construirFiltro($busqueda, $version, $anio)
+        private function construirFiltro($busqueda, $version, $grupo, $familia, $fechaAnio, $fechaMes)
         {
             $condiciones = [];
             $params      = [];
@@ -203,9 +218,32 @@
                 $params[]      = $version;
             }
 
-            if ($anio !== '' && ctype_digit((string) $anio)) {
-                $condiciones[] = 'anio = ?';
-                $params[]      = (int) $anio;
+            if ($grupo !== '') {
+                $condiciones[] = 'grupo_articulo = ?';
+                $params[]      = $grupo;
+            }
+
+            if ($familia !== '') {
+                $condiciones[] = 'familia = ?';
+                $params[]      = $familia;
+            }
+
+            // Filtro por mes/año de la fecha del documento: rango [1° del mes, 1° del mes siguiente)
+            // para aprovechar el índice de fecha_docto (en vez de YEAR()/MONTH()).
+            if ($fechaAnio !== '' && $fechaMes !== ''
+                && ctype_digit((string) $fechaAnio) && ctype_digit((string) $fechaMes)) {
+
+                $mes  = (int) $fechaMes;
+                $anio = (int) $fechaAnio;
+
+                if ($mes >= 1 && $mes <= 12) {
+                    $inicio = sprintf('%04d-%02d-01', $anio, $mes);
+                    $fin    = date('Y-m-d', strtotime($inicio . ' +1 month'));
+
+                    $condiciones[] = 'fecha_docto >= ? AND fecha_docto < ?';
+                    $params[]      = $inicio;
+                    $params[]      = $fin;
+                }
             }
 
             $where = $condiciones ? 'WHERE ' . implode(' AND ', $condiciones) : '';
@@ -234,6 +272,30 @@
         {
             return $this->pdo
                 ->query("SELECT DISTINCT anio FROM ventas_historicas WHERE anio IS NOT NULL ORDER BY anio DESC")
+                ->fetchAll(PDO::FETCH_COLUMN);
+        }
+
+        /**
+         * Familias distintas existentes (para el filtro combobox), en orden alfabético.
+         *
+         * @return array Lista de familias.
+         */
+        public function familiasDisponibles()
+        {
+            return $this->pdo
+                ->query("SELECT DISTINCT familia FROM ventas_historicas WHERE familia IS NOT NULL AND familia <> '' ORDER BY familia ASC")
+                ->fetchAll(PDO::FETCH_COLUMN);
+        }
+
+        /**
+         * Grupos de artículo distintos existentes (para el filtro), en orden alfabético.
+         *
+         * @return array Lista de grupos.
+         */
+        public function gruposDisponibles()
+        {
+            return $this->pdo
+                ->query("SELECT DISTINCT grupo_articulo FROM ventas_historicas WHERE grupo_articulo IS NOT NULL AND grupo_articulo <> '' ORDER BY grupo_articulo ASC")
                 ->fetchAll(PDO::FETCH_COLUMN);
         }
     }

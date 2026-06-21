@@ -247,14 +247,18 @@ switch ($action) {
         $inicio   = (int) ($_GET['start'] ?? 0);
         $longitud = (int) ($_GET['length'] ?? 10);
 
-        $consulta = trim($_GET['consulta'] ?? '');
-        $version  = $_GET['version'] ?? '';   // '' = todas
-        $anio     = $_GET['anio'] ?? '';      // '' = todos
+        $consulta  = trim($_GET['consulta'] ?? '');
+        $version   = $_GET['version'] ?? '';      // '' = todas
+        $grupo     = $_GET['grupo'] ?? '';        // '' = todos
+        $familia   = $_GET['familia'] ?? '';      // '' = todas
+        $fechaAnio = $_GET['fecha_anio'] ?? '';   // año de fecha_docto ('' = todos)
+        $fechaMes  = $_GET['fecha_mes'] ?? '';    // mes de fecha_docto ('' = todos)
 
         // Columna y dirección de ordenamiento (índice -> nombre lógico).
         $columnas     = [0 => 'id', 1 => 'version', 2 => 'fecha_docto', 3 => 'nro_docto',
-                         4 => 'razon_social', 5 => 'descripcion_articulo', 6 => 'cant_docto',
-                         7 => 'venta_bruta', 8 => 'anio', 9 => 'mes'];
+                         4 => 'tipo_docto', 5 => 'rut_cliente', 6 => 'razon_social', 7 => 'cod_articulo',
+                         8 => 'descripcion_articulo', 9 => 'grupo_articulo', 10 => 'familia',
+                         11 => 'cant_docto', 12 => 'venta_bruta'];   // 13 = Acciones (no ordenable)
         $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
         $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'id';
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'desc';
@@ -262,8 +266,8 @@ switch ($action) {
         try {
             $model          = new VentaHistorica($pdo);
             $totalRegistros = $model->contarTodos();
-            $totalFiltrados = $model->contarFiltrados($consulta, $version, $anio);
-            $datos          = $model->listarPagina($consulta, $version, $anio, $columnaOrden, $dirOrden, $inicio, $longitud);
+            $totalFiltrados = $model->contarFiltrados($consulta, $version, $grupo, $familia, $fechaAnio, $fechaMes);
+            $datos          = $model->listarPagina($consulta, $version, $grupo, $familia, $fechaAnio, $fechaMes, $columnaOrden, $dirOrden, $inicio, $longitud);
 
             echo json_encode([
                 'draw'            => $draw,
@@ -283,6 +287,27 @@ switch ($action) {
         }
         exit;
 
+    case 'obtener':
+
+        // Registro completo para el modal de "Ver detalle".
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id < 1) {
+            errorVentas('Identificador no válido.');
+        }
+        try {
+            $model    = new VentaHistorica($pdo);
+            $registro = $model->buscarPorId($id);
+
+            if (!$registro) {
+                echo json_encode(['status' => 'error', 'message' => 'El registro no existe.']);
+                exit;
+            }
+            echo json_encode(['status' => 'success', 'data' => $registro]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'filtros':
 
         // Valores disponibles para los selects de Versión y Año.
@@ -291,7 +316,9 @@ switch ($action) {
             echo json_encode([
                 'status'    => 'success',
                 'versiones' => $model->versionesDisponibles(),
-                'anios'     => $model->aniosDisponibles()
+                'anios'     => $model->aniosDisponibles(),
+                'grupos'    => $model->gruposDisponibles(),
+                'familias'  => $model->familiasDisponibles()
             ]);
         } catch (PDOException $e) {
             responderErrorServidor($e);

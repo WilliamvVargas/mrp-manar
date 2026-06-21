@@ -56,35 +56,93 @@ $(document).ready(function() {
     //  Tabla principal (DataTable server-side)
     // ============================================================
 
+    // Filtro de Fecha Documento (mes/año), lo setea el selector Flatpickr.
+    let filtroFechaAnio = '';
+    let filtroFechaMes  = '';
+
     const tablaVentas = inicializarTablaConsulta({
         tabla: '#tabla-consulta',
         url:   'controllers/ventas_historicas_controller.php?action=listar',
         input: '#consulta',
         orden: [[0, 'desc']],   // por id descendente (lo más reciente primero)
         extra: function(d) {
-            d.version = $('#filtro-version').val();   // '' o versión exacta
-            d.anio    = $('#filtro-anio').val();      // '' o año
+            d.version    = $('#filtro-version').val();   // '' o versión exacta
+            d.grupo      = $('#filtro-grupo').val();     // '' o grupo de artículo exacto
+            d.familia    = $('#filtro-familia').val();   // '' o familia exacta
+            d.fecha_anio = filtroFechaAnio;              // '' o año de fecha_docto
+            d.fecha_mes  = filtroFechaMes;               // '' o mes de fecha_docto
         },
         columnas: [
             { data: 'id',                   className: 'text-center' },
             { data: 'version',              className: 'text-center', render: renderTexto },
             { data: 'fecha_docto',          className: 'text-center', render: renderFecha },
             { data: 'nro_docto',            className: 'text-center', render: renderNumero },
+            { data: 'tipo_docto',           className: 'text-center', render: renderNumero },
+            { data: 'rut_cliente',          render: renderTexto },
             { data: 'razon_social',         render: renderTexto },
+            { data: 'cod_articulo',         render: renderTexto },
             { data: 'descripcion_articulo', render: renderTexto },
+            { data: 'grupo_articulo',       render: renderTexto },
+            { data: 'familia',              render: renderTexto },
             { data: 'cant_docto',           className: 'text-end', render: renderCantidad },
             { data: 'venta_bruta',          className: 'text-end', render: renderMoneda },
-            { data: 'anio',                 className: 'text-center', render: renderNumero },
-            { data: 'mes',                  className: 'text-center', render: renderMes }
+            {
+                data: 'id',
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(id) {
+                    return '<button type="button" class="btn btn-sm btn-outline-secondary btn-ver-venta" '
+                         + 'data-id="' + id + '" title="Ver detalle"><i class="bi bi-eye"></i></button>';
+                }
+            }
         ]
     });
 
-    // Recargar la tabla al cambiar los filtros de Versión o Año.
-    $('#filtro-version, #filtro-anio').on('change', function() {
+    // Recargar la tabla al cambiar los filtros de Versión, Grupo o Familia.
+    $('#filtro-version, #filtro-grupo, #filtro-familia').on('change', function() {
         tablaVentas.ajax.reload();
     });
 
-    // Llena los selects de Versión y Año con los valores disponibles (conserva la selección).
+    // Filtro Fecha Documento: selector de mes/año (Flatpickr + plugin monthSelect).
+    const fpFecha = flatpickr('#filtro-fecha', {
+        locale: 'es',
+        plugins: [ new monthSelectPlugin({ shorthand: false, dateFormat: 'm/Y' }) ],
+        onChange: function(fechas) {
+            if (fechas.length) {
+                filtroFechaAnio = fechas[0].getFullYear();
+                filtroFechaMes  = fechas[0].getMonth() + 1;   // getMonth() es 0-11
+            } else {
+                filtroFechaAnio = '';
+                filtroFechaMes  = '';
+            }
+            tablaVentas.ajax.reload();
+        },
+        onReady: function(selectedDates, dateStr, instance) {
+            // Opción para quitar el filtro, al pie del propio calendario (sin botón X en el input).
+            const $limpiar = $('<div class="text-center small text-primary border-top py-1" style="cursor: pointer;">Quitar filtro</div>');
+            $limpiar.on('click', function() {
+                instance.clear();   // dispara onChange -> limpia las variables y recarga
+                instance.close();
+            });
+            $(instance.calendarContainer).append($limpiar);
+        }
+    });
+
+    // Botón "Limpiar": deja todos los filtros por defecto y recarga (motor de utils.js).
+    inicializarBotonLimpiar({
+        boton:  '#btn-limpiar-filtros',
+        tabla:  tablaVentas,
+        campos: ['#consulta', '#filtro-version', '#filtro-grupo', '#filtro-familia'],
+        delay:  250,   // un cuarto de segundo, con el botón en "cargando"
+        alLimpiar: function() {
+            fpFecha.clear(false);   // limpia el picker SIN disparar su onChange (evita recarga doble)
+            filtroFechaAnio = '';
+            filtroFechaMes  = '';
+        }
+    });
+
+    // Llena el select de Versión con los valores disponibles (conserva la selección).
     function cargarFiltros() {
         $.ajax({
             url: 'controllers/ventas_historicas_controller.php?action=filtros',
@@ -95,20 +153,132 @@ $(document).ready(function() {
                     return;
                 }
 
-                const verSel  = $('#filtro-version').val();
-                const opcVer  = (res.versiones || []).map(function(v) {
+                const verSel = $('#filtro-version').val();
+                const opcVer = (res.versiones || []).map(function(v) {
                     return '<option value="' + v + '">' + v + '</option>';
                 }).join('');
                 $('#filtro-version').html('<option value="">Todas</option>' + opcVer).val(verSel);
 
-                const anioSel = $('#filtro-anio').val();
-                const opcAnio = (res.anios || []).map(function(a) {
-                    return '<option value="' + a + '">' + a + '</option>';
-                }).join('');
-                $('#filtro-anio').html('<option value="">Todos</option>' + opcAnio).val(anioSel);
+                // Grupo y Familia: se arman con jQuery para escapar bien nombres con caracteres especiales.
+                const $gru   = $('#filtro-grupo');
+                const gruSel = $gru.val();
+                $gru.empty().append('<option value="">Todos</option>');
+                (res.grupos || []).forEach(function(g) {
+                    $gru.append($('<option>').val(g).text(g));
+                });
+                $gru.val(gruSel);
+
+                const $fam   = $('#filtro-familia');
+                const famSel = $fam.val();
+                $fam.empty().append('<option value="">Todas</option>');
+                (res.familias || []).forEach(function(f) {
+                    $fam.append($('<option>').val(f).text(f));
+                });
+                $fam.val(famSel);
             }
         });
     }
+
+    // ============================================================
+    //  Ver detalle (modal con todos los campos del registro)
+    // ============================================================
+
+    // Campos a mostrar en el detalle: [campo, etiqueta, tipo de formato].
+    const CAMPOS_DETALLE = [
+        ['id',                   'Id',                   'numero'],
+        ['version',              'Versión',              'texto'],
+        ['nro_docto',            'Nro. Documento',       'numero'],
+        ['tipo_docto',           'Tipo Documento',       'numero'],
+        ['nota_venta',           'Nota Venta',           'texto'],
+        ['cond_venta',           'Condición de Venta',   'texto'],
+        ['fecha_docto',          'Fecha Documento',      'fecha'],
+        ['rut_cliente',          'RUT Cliente',          'texto'],
+        ['razon_social',         'Razón Social',         'texto'],
+        ['tipo_cliente',         'Tipo Cliente',         'texto'],
+        ['lista_precio',         'Lista de Precio',      'texto'],
+        ['cod_ejec',             'Cód. Ejecutivo',       'numero'],
+        ['ejec_comercial',       'Ejecutivo Comercial',  'texto'],
+        ['f_creacion',           'F. Creación',          'fecha'],
+        ['f_primera_venta',      'F. 1ra Venta',         'fecha'],
+        ['f_ultima_venta',       'F. Última Venta',      'fecha'],
+        ['cod_articulo',         'Cód. Artículo',        'texto'],
+        ['descripcion_articulo', 'Descripción Artículo', 'texto'],
+        ['grupo_articulo',       'Grupo Artículo',       'texto'],
+        ['familia',              'Familia',              'texto'],
+        ['sub_familia',          'Sub-Familia',          'texto'],
+        ['proveedor',            'Proveedor',            'texto'],
+        ['cant_pedido',          'Cant. Pedido',         'cantidad'],
+        ['pr_pedido',            'Pr. Pedido',           'moneda'],
+        ['subtotal_pedido',      'Sub-Total Pedido',     'moneda'],
+        ['cant_docto',           'Cant. Documento',      'cantidad'],
+        ['pr_base',              'Pr. Base',             'moneda'],
+        ['pct_descuento',        '% Descuento',          'porcentaje'],
+        ['subtotal_docto',       'Sub-Total Documento',  'moneda'],
+        ['pr_prom_pond',         'Pr. Prom. Pond.',      'moneda'],
+        ['costo_pr_pp',          'Costo a Pr.P.P.',      'moneda'],
+        ['ganancia_bruta',       'Ganancia Bruta',       'moneda'],
+        ['pct_margen',           '% Margen',             'porcentaje'],
+        ['gramaje',              'Gramaje',              'cantidad'],
+        ['unid_x_caja',          'Unid. x Caja',         'numero'],
+        ['sociedad',             'Sociedad',             'texto'],
+        ['venta_bruta',          'Venta Bruta',          'moneda'],
+        ['descuento',            'Descuento',            'moneda'],
+        ['anio',                 'Año',                  'numero'],
+        ['mes',                  'Mes',                  'mes'],
+        ['pr_vta_prom',          'Pr. Vta. Prom.',       'moneda'],
+        ['created_at',           'Fecha de carga',       'texto'],
+    ];
+
+    // Formatea un valor según su tipo (vacío -> guion).
+    function valorDetalle(valor, tipo) {
+        if (valor === null || valor === undefined || valor === '') {
+            return '<span class="text-muted">—</span>';
+        }
+        switch (tipo) {
+            case 'fecha':      return renderFecha(valor);
+            case 'moneda':     return renderMoneda(valor);
+            case 'cantidad':   return renderCantidad(valor);
+            case 'porcentaje': return formatearNumero(valor, 2) + ' %';
+            case 'mes':        return renderMes(valor) || $('<div>').text(valor).html();
+            default:           return $('<div>').text(valor).html();
+        }
+    }
+
+    // Arma las filas Campo | Valor del detalle.
+    function filasDetalle(registro) {
+        return CAMPOS_DETALLE.map(function(c) {
+            return '<tr>'
+                 + '<th class="fw-semibold small text-nowrap" style="width: 40%;">' + c[1] + '</th>'
+                 + '<td class="small">' + valorDetalle(registro[c[0]], c[2]) + '</td>'
+                 + '</tr>';
+        }).join('');
+    }
+
+    // Botón "Ver detalle": carga el registro y abre el modal con la tabla vertical.
+    $('#tabla-consulta tbody').on('click', '.btn-ver-venta', function() {
+        const id     = $(this).data('id');
+        const $tbody = $('#tabla-detalle-venta');
+
+        $tbody.html('<tr><td class="text-muted small">Cargando...</td></tr>');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaDetalle')).show();
+
+        $.ajax({
+            url: 'controllers/ventas_historicas_controller.php?action=obtener',
+            type: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    $tbody.html(filasDetalle(res.data));
+                } else {
+                    $tbody.html('<tr><td class="text-danger small">' + (res.message || 'No se pudo cargar el detalle.') + '</td></tr>');
+                }
+            },
+            error: function() {
+                $tbody.html('<tr><td class="text-danger small">Error al cargar el detalle.</td></tr>');
+            }
+        });
+    });
 
     // ============================================================
     //  Carga masiva (.xlsx)

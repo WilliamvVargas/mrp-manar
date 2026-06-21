@@ -488,6 +488,56 @@ function inicializarTablaConsulta(opciones) {
 }
 
 /**
+ * Conecta un botón "Limpiar filtros": vacía los controles de filtro indicados y recarga
+ * la tabla, dejándola con todos los filtros por defecto. Reutilizable por cualquier
+ * mantenedor con DataTable server-side.
+ *
+ * @param {Object}   config
+ * @param {string}   config.boton       - Selector del botón "Limpiar".
+ * @param {Object}   [config.tabla]     - Instancia de DataTable a recargar.
+ * @param {Array}    [config.campos]    - Selectores de inputs/selects a vaciar (con val('')).
+ * @param {Function} [config.alLimpiar] - Limpieza extra (date pickers, variables de estado, etc.).
+ *                                        Se ejecuta antes de recargar la tabla.
+ * @param {number}   [config.delay]         - Espera (ms) antes de limpiar; muestra el botón en
+ *                                            estado "cargando" durante ese tiempo (def: 0 = sin espera).
+ * @param {string}   [config.textoCargando] - Texto durante la carga. Por defecto '' (solo spinner),
+ *                                            que mantiene el tamaño del botón gracias a su min-width.
+ */
+function inicializarBotonLimpiar(config) {
+    const delay = config.delay || 0;
+
+    $(config.boton).on('click', function() {
+        const $btn = $(this);
+
+        const ejecutar = function() {
+            (config.campos || []).forEach(function(selector) {
+                $(selector).val('');
+            });
+
+            if (typeof config.alLimpiar === 'function') {
+                config.alLimpiar();
+            }
+
+            if (config.tabla) {
+                config.tabla.ajax.reload(function() {
+                    if (delay > 0) { resetBtnLoading($btn); }
+                });
+            } else if (delay > 0) {
+                resetBtnLoading($btn);
+            }
+        };
+
+        if (delay > 0) {
+            // Texto vacío por defecto: solo el spinner, así el botón conserva su tamaño.
+            setBtnLoading($btn, config.textoCargando || '');
+            setTimeout(ejecutar, delay);
+        } else {
+            ejecutar();
+        }
+    });
+}
+
+/**
  * Inicializa un "select con iconos": un dropdown de Bootstrap que se comporta como
  * un <select> pero permite icono + texto en cada opción (los <option> nativos no).
  * Reutilizable por cualquier mantenedor.
