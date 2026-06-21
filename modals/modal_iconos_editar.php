@@ -78,6 +78,24 @@
                         <div class="invalid-feedback small" id="error-nombre-editar"></div>
                     </div>
 
+                    <!-- Posición: se elige en la grilla de Asignar Posición -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input_posicion_editar">Posición</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input_posicion_editar"
+                                   disabled>
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    id="btn-asignar-posicion-editar"
+                                    disabled>
+                                <i class="bi bi-sort-numeric-down me-1"></i> Asignar Posición
+                            </button>
+                        </div>
+                        <input type="hidden" id="posicion_editar" name="posicion">
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button"

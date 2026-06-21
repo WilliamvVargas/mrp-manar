@@ -149,7 +149,7 @@
                                     class="btn btn-primary"
                                     id="btn-asignar-posicion"
                                     disabled>
-                                <i class="bi bi-grid-3x3-gap me-1"></i> Asignar Posición
+                                <i class="bi bi-sort-numeric-down me-1"></i> Asignar Posición
                             </button>
                         </div>
                         <input type="hidden" id="posicion" name="posicion">

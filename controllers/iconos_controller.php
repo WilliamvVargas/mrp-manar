@@ -262,8 +262,9 @@ switch ($action) {
 
         retrasar();
 
-        $id     = (int) ($_POST['id_registro'] ?? 0);
-        $nombre = trim($_POST['nombre'] ?? '');
+        $id       = (int) ($_POST['id_registro'] ?? 0);
+        $nombre   = trim($_POST['nombre'] ?? '');
+        $posicion = $_POST['posicion'] ?? '';          // vacío = no se reordena
 
         if ($id < 1) {
             http_response_code(400);
@@ -332,6 +333,13 @@ switch ($action) {
                     // Regenera el sprite con los archivos actualizados.
                     regenerarSpriteIconos($iconoModel, $carpeta, __DIR__ . '/../assets/icons/sprite.svg');
 
+                    $hayCambios = true;
+                }
+            }
+
+            // Reordena solo si se eligió una posición en el modal Asignar Posición.
+            if (is_numeric($posicion) && (int) $posicion >= 1) {
+                if ($iconoModel->reposicionar($id, $posicion) > 0) {
                     $hayCambios = true;
                 }
             }

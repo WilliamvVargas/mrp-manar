@@ -138,6 +138,63 @@
         }
 
         /**
+         * Cambia la posición de un icono existente, corriendo a los demás para no
+         * dejar huecos (misma lógica de reubicación que en menús).
+         *
+         * @param int $id            Identificador del icono a mover.
+         * @param int $nuevaPosicion Posición destino (se acota al rango [1, total]).
+         * @return int 1 si la posición cambió, 0 si quedó igual o el icono no existe.
+         */
+        public function reposicionar($id, $nuevaPosicion)
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+                $icono = $this->buscarPorId($id);
+
+                if (!$icono) {
+                    $this->pdo->commit();
+                    return 0;
+                }
+
+                $actual  = (int) $icono['posicion'];
+                $destino = (int) $nuevaPosicion;
+
+                // Acota el destino al rango válido [1, total].
+                $total = (int) $this->pdo->query("SELECT COUNT(*) FROM iconos")->fetchColumn();
+                if ($destino < 1)      $destino = 1;
+                if ($destino > $total) $destino = $total;
+
+                if ($destino === $actual) {
+                    $this->pdo->commit();
+                    return 0;
+                }
+
+                if ($destino < $actual) {
+                    // Sube: los que están entre el destino y la posición actual bajan +1.
+                    $this->pdo->prepare(
+                        "UPDATE iconos SET posicion = posicion + 1 WHERE posicion >= ? AND posicion < ?"
+                    )->execute([$destino, $actual]);
+                } else {
+                    // Baja: los que están entre la posición actual y el destino suben -1.
+                    $this->pdo->prepare(
+                        "UPDATE iconos SET posicion = posicion - 1 WHERE posicion > ? AND posicion <= ?"
+                    )->execute([$actual, $destino]);
+                }
+
+                $this->pdo->prepare("UPDATE iconos SET posicion = ? WHERE id = ?")->execute([$destino, (int) $id]);
+
+                $this->pdo->commit();
+
+                return 1;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
          * Elimina un icono por su id.
          *
          * @return int Filas eliminadas (0 si no existía).

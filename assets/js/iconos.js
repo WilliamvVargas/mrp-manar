@@ -90,16 +90,17 @@ $(document).ready(function() {
 
     // Celda de la grilla. tipo: 'libre' (reordenamiento global), 'fijo' (icono existente en
     // creación, no se arrastra) o 'movible' (el icono nuevo que se está creando).
-    function celdaIconoPosicion(id, nombre, orden, tipo, previewHtml) {
+    function celdaIconoPosicion(id, nombre, orden, tipo, previewHtml, etiquetaMovible) {
         const movible    = (tipo === 'movible');
         const nombreEsc  = $('<div>').text(nombre).html();
         const claseExtra = (tipo === 'movible') ? ' lista-posicion-celda-nueva'
                          : (tipo === 'fijo')    ? ' lista-posicion-celda-fija'
                          : '';
 
-        // El nuevo lleva un badge azul fijo "Nuevo"; los demás, el badge-cambio (lo maneja el motor).
+        // El ítem movible lleva un badge azul fijo ("Nuevo" al crear, "Editando" al editar);
+        // los demás, el badge-cambio (que el motor activa al cambiar de posición).
         const badgeInferior = movible
-            ? '<span class="celda-cambio"><span class="badge bg-primary">Nuevo</span></span>'
+            ? '<span class="celda-cambio"><span class="badge bg-primary">' + (etiquetaMovible || 'Nuevo') + '</span></span>'
             : '<span class="celda-cambio"><span class="badge bg-warning text-dark badge-cambio"></span></span>';
 
         return '<li class="lista-posicion-celda' + claseExtra + '" data-id="' + id + '" data-original="' + orden + '" data-movible="' + (movible ? '1' : '0') + '">'
@@ -140,6 +141,48 @@ $(document).ready(function() {
                     return items;
                 },
                 alCerrarReal: resetearFormularioIcono
+            },
+            // EDICIÓN: el ítem movible es el propio icono en edición, que ya viene en el
+            // listado del backend (no se inserta nada, solo se marca como movible).
+            {
+                boton:        '#btn-asignar-posicion-editar',
+                modalPadre:   '#modalIconoEditar',
+                inputVisible: '#input_posicion_editar',
+                inputHidden:  '#posicion_editar',
+                idMovible:    function() { return String($('#id_icono_editar').val()); },
+                construirItems: function(data) {
+                    const idEditado   = String($('#id_icono_editar').val());
+                    let indiceMovible = -1;
+
+                    const items = data.map(function(registro, i) {
+                        const esMovible = String(registro.id) === idEditado;
+                        if (esMovible) {
+                            indiceMovible = i;
+                        }
+                        return celdaIconoPosicion(
+                            registro.id,
+                            registro.nombre,
+                            i + 1,
+                            esMovible ? 'movible' : 'fijo',
+                            previewCeldaIcono(registro),
+                            'Editando'
+                        );
+                    });
+
+                    // Si en esta sesión ya se eligió una posición distinta, recoloca el ítem editado.
+                    const posElegida = parseInt($('#posicion_editar').val(), 10);
+                    if (!isNaN(posElegida) && posElegida >= 1 && posElegida <= items.length
+                        && indiceMovible !== -1 && (posElegida - 1) !== indiceMovible) {
+                        const movido = items.splice(indiceMovible, 1)[0];
+                        items.splice(posElegida - 1, 0, movido);
+                    }
+
+                    return items;
+                },
+                alCerrarReal: function() {
+                    limpiarFormularioCompleto('#form-icono-editar', '#modal-mensajes-editar', true);
+                    $('#preview-icono-editar').empty();
+                }
             },
             // GLOBAL: todos los iconos movibles (reordenar la lista completa).
             {
@@ -193,6 +236,9 @@ $(document).ready(function() {
         $('#input_valor_editar').val(fila.valor);
         $('#input_nombre_editar').val(fila.nombre);
         $('#preview-icono-editar').html(previewIconoModalHtml(fila));
+        // El Nombre llega válido desde BD (sin el check verde): se habilita "Asignar Posición".
+        $('#input_posicion_editar').val(fila.posicion);
+        $('#btn-asignar-posicion-editar').prop('disabled', false);
         $('#modalIconoEditar').modal('show');
     }
 
@@ -211,6 +257,18 @@ $(document).ready(function() {
             $('#input_valor_editar').val('custom-' + slugIcono($(this).val()));
         }
     });
+
+    // Inhabilita "Asignar Posición" si el Nombre queda inválido (lo vuelve a habilitar al validar).
+    // Al abrir, el Nombre llega válido desde BD (sin clase), por eso se habilita en abrirEditarIcono.
+    const inputNombreEditarDom = document.getElementById('input_nombre_editar');
+    if (inputNombreEditarDom) {
+        const observadorNombreEditar = new MutationObserver(function() {
+            const $n = $(inputNombreEditarDom);
+            const valido = $n.hasClass('is-valid') && !$n.hasClass('is-invalid');
+            $('#btn-asignar-posicion-editar').prop('disabled', !valido);
+        });
+        observadorNombreEditar.observe(inputNombreEditarDom, { attributes: true, attributeFilter: ['class'] });
+    }
 
     // Limpia la alerta general al escribir en el formulario de edición.
     activarLimpiezaMensajeAlEscribir('#form-icono-editar', '#modal-mensajes-editar');
@@ -255,11 +313,8 @@ $(document).ready(function() {
         });
     });
 
-    // Al cerrar el modal de edición: limpia el formulario y la vista previa.
-    $('#modalIconoEditar').on('hidden.bs.modal', function() {
-        limpiarFormularioCompleto('#form-icono-editar', '#modal-mensajes-editar', true);
-        $('#preview-icono-editar').empty();
-    });
+    // Nota: la limpieza al cerrar el modal de edición la gestiona el motor de Asignar
+    // Posición (ctxEditar.alCerrarReal), para no limpiar durante el salto a la grilla.
 
     // ============================================================
     //  Eliminar Icono (frontend)

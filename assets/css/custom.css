@@ -208,7 +208,17 @@
     border-color: #9ec5fe;
 }
 
-/* Iconos existentes en el formulario de creación: fijos, no se arrastran. */
+/* Iconos existentes (creación/edición): fijos, no se arrastran. Cursor de "bloqueado"
+   para que se note que no se pueden mover. */
 .lista-posicion-celda-fija {
-    cursor: default;
+    cursor: not-allowed;
+}
+
+/* Se atenúan solo los elementos internos (número, vista previa y nombre); el badge
+   queda a plena opacidad para que siga legible. La opacity no se aplica a la celda
+   completa porque un hijo no puede recuperar opacidad respecto del padre. */
+.lista-posicion-celda-fija .numero-orden,
+.lista-posicion-celda-fija .celda-preview,
+.lista-posicion-celda-fija .celda-nombre {
+    opacity: 0.5;
 }
