@@ -412,7 +412,9 @@ function inicializarSelectIconos(config) {
 function itemPosicion(id, nombre, ordenOriginal, tipo, textoBadge, estado) {
     const nombreEsc = $('<div>').text(nombre).html();   // escapa el nombre (evita XSS)
     const esMovible = (tipo === 'movible');
-    const clase     = esMovible ? ' list-group-item-primary' : '';
+    const clase     = esMovible       ? ' list-group-item-primary'
+                    : (tipo === 'fijo') ? ' lista-posicion-item-fija'
+                    : '';
 
     // Etiqueta contextual: insignia azul del ítem movible, o amarilla (oculta) que
     // muestra la posición original cuando un registro cambia de lugar.

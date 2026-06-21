@@ -38,30 +38,6 @@
                         </div>
                     </div>
 
-                    <!-- Tipo (solo lectura) -->
-                    <div class="mb-2">
-                        <label class="form-label fw-bold small mb-1" for="input_tipo_editar">Tipo</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text"><i class="bi bi-collection"></i></span>
-                            <input type="text"
-                                   class="form-control form-control-sm bg-light"
-                                   id="input_tipo_editar"
-                                   disabled>
-                        </div>
-                    </div>
-
-                    <!-- Valor (solo lectura) -->
-                    <div class="mb-2">
-                        <label class="form-label fw-bold small mb-1" for="input_valor_editar">Valor</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
-                            <input type="text"
-                                   class="form-control form-control-sm bg-light"
-                                   id="input_valor_editar"
-                                   disabled>
-                        </div>
-                    </div>
-
                     <!-- Nombre -->
                     <div class="mb-2">
                         <label class="form-label fw-bold small mb-1" for="input_nombre_editar">Nombre</label>
@@ -76,6 +52,30 @@
                                    data-check='true'>
                         </div>
                         <div class="invalid-feedback small" id="error-nombre-editar"></div>
+                    </div>
+
+                    <!-- Valor (solo lectura) -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input_valor_editar">Valor</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input_valor_editar"
+                                   disabled>
+                        </div>
+                    </div>
+
+                    <!-- Tipo (solo lectura) -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input_tipo_editar">Tipo</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-collection"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input_tipo_editar"
+                                   disabled>
+                        </div>
                     </div>
 
                     <!-- Posición: se elige en la grilla de Asignar Posición -->

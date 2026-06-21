@@ -60,6 +60,7 @@
                             <input type="text"
                                    class="form-control form-control-sm"
                                    id="input_posicion"
+                                   placeholder="Al final"
                                    disabled>
                             <button type="button"
                                     class="btn btn-primary"

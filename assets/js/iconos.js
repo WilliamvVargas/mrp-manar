@@ -154,6 +154,9 @@ $(document).ready(function() {
                     const idEditado   = String($('#id_icono_editar').val());
                     let indiceMovible = -1;
 
+                    // El ítem en edición refleja el Nombre actual del formulario (no el de BD).
+                    const nombreEditado = $('#input_nombre_editar').val().trim();
+
                     const items = data.map(function(registro, i) {
                         const esMovible = String(registro.id) === idEditado;
                         if (esMovible) {
@@ -161,7 +164,7 @@ $(document).ready(function() {
                         }
                         return celdaIconoPosicion(
                             registro.id,
-                            registro.nombre,
+                            esMovible ? (nombreEditado || registro.nombre) : registro.nombre,
                             i + 1,
                             esMovible ? 'movible' : 'fijo',
                             previewCeldaIcono(registro),

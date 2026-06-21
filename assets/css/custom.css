@@ -222,3 +222,16 @@
 .lista-posicion-celda-fija .celda-nombre {
     opacity: 0.5;
 }
+
+/* Ítems fijos del listado vertical (menús): mismo trato que las celdas fijas de la
+   grilla. Cursor de "bloqueado" y atenúa solo el icono, el número y el nombre; los
+   badges (estado / posición original) quedan a plena opacidad. */
+.lista-posicion-item-fija {
+    cursor: not-allowed;
+}
+
+.lista-posicion-item-fija > i.bi,
+.lista-posicion-item-fija .numero-orden,
+.lista-posicion-item-fija .nombre-registro {
+    opacity: 0.5;
+}

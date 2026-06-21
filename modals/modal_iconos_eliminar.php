@@ -47,18 +47,6 @@
                         </div>
                     </div>
 
-                    <!-- Tipo (solo lectura) -->
-                    <div class="mb-2">
-                        <label class="form-label fw-bold small mb-1" for="input-tipo-eliminar">Tipo</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text"><i class="bi bi-collection"></i></span>
-                            <input type="text"
-                                   class="form-control form-control-sm bg-light"
-                                   id="input-tipo-eliminar"
-                                   disabled>
-                        </div>
-                    </div>
-
                     <!-- Valor (solo lectura) -->
                     <div class="mb-2">
                         <label class="form-label fw-bold small mb-1" for="input-valor-eliminar">Valor</label>
@@ -67,6 +55,18 @@
                             <input type="text"
                                    class="form-control form-control-sm bg-light"
                                    id="input-valor-eliminar"
+                                   disabled>
+                        </div>
+                    </div>
+
+                    <!-- Tipo (solo lectura) -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input-tipo-eliminar">Tipo</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-collection"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input-tipo-eliminar"
                                    disabled>
                         </div>
                     </div>

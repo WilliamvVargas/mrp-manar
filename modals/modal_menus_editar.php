@@ -64,6 +64,7 @@
                             <input type="text"
                                    class="form-control form-control-sm"
                                    id="input_posicion_editar"
+                                   placeholder="Al final"
                                    disabled>
                             <button type="button"
                                     class="btn btn-primary"
