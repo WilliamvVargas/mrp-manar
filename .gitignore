@@ -1,6 +1,8 @@
-# Ignorar configuración de base de datos con contraseñas reales
-# (Si usas un archivo diferente para producción)
-config/conexion.php
+# Ignorar archivos de configuración con credenciales reales de base de datos.
+# Las conexiones (config/conexion.php y config/conexion_sqlserver.php) SÍ se versionan;
+# las credenciales van en estos archivos, que se crean copiando los *.example.php.
+config/config_mysql.php
+config/config_sqlserver.php
 
 # Ignorar archivos temporales o de sistema
 .DS_Store
