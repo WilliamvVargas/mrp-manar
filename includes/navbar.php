@@ -58,6 +58,11 @@
                                 <i class="bi bi-currency-dollar me-2"></i>Ventas Historicas
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'consultas_sap.php') ? 'active' : ''; ?>" href="consultas_sap">
+                                <i class="bi bi-database-fill-gear me-2"></i>Consultas SAP
+                            </a>
+                        </li>
                     </ul>
                 </li>
             </ul>
