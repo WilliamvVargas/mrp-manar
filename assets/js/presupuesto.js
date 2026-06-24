@@ -4,6 +4,14 @@ $(document).ready(function() {
     const renderTexto  = function(d) { return (d === null || d === undefined) ? '' : $('<div>').text(d).html(); };
     const renderNumero = function(d) { return (d === null || d === undefined) ? '' : d; };
 
+    // Estado del producto (SAP validFor): 'Y' = Activo, 'N' = Inactivo, otro = guion.
+    const renderEstado = function(d) {
+        const v = (d === null || d === undefined) ? '' : String(d).toUpperCase();
+        if (v === 'Y') { return '<span class="badge bg-success">Activo</span>'; }
+        if (v === 'N') { return '<span class="badge bg-secondary">Inactivo</span>'; }
+        return '<span class="text-muted">—</span>';
+    };
+
     // Formatea un número al estilo chileno: miles con punto y decimales con coma.
     // (Locale-independiente: no depende del soporte de Intl del navegador.)
     function formatearNumero(valor, decimales) {
@@ -143,7 +151,7 @@ $(document).ready(function() {
 
         $('#productos-familia-nombre').text(familia);
         $('#productos-familia-mensaje').empty();
-        $tbody.html('<tr><td colspan="2" class="text-center text-muted py-3">'
+        $tbody.html('<tr><td colspan="3" class="text-center text-muted py-3">'
                   + '<span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>');
 
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPresupuestoProductos')).show();
@@ -163,7 +171,7 @@ $(document).ready(function() {
                 const filas = res.data || [];
 
                 if (!filas.length) {
-                    $tbody.html('<tr><td colspan="2" class="text-center text-muted py-3">'
+                    $tbody.html('<tr><td colspan="3" class="text-center text-muted py-3">'
                               + 'Sin productos para esta familia.</td></tr>');
                     return;
                 }
@@ -173,7 +181,8 @@ $(document).ready(function() {
                 );
                 $tbody.html(filas.map(function(p) {
                     return '<tr><td>' + renderTexto(p.producto_codigo) + '</td>'
-                         + '<td>' + renderTexto(p.producto_nombre) + '</td></tr>';
+                         + '<td>' + renderTexto(p.producto_nombre) + '</td>'
+                         + '<td class="text-center">' + renderEstado(p.producto_activo) + '</td></tr>';
                 }).join(''));
             },
             error: function(jqXHR, textStatus) {

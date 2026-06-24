@@ -82,6 +82,6 @@
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/utils.js"></script>
-<script src="assets/js/presupuesto.js"></script>
+<script src="assets/js/presupuesto.js?v=<?php echo filemtime(__DIR__ . '/assets/js/presupuesto.js'); ?>"></script>
 </body>
 </html>

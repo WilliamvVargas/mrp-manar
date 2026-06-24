@@ -43,12 +43,16 @@
          *   ]
          */
         private $definiciones = [
+            // Maestro de artículos. La Familia del negocio es el UDF U_Familia (un código
+            // como "010"), no el grupo OITB. `producto_activo` = validFor ('Y'/'N').
             'sap_productos_maestros' => [
-                'origen'   => 'SELECT ItemCode AS producto_codigo, ItemName AS producto_nombre, ItmsGrpCod AS producto_grupo_codigo, validFor AS producto_activo FROM OITM',
-                'columnas' => ['producto_codigo', 'producto_nombre', 'producto_grupo_codigo', 'producto_activo'],
+                'origen'   => "SELECT ItemCode AS producto_codigo, ItemName AS producto_nombre, U_Familia AS producto_familia_codigo, validFor AS producto_activo FROM OITM",
+                'columnas' => ['producto_codigo', 'producto_nombre', 'producto_familia_codigo', 'producto_activo'],
             ],
+            // Catálogo de Familias del negocio: valores fijos del UDF U_Familia (OITM,
+            // FieldID 8) guardados en la tabla de sistema UFD1 (código -> descripción).
             'sap_familias' => [
-                'origen'   => 'SELECT ItmsGrpCod AS familia_codigo, ItmsGrpNam AS familia_nombre FROM OITB',
+                'origen'   => "SELECT FldValue AS familia_codigo, Descr AS familia_nombre FROM UFD1 WHERE TableID = 'OITM' AND FieldID = 8",
                 'columnas' => ['familia_codigo', 'familia_nombre'],
             ],
         ];

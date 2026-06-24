@@ -19,8 +19,9 @@
                     <table class="table table-sm table-hover align-middle mb-0" id="tabla-productos-familia" style="width:100%">
                         <thead class="table-dark">
                             <tr>
-                                <th style="width: 30%">Código</th>
+                                <th style="width: 25%">Código</th>
                                 <th>Producto</th>
+                                <th style="width: 18%" class="text-center">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
