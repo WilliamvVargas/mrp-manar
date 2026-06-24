@@ -24,7 +24,7 @@ $(document).ready(function() {
     const renderPorcentaje = function(d) { return formatearNumero(d, 1); };   // MG %: a la décima
     const renderDecimal4   = function(d) { return formatearNumero(d, 4); };   // KG: 4 decimales
 
-    // Tabla de presupuesto (server-side). Vive dentro del modal de Carga Masiva Presupuesto.
+    // Tabla de presupuesto (server-side). Vive en el archivo raíz del mantenedor (presupuesto.php).
     const tablaPresupuesto = inicializarTablaConsulta({
         tabla: '#tabla-consulta-presupuesto',
         url:   'controllers/presupuesto_controller.php?action=listar',
@@ -44,11 +44,6 @@ $(document).ready(function() {
             { data: 'pp',            className: 'text-end', render: renderMoneda },
             { data: 'kg',            className: 'text-end', render: renderDecimal4 }
         ]
-    });
-
-    // La tabla vive dentro del modal: al abrirlo recalcula el ancho de columnas.
-    $('#modalCargaMasivaPresupuesto').on('shown.bs.modal', function() {
-        tablaPresupuesto.columns.adjust();
     });
 
     // Carga masiva: solo se aceptan archivos Excel .xlsx

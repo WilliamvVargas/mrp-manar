@@ -1,7 +1,7 @@
 <?php require_once __DIR__ . '/../config/config.php'; ?>
 
 <div class="modal fade" id="modalCargaMasivaPresupuesto" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow-sm">
             <div class="modal-header bg-dark text-white py-2">
                 <h6 class="modal-title" id="modalTitlePresupuesto"><i class="bi bi-graph-up me-2"></i>Carga Masiva Presupuesto</h6>
@@ -48,45 +48,6 @@
                         </div>
                     </div>
                 </form>
-
-                <!-- Consulta principal (listado de presupuesto) -->
-                <div class="table-responsive">
-
-                    <div class="mb-2">
-                        <label class="form-label fw-bold small mb-1" for="consulta-presupuesto">Consulta</label>
-                        <div class="col-md-4 px-0">
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                <input type="text"
-                                       class="form-control form-control-sm"
-                                       id="consulta-presupuesto"
-                                       name="consulta-presupuesto"
-                                       placeholder="Ej: Canal, Familia, Sub-Familia...">
-                            </div>
-                        </div>
-                    </div>
-
-                    <table class="table table-hover align-middle" id="tabla-consulta-presupuesto" style="width:100%">
-                        <thead class="table-dark">
-                            <tr>
-                                <th style="width: 4%">ID</th>
-                                <th style="width: 6%">Año</th>
-                                <th style="width: 5%">Mes</th>
-                                <th style="width: 11%">Canal</th>
-                                <th style="width: 11%">Sub-Canal</th>
-                                <th style="width: 11%">Familia</th>
-                                <th style="width: 11%">Sub-Familia</th>
-                                <th style="width: 9%" class="text-end">Venta</th>
-                                <th style="width: 7%" class="text-end">MG %</th>
-                                <th style="width: 9%" class="text-end">MG Neto</th>
-                                <th style="width: 8%" class="text-end">PP</th>
-                                <th style="width: 8%" class="text-end">KG</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-                </div>
 
             </div>
             <div class="modal-footer bg-light py-2">

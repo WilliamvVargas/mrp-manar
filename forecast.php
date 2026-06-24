@@ -29,11 +29,6 @@
                         data-bs-target="#modalCargaMasiva">
                     <i class="bi bi-file-arrow-up"></i> Carga Masiva Forecast
                 </button>
-                <button class="btn btn-primary btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalCargaMasivaPresupuesto">
-                    <i class="bi bi-file-arrow-up"></i> Carga Masiva Presupuesto
-                </button>
             </div>
         </div>
         <div class="card-body">
@@ -44,7 +39,6 @@
 <?php 
 
     include 'modals/modal_forecast_carga_masiva.php';
-    include 'modals/modal_presupuesto_carga_masiva.php';
 
 ?>
 
@@ -54,6 +48,5 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/forecast.js"></script>
-<script src="assets/js/presupuesto.js"></script>
 </body>
 </html>

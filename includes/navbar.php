@@ -54,6 +54,11 @@
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'presupuesto.php') ? 'active' : ''; ?>" href="presupuesto">
+                                <i class="bi bi-cash-coin me-2"></i>Presupuesto
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'ventas_historicas.php') ? 'active' : ''; ?>" href="ventas_historicas">
                                 <i class="bi bi-currency-dollar me-2"></i>Ventas Historicas
                             </a>
