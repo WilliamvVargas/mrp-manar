@@ -25,11 +25,29 @@ CREATE TABLE IF NOT EXISTS `sap_sync_log` (
 
 -- --------------------------------------------------------------------------------------
 -- Espejo del maestro de artículos de SAP (tabla OITM).
--- Mapeo SAP -> espejo:  ItemCode -> producto_codigo,  ItemName -> producto_nombre.
--- Tamaños tomados de SAP: ItemCode nvarchar(50), ItemName nvarchar(200).
+-- Mapeo SAP -> espejo:  ItemCode -> producto_codigo,  ItemName -> producto_nombre,
+--                       ItmsGrpCod -> producto_grupo_codigo,  validFor -> producto_activo.
+-- Tamaños tomados de SAP: ItemCode nvarchar(50), ItemName nvarchar(200),
+--                         ItmsGrpCod smallint, validFor char(1).
+-- `producto_grupo_codigo` es el vínculo a sap_familias.familia_codigo.
 -- --------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `sap_productos_maestros` (
-    `producto_codigo` varchar(50)  NOT NULL,                 -- OITM.ItemCode
-    `producto_nombre` varchar(200) DEFAULT NULL,             -- OITM.ItemName
-    PRIMARY KEY (`producto_codigo`)
+    `producto_codigo`       varchar(50)  NOT NULL,           -- OITM.ItemCode
+    `producto_nombre`       varchar(200) DEFAULT NULL,       -- OITM.ItemName
+    `producto_grupo_codigo` smallint(6)  DEFAULT NULL,       -- OITM.ItmsGrpCod -> sap_familias.familia_codigo
+    `producto_activo`       char(1)      DEFAULT NULL,       -- OITM.validFor ('Y' activo, 'N' inactivo)
+    PRIMARY KEY (`producto_codigo`),
+    KEY `idx_spm_grupo` (`producto_grupo_codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+-- --------------------------------------------------------------------------------------
+-- Espejo de las familias / grupos de artículos de SAP (tabla OITB).
+-- Mapeo SAP -> espejo:  ItmsGrpCod -> familia_codigo,  ItmsGrpNam -> familia_nombre.
+-- Tamaños tomados de SAP: ItmsGrpCod smallint, ItmsGrpNam nvarchar(100).
+-- --------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `sap_familias` (
+    `familia_codigo` smallint(6)  NOT NULL,                  -- OITB.ItmsGrpCod
+    `familia_nombre` varchar(100) DEFAULT NULL,              -- OITB.ItmsGrpNam
+    PRIMARY KEY (`familia_codigo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

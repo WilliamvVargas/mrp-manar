@@ -59,8 +59,9 @@
                             <th style="width: 9%" class="text-end">Venta</th>
                             <th style="width: 7%" class="text-end">MG %</th>
                             <th style="width: 9%" class="text-end">MG Neto</th>
-                            <th style="width: 8%" class="text-end">PP</th>
-                            <th style="width: 8%" class="text-end">KG</th>
+                            <th style="width: 7%" class="text-end">PP</th>
+                            <th style="width: 7%" class="text-end">KG</th>
+                            <th style="width: 6%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -73,6 +74,7 @@
 
 <?php
     include 'modals/modal_presupuesto_carga_masiva.php';
+    include 'modals/modal_presupuesto_productos.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>

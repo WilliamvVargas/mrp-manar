@@ -237,6 +237,38 @@ switch ($action) {
         }
         exit;
 
+    case 'productos':
+
+        // Vista previa (botón de la columna Acciones): productos de la familia de la fila.
+        // Origen SAP, leído desde los espejos MySQL (se refrescan si vencieron).
+        require_once __DIR__ . '/../config/conexion_sqlserver.php';
+        require_once __DIR__ . '/../models/sap_sync_model.php';
+        require_once __DIR__ . '/../models/sap_producto_model.php';
+
+        $familia = trim($_GET['familia'] ?? '');
+        if ($familia === '') {
+            errorPresupuesto('No se indicó la familia.');
+        }
+
+        try {
+            // Asegura espejos frescos (refresca desde SAP solo si pasó el TTL).
+            $sap = new SapSync($pdoSqlsrv, $pdo);
+            $sap->asegurar('sap_familias');
+            $sap->asegurar('sap_productos_maestros');
+
+            $productos = (new SapProducto($pdo))->porFamiliaNombre($familia);
+
+            echo json_encode([
+                'status'  => 'success',
+                'familia' => $familia,
+                'data'    => $productos
+            ]);
+        } catch (Throwable $e) {
+            error_log('[PRESUPUESTO][productos] ' . $e->getMessage());
+            errorPresupuesto('No se pudieron obtener los productos de la familia.');
+        }
+        exit;
+
     default:
         http_response_code(400);
         errorPresupuesto('Acción no válida.');

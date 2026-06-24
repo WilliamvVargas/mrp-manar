@@ -44,8 +44,12 @@
          */
         private $definiciones = [
             'sap_productos_maestros' => [
-                'origen'   => 'SELECT ItemCode AS producto_codigo, ItemName AS producto_nombre FROM OITM',
-                'columnas' => ['producto_codigo', 'producto_nombre'],
+                'origen'   => 'SELECT ItemCode AS producto_codigo, ItemName AS producto_nombre, ItmsGrpCod AS producto_grupo_codigo, validFor AS producto_activo FROM OITM',
+                'columnas' => ['producto_codigo', 'producto_nombre', 'producto_grupo_codigo', 'producto_activo'],
+            ],
+            'sap_familias' => [
+                'origen'   => 'SELECT ItmsGrpCod AS familia_codigo, ItmsGrpNam AS familia_nombre FROM OITB',
+                'columnas' => ['familia_codigo', 'familia_nombre'],
             ],
         ];
 

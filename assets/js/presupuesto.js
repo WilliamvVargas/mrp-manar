@@ -42,7 +42,22 @@ $(document).ready(function() {
             { data: 'mg_porcentaje', className: 'text-end', render: renderPorcentaje },
             { data: 'mg_neto',       className: 'text-end', render: renderMoneda },
             { data: 'pp',            className: 'text-end', render: renderMoneda },
-            { data: 'kg',            className: 'text-end', render: renderDecimal4 }
+            { data: 'kg',            className: 'text-end', render: renderDecimal4 },
+            {
+                // Acciones: vista previa de los productos de la familia de la fila.
+                data: null,
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(data, type, row) {
+                    const fam     = (row.familia === null || row.familia === undefined) ? '' : String(row.familia);
+                    const famAttr = $('<div>').text(fam).html().replace(/"/g, '&quot;');
+                    return '<button type="button" class="btn btn-sm btn-outline-secondary btn-productos-familia" '
+                         + 'data-familia="' + famAttr + '" '
+                         + 'title="Ver productos de la familia">'
+                         + '<i class="bi bi-eye"></i></button>';
+                }
+            }
         ]
     });
 
@@ -117,6 +132,53 @@ $(document).ready(function() {
             },
             complete: function() {
                 $archivo.val('');
+            }
+        });
+    });
+
+    // Acciones -> vista previa: productos de la familia de la fila (origen SAP).
+    $('#tabla-consulta-presupuesto tbody').on('click', '.btn-productos-familia', function() {
+        const familia = $(this).data('familia') || '';
+        const $tbody  = $('#tabla-productos-familia tbody');
+
+        $('#productos-familia-nombre').text(familia);
+        $('#productos-familia-mensaje').empty();
+        $tbody.html('<tr><td colspan="2" class="text-center text-muted py-3">'
+                  + '<span class="spinner-border spinner-border-sm me-2"></span>Cargando...</td></tr>');
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPresupuestoProductos')).show();
+
+        $.ajax({
+            url: 'controllers/presupuesto_controller.php?action=productos',
+            type: 'GET',
+            data: { familia: familia },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $tbody.empty();
+                    mostrarMensajeFormulario('#productos-familia-mensaje', 'Atención', res.message || 'No se pudo cargar.', 'danger');
+                    return;
+                }
+
+                const filas = res.data || [];
+
+                if (!filas.length) {
+                    $tbody.html('<tr><td colspan="2" class="text-center text-muted py-3">'
+                              + 'Sin productos para esta familia.</td></tr>');
+                    return;
+                }
+
+                $('#productos-familia-mensaje').html(
+                    '<div class="small text-muted mb-2">' + filas.length + ' producto(s).</div>'
+                );
+                $tbody.html(filas.map(function(p) {
+                    return '<tr><td>' + renderTexto(p.producto_codigo) + '</td>'
+                         + '<td>' + renderTexto(p.producto_nombre) + '</td></tr>';
+                }).join(''));
+            },
+            error: function(jqXHR, textStatus) {
+                $tbody.empty();
+                manejarErrorAjax(jqXHR, textStatus, '#productos-familia-mensaje');
             }
         });
     });
