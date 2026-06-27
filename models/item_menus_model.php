@@ -273,6 +273,37 @@
         }
 
         /**
+         * Reasigna las posiciones de un conjunto de ítems según el orden recibido (posición
+         * 1 al primer id, 2 al segundo, etc.). Lo usa el reordenamiento masivo de un menú:
+         * los ids vienen todos del MISMO menú, en su nuevo orden. Todo en una transacción.
+         *
+         * @param array $orden Lista de ids en el nuevo orden deseado.
+         * @return bool
+         */
+        public function reordenar(array $orden)
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+                $stmt     = $this->pdo->prepare("UPDATE item_menus SET posicion = ? WHERE id = ?");
+                $posicion = 1;
+
+                foreach ($orden as $id) {
+                    $stmt->execute([$posicion, (int) $id]);
+                    $posicion++;
+                }
+
+                $this->pdo->commit();
+
+                return true;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
          * Lista todos los ítems con su menú, ordenados por menú y posición. Lo usa el
          * modal de Asignar Posición (que filtra por el menú elegido en el formulario).
          *

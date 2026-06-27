@@ -450,11 +450,15 @@ $(document).ready(function() {
     });
 
     // ---------- Asignar Posición (motor reutilizable de utils.js) ----------
-    // Mismo enfoque que el formulario de creación de menús: el ítem nuevo es el único
-    // movible. La lista se acota al MENÚ seleccionado, porque la posición es por menú.
+    // La posición de un ítem es relativa a su menú. Hay tres contextos: creación, edición
+    // y global (botón de la raíz), este último acotado al menú elegido en el combobox.
+    let modoPosicion = 'crear';   // quién abrió el modal: 'crear' | 'editar' | 'global'
+    let menuGlobalId = null;      // menú cuyos ítems se reordenan en el modo global
+
     const asignador = inicializarAsignadorPosicion({
-        urlListar: 'controllers/item_menus_controller.php?action=listar_orden',
-        // Sin contexto global ni reordenamiento masivo: solo se usa la creación.
+        urlListar:    'controllers/item_menus_controller.php?action=listar_orden',
+        urlReordenar: 'controllers/item_menus_controller.php?action=reordenar',
+        tabla:        tablaConsulta,
         contextos: [{
             boton:        '#btn-asignar-posicion',
             modalPadre:   '#modalItemMenuCrear',
@@ -508,8 +512,12 @@ $(document).ready(function() {
                 const menuId = String($('#menu_id_editar').val());
                 const itemId = String($('#id_editar').val());
 
-                // En edición no se cambia el menú desde este modal: el combobox queda oculto.
-                $('#campo-menu-posicion').addClass('d-none');
+                // Muestra el combobox de menú y lo refleja con el menú de la edición (igual que
+                // en creación): cambiarlo desde aquí mueve el ítem a ese menú.
+                $('#campo-menu-posicion').removeClass('d-none');
+                const menuSel = MENUS.find(function(m) { return String(m.id) === menuId; });
+                $('#input-menu-posicion').val(menuSel ? nombreMenu(menuSel) : '');
+                mostrarEstadoMenuPos(menuSel || null);
 
                 // Ítems del menú elegido, EXCLUYENDO el que se edita (se reinserta como movible).
                 const items = data
@@ -534,8 +542,39 @@ $(document).ready(function() {
 
                 return items;
             }
+        }, {
+            // --- Contexto GLOBAL (botón de la raíz): reordenar los ítems de UN menú ---
+            // Como la posición es por menú, el reordenamiento masivo se acota al menú
+            // elegido en el combobox del modal; todos sus ítems son movibles.
+            global:    true,
+            boton:     '#btn-asignar-posiciones',
+            idMovible: function() { return null; },
+            construirItems: function(data) {
+                // Muestra el combobox de menú; si aún no hay menú elegido, usa el del filtro
+                // de la tabla o, si no, el primero del catálogo.
+                $('#campo-menu-posicion').removeClass('d-none');
+                if (menuGlobalId === null || menuGlobalId === '') {
+                    const filtro = $('#filtro-menu').val();
+                    menuGlobalId = (filtro !== '' ? filtro : (MENUS[0] ? String(MENUS[0].id) : ''));
+                }
+                const menuSel = MENUS.find(function(m) { return String(m.id) === String(menuGlobalId); });
+                $('#input-menu-posicion').val(menuSel ? nombreMenu(menuSel) : '');
+                mostrarEstadoMenuPos(menuSel || null);
+
+                // Ítems del menú elegido, todos movibles ('libre').
+                return data
+                    .filter(function(r) { return String(r.menu_id) === String(menuGlobalId); })
+                    .map(function(r, i) {
+                        return itemPosicion(r.id, r.nombre, i + 1, 'libre', null, r.estado, iconoCeldaHtml(r.icono_id));
+                    });
+            }
         }]
     });
+
+    // El combobox del modal de posición se comporta según quién abrió el modal.
+    $('#btn-asignar-posicion').on('click', function() { modoPosicion = 'crear'; });
+    $('#btn-asignar-posicion-editar').on('click', function() { modoPosicion = 'editar'; });
+    $('#btn-asignar-posiciones').on('click', function() { modoPosicion = 'global'; menuGlobalId = null; });
 
     // ---------- Combobox de Menú dentro del modal Asignar Posición ----------
     // Igual que el del formulario: al cambiar el menú, sincroniza la selección, recarga
@@ -550,19 +589,32 @@ $(document).ready(function() {
     // Cambia el menú desde el modal: sincroniza con el formulario, reinicia la posición
     // (el nuevo va al final) y recarga la lista con los ítems del nuevo menú.
     function seleccionarMenuPos(menu) {
-        // Sincroniza con el formulario de creación.
-        $inputMenu.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
-        $('#menu_id').val(menu.id);
-        mostrarEstadoMenu(menu);
-        limpiarErrorCampo($inputMenu);
-        limpiarPosicionElegida();      // el ítem nuevo pasa a la última posición
-        actualizarBotonPosicion();
+        if (modoPosicion === 'crear') {
+            // Sincroniza con el formulario de creación.
+            $inputMenu.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
+            $('#menu_id').val(menu.id);
+            mostrarEstadoMenu(menu);
+            limpiarErrorCampo($inputMenu);
+            limpiarPosicionElegida();      // el ítem nuevo pasa a la última posición
+            actualizarBotonPosicion();
+        } else if (modoPosicion === 'editar') {
+            // Sincroniza con el formulario de edición (mueve el ítem a ese menú).
+            $inputMenuEditar.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
+            $('#menu_id_editar').val(menu.id);
+            mostrarEstadoMenuEditar(menu);
+            limpiarErrorCampo($inputMenuEditar);
+            limpiarPosicionEditar();       // el ítem pasa al final del nuevo menú
+            actualizarBotonPosicionEditar();
+        } else if (modoPosicion === 'global') {
+            // Reordenamiento masivo: solo cambia el menú cuyos ítems se reordenan.
+            menuGlobalId = String(menu.id);
+        }
 
         // Refleja en el combobox del modal.
         $inputMenuPos.val(nombreMenu(menu)).removeClass('is-invalid');
         mostrarEstadoMenuPos(menu);
 
-        // Recarga la lista con los ítems del nuevo menú.
+        // Recarga la lista con los ítems del menú elegido.
         asignador.recargar();
     }
 

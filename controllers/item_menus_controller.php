@@ -381,4 +381,28 @@ switch ($action) {
             responderErrorServidor($e);
         }
         exit;
+
+    case 'reordenar':
+
+        // Reordenamiento masivo de los ítems de un menú (botón Asignar Posición de la raíz).
+        retrasar();
+
+        $orden = $_POST['orden'] ?? [];
+
+        if (!is_array($orden) || count($orden) === 0) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Orden no válido.']);
+            exit;
+        }
+
+        try {
+            $itemMenuModel->reordenar($orden);
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Orden actualizado con éxito.'
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
 }
