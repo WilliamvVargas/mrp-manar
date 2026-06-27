@@ -272,4 +272,84 @@ switch ($action) {
             responderErrorServidor($e);
         }
         exit;
+
+    case 'obtener':
+
+        // Datos de un ítem para poblar el formulario de edición.
+        $id = $_GET['id'] ?? '';
+        if (!ctype_digit((string) $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            $item = $itemMenuModel->buscarPorId((int) $id);
+
+            if (!$item) {
+                echo json_encode(['status' => 'error', 'message' => 'El ítem menú no existe.']);
+                exit;
+            }
+
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $item
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'actualizar':
+
+        retrasar();
+
+        $id       = $_POST['id'] ?? '';
+        $menuId   = $_POST['menu_id'] ?? '';
+        $nombre   = trim($_POST['nombre'] ?? '');
+        $iconoId  = trim($_POST['icono_id'] ?? '');
+        $enlace   = trim($_POST['enlace'] ?? '');
+        $estado   = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
+        $posicion = $_POST['posicion'] ?? '';          // vacío = al final (dentro del menú)
+
+        // El ítem debe existir.
+        if (!ctype_digit((string) $id) || !$itemMenuModel->buscarPorId((int) $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'El ítem menú no existe.']);
+            exit;
+        }
+
+        // Validación de campos (mismas reglas que la creación).
+        $errores = [];
+        if ($err = validarMenuPadre($menuId, $menuModel)) {
+            $errores['menu_id'] = $err;
+        }
+        if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+            $errores['nombre'] = $err;
+        }
+        if ($err = validarIconoId($iconoId, $iconoModel)) {
+            $errores['icono_id'] = $err;
+        }
+        if ($err = validarEnlace($enlace)) {   // normaliza $enlace por referencia
+            $errores['enlace'] = $err;
+        }
+        enviarErrorCamposFormulario($errores);
+
+        try {
+            $itemMenuModel->actualizar((int) $id, [
+                'menu_id'  => (int) $menuId,
+                'nombre'   => $nombre,
+                'icono_id' => $iconoId,   // FK al catálogo de iconos (o vacío)
+                'enlace'   => $enlace,    // normalizado (apto para URL) por validarEnlace
+                'estado'   => $estado,
+                'posicion' => $posicion,
+            ], $_SESSION['usuario_id']);
+
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Ítem menú actualizado con éxito.'
+            ]);
+
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
 }

@@ -74,6 +74,94 @@
         }
 
         /**
+         * Actualiza un ítem. La posición es relativa al menú: se cierra el hueco que deja
+         * en su menú de origen y se hace lugar en el menú de destino (sirve tanto para
+         * mover dentro del mismo menú como para cambiarlo de menú). Si no se recibe una
+         * posición válida, el ítem va al final del menú de destino.
+         *
+         * @param int         $id            Id del ítem a actualizar.
+         * @param array       $d             Claves: menu_id, nombre, icono_id, enlace, estado, posicion.
+         * @param string|null $actualizadoPor Id del usuario que edita (auditoría).
+         * @return bool true si se actualizó, false si el ítem no existe.
+         */
+        public function actualizar($id, array $d, $actualizadoPor = null)
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+                $id     = (int) $id;
+                $actual = $this->buscarPorId($id);
+
+                if (!$actual) {
+                    $this->pdo->rollBack();
+                    return false;
+                }
+
+                $menuOrigen  = (int) $actual['menu_id'];
+                $posOrigen   = (int) $actual['posicion'];
+                $menuDestino = (int) $d['menu_id'];
+
+                // 1. Cierra el hueco en el menú de origen (los posteriores suben una posición).
+                $this->pdo->prepare(
+                    "UPDATE item_menus SET posicion = posicion - 1 WHERE menu_id = ? AND posicion > ?"
+                )->execute([$menuOrigen, $posOrigen]);
+
+                // 2. Posición destino: la elegida (acotada) o al final del menú destino.
+                $totalDestino = $this->contarPorMenuExcepto($menuDestino, $id);
+                $elegida      = $d['posicion'] ?? '';
+                if (is_numeric($elegida) && (int) $elegida >= 1) {
+                    $posDestino = min((int) $elegida, $totalDestino + 1);
+                } else {
+                    $posDestino = $totalDestino + 1;
+                }
+
+                // 3. Hace lugar en el menú destino (corre +1 a los que estén en esa posición o después).
+                $this->pdo->prepare(
+                    "UPDATE item_menus SET posicion = posicion + 1 WHERE menu_id = ? AND posicion >= ? AND id <> ?"
+                )->execute([$menuDestino, $posDestino, $id]);
+
+                // 4. Actualiza el ítem con sus nuevos datos y su posición final.
+                $this->pdo->prepare(
+                    "UPDATE item_menus
+                        SET menu_id = ?, nombre = ?, icono_id = ?, enlace = ?, estado = ?, posicion = ?, updated_by = ?
+                      WHERE id = ?"
+                )->execute([
+                    $menuDestino,
+                    $d['nombre'],
+                    !empty($d['icono_id']) ? (int) $d['icono_id'] : null,
+                    ($d['enlace'] ?? '') !== '' ? $d['enlace'] : null,
+                    (int) $d['estado'],
+                    $posDestino,
+                    $actualizadoPor,
+                    $id,
+                ]);
+
+                $this->pdo->commit();
+                return true;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
+         * Cantidad de ítems de un menú excluyendo uno (para acotar la posición destino al
+         * mover/editar, sin contar el propio ítem que se reubica).
+         *
+         * @param int $menuId
+         * @param int $exceptoId
+         * @return int
+         */
+        public function contarPorMenuExcepto($menuId, $exceptoId)
+        {
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM item_menus WHERE menu_id = ? AND id <> ?");
+            $stmt->execute([(int) $menuId, (int) $exceptoId]);
+
+            return (int) $stmt->fetchColumn();
+        }
+
+        /**
          * Siguiente posición disponible dentro de un menú: MAX(posicion) + 1
          * (1 si el menú aún no tiene ítems).
          *
@@ -120,6 +208,26 @@
             }
 
             return $mapa;
+        }
+
+        /**
+         * Devuelve un ítem por su id con sus campos crudos, para poblar el formulario de
+         * edición. El nombre del menú y los datos del ícono los resuelve el front con sus
+         * catálogos (MENUS / ICONOS), así que aquí basta con las llaves.
+         *
+         * @param  int $id
+         * @return array|false ['id','menu_id','nombre','enlace','icono_id','estado','posicion'] o false.
+         */
+        public function buscarPorId($id)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT id, menu_id, nombre, enlace, icono_id, estado, posicion
+                 FROM item_menus
+                 WHERE id = ?"
+            );
+            $stmt->execute([(int) $id]);
+
+            return $stmt->fetch();
         }
 
         /**

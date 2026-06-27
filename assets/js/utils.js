@@ -1011,6 +1011,14 @@ function ejecutarValidacionUniversal($input, aprobar_input = true) {
     const $form = $input.closest('form');
     const idFormulario = `#${$form.attr('id')}`;
     const fieldName = $input.attr('name');
+
+    // Sin `name` no hay campo que validar en el backend (p. ej. el input visible de un
+    // combobox, cuyo valor real viaja en un hidden). Se sale para no "limpiar" por error
+    // un mensaje que otra validación (la del hidden) sí gestiona.
+    if (!fieldName) {
+        return;
+    }
+
     const value = $input.val();
     const csrf_token = $form.find('input[name="csrf_token"]').val();
     const idRegistro = $form.find('input[name="id_registro"]').val() || null;

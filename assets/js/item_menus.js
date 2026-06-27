@@ -187,6 +187,23 @@ $(document).ready(function() {
         comboMenu.cerrar();
     }
 
+    // Validación instantánea del Menú: el motor de utils.js valida por `name`, pero el menú
+    // es un combobox cuyo valor real va en un hidden (#menu_id). Por eso se valida aparte:
+    // al SALIR del combobox sin un menú elegido se muestra el error; si hay menú, se limpia.
+    // (La selección usa mousedown+preventDefault en utils.js, así que elegir NO dispara blur.)
+    function validarMenuAlSalir($combo, $hidden) {
+        if ($hidden.val() !== '') {
+            limpiarErrorCampo($combo);
+            return;
+        }
+        $combo.addClass('is-invalid').removeClass('is-valid');
+        ejecutarValidacionUniversal($hidden);   // muestra "Debe seleccionar un Menú" en su feedback
+    }
+
+    $inputMenu.on('blur', function() {
+        validarMenuAlSalir($inputMenu, $('#menu_id'));
+    });
+
     // ============================================================
     //  Selector de íconos (botones, 10 por fila)
     // ============================================================
@@ -477,6 +494,46 @@ $(document).ready(function() {
                 return items;
             },
             alCerrarReal: resetearFormularioItemMenu
+        }, {
+            // --- Contexto de EDICIÓN ---
+            // El ítem que se edita es el único movible; la lista se acota a su menú (el
+            // elegido en el formulario de edición). Si cambió de menú, el ítem va al final
+            // del nuevo menú. El menú NO se cambia desde este modal (combobox oculto).
+            boton:        '#btn-asignar-posicion-editar',
+            modalPadre:   '#modalItemMenuEditar',
+            inputVisible: '#input_posicion_editar',
+            inputHidden:  '#posicion_editar',
+            idMovible:    function() { return String($('#id_editar').val()); },
+            construirItems: function(data) {
+                const menuId = String($('#menu_id_editar').val());
+                const itemId = String($('#id_editar').val());
+
+                // En edición no se cambia el menú desde este modal: el combobox queda oculto.
+                $('#campo-menu-posicion').addClass('d-none');
+
+                // Ítems del menú elegido, EXCLUYENDO el que se edita (se reinserta como movible).
+                const items = data
+                    .filter(function(r) { return String(r.menu_id) === menuId && String(r.id) !== itemId; })
+                    .map(function(r, i) {
+                        return itemPosicion(r.id, r.nombre, i + 1, 'fijo', null, r.estado, iconoCeldaHtml(r.icono_id));
+                    });
+
+                // El ítem editado, como movible: nombre/estado/ícono según el formulario.
+                const nombreEd = $('#input_nombre_editar').val().trim() || '(ítem)';
+                const estadoEd = $('#input_estado_editar').is(':checked') ? 1 : 0;
+                const iconoEd  = iconoCeldaHtml($('#icono_id_editar').val());
+                const itemEd   = itemPosicion(itemId, nombreEd, items.length + 1, 'movible', 'Editando', estadoEd, iconoEd);
+
+                // Posición: respeta la ya elegida (o la actual del ítem, que viene cargada en
+                // el input); si no es válida para este menú, va al final.
+                let pos = parseInt($('#input_posicion_editar').val(), 10);
+                if (isNaN(pos) || pos < 1 || pos > items.length + 1) {
+                    pos = items.length + 1;
+                }
+                items.splice(pos - 1, 0, itemEd);
+
+                return items;
+            }
         }]
     });
 
@@ -524,6 +581,237 @@ $(document).ready(function() {
             return '<span class="small text-truncate">' + nombreEsc + '</span>' + badgesMenuHtml(m);
         },
         onSelect: seleccionarMenuPos
+    });
+
+    // ============================================================
+    //  Edición de ítem menú
+    // ============================================================
+
+    const $listaIconosEditar = $('#lista-iconos-botones-editar');
+    const $inputMenuEditar   = $('#input_menu_editar');
+
+    // --- Selector de íconos del modal de edición ---
+
+    // Dibuja un botón por cada ícono del catálogo en el modal de edición.
+    function renderIconosBotonesEditar() {
+        if (!ICONOS.length) {
+            $listaIconosEditar.html('<div class="small text-muted p-1">No hay íconos en el catálogo.</div>');
+            return;
+        }
+        const html = ICONOS.map(function(ico, i) {
+            return '<button type="button" class="btn btn-outline-secondary btn-icono" '
+                 + 'data-index="' + i + '" title="' + atributoEsc(ico.nombre) + '">'
+                 + iconoVisualHtml(ico)
+                 + '</button>';
+        }).join('');
+        $listaIconosEditar.html(html);
+    }
+
+    // Quita la selección de ícono en edición (input, id real, vista previa y botones).
+    function limpiarSeleccionIconoEditar() {
+        $('#input_icono_editar').val('');
+        $('#icono_id_editar').val('');
+        $('#preview-icono-item-editar').html(PLACEHOLDER_ICONO);
+        $listaIconosEditar.children('.btn-icono')
+            .removeClass('active btn-secondary')
+            .addClass('btn-outline-secondary');
+    }
+
+    // Marca como seleccionado el ícono indicado (por su id) en el modal de edición.
+    function seleccionarIconoEditar(iconoId) {
+        limpiarSeleccionIconoEditar();
+        if (!iconoId) {
+            return;
+        }
+        const idx = ICONOS.findIndex(function(i) { return String(i.id) === String(iconoId); });
+        if (idx < 0) {
+            return;
+        }
+        const ico  = ICONOS[idx];
+        const $btn = $listaIconosEditar.children('.btn-icono').filter('[data-index="' + idx + '"]');
+        $btn.addClass('active btn-secondary').removeClass('btn-outline-secondary');
+        $('#input_icono_editar').val(ico.nombre);
+        $('#icono_id_editar').val(ico.id);
+        $('#preview-icono-item-editar').html(iconoPreviewHtml(ico));
+    }
+
+    // Click en un ícono del modal de edición: selecciona o (si ya estaba) deselecciona.
+    $listaIconosEditar.on('click', '.btn-icono', function() {
+        const $btn = $(this);
+        if ($btn.hasClass('active')) {
+            limpiarSeleccionIconoEditar();
+            return;
+        }
+        const ico = ICONOS[$btn.data('index')];
+        if (ico) {
+            seleccionarIconoEditar(ico.id);
+        }
+    });
+
+    // --- Combobox de Menú del modal de edición ---
+
+    // Badges (estado + conteo) del menú en la etiqueta del modal de edición.
+    function mostrarEstadoMenuEditar(menu) {
+        pintarBadgesMenu(menu, '#badge-estado-menu-editar', '#badge-items-menu-editar');
+    }
+
+    // Limpia la posición elegida en edición (al final = vacío).
+    function limpiarPosicionEditar() {
+        $('#input_posicion_editar').val('');
+        $('#posicion_editar').val('');
+    }
+
+    // "Asignar Posición" (edición) se habilita cuando hay un menú seleccionado
+    // (la posición de un ítem es relativa a su menú padre).
+    function actualizarBotonPosicionEditar() {
+        $('#btn-asignar-posicion-editar').prop('disabled', $('#menu_id_editar').val() === '');
+    }
+
+    // Limpia la selección de menú en edición (al editar el texto sin elegir de la lista).
+    function limpiarSeleccionMenuEditar() {
+        $('#menu_id_editar').val('');
+        $inputMenuEditar.removeClass('is-valid');
+        mostrarEstadoMenuEditar(null);
+        limpiarPosicionEditar();          // la posición es por menú: se invalida al cambiar
+        actualizarBotonPosicionEditar();
+    }
+
+    inicializarCombobox({
+        input:      '#input_menu_editar',
+        lista:      '#lista-menus-editar',
+        chevron:    '#btn-abrir-menus-editar',
+        contenedor: '#combobox-menu-editar',
+        max:        MAX_RESULTADOS,
+        campo:      'nombre',
+        claseItem:  'd-flex align-items-center justify-content-between gap-2',
+        opciones:   function() { return MENUS; },
+        render: function(m) {
+            const nombreEsc = $('<div>').text(nombreMenu(m)).html();
+            return '<span class="small text-truncate">' + nombreEsc + '</span>' + badgesMenuHtml(m);
+        },
+        onInput:  limpiarSeleccionMenuEditar,
+        onSelect: function(menu) {
+            $inputMenuEditar.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
+            $('#menu_id_editar').val(menu.id);
+            mostrarEstadoMenuEditar(menu);
+            limpiarErrorCampo($inputMenuEditar);
+            limpiarPosicionEditar();          // cambió el menú: se descarta la posición previa
+            actualizarBotonPosicionEditar();
+        }
+    });
+
+    // Validación instantánea del Menú en edición (mismo motivo que en creación).
+    $inputMenuEditar.on('blur', function() {
+        validarMenuAlSalir($inputMenuEditar, $('#menu_id_editar'));
+    });
+
+    // Refleja el texto del switch de estado en edición.
+    $('#input_estado_editar').on('change', function() {
+        $('#label-estado-editar').text(this.checked ? 'Activo' : 'Inactivo');
+    });
+
+    // Limpia la alerta general al escribir en el formulario de edición.
+    activarLimpiezaMensajeAlEscribir('#form-item-menu-editar', '#modal-mensajes-editar');
+
+    // Puebla el formulario de edición con los datos del ítem (usa los catálogos MENUS e ICONOS).
+    function poblarFormularioEdicion(item) {
+        limpiarFormularioCompleto('#form-item-menu-editar', '#modal-mensajes-editar', true);
+
+        $('#id_editar').val(item.id);
+        $('#input_nombre_editar').val(item.nombre);
+        $('#input_enlace_editar').val(item.enlace || '');
+
+        // Menú (combobox): se resuelve con el catálogo MENUS.
+        const menu = MENUS.find(function(m) { return String(m.id) === String(item.menu_id); });
+        if (menu) {
+            $inputMenuEditar.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
+            $('#menu_id_editar').val(menu.id);
+            mostrarEstadoMenuEditar(menu);
+        } else {
+            $inputMenuEditar.val('');
+            limpiarSeleccionMenuEditar();
+        }
+
+        // Ícono (botones + vista previa): se resuelve con el catálogo ICONOS.
+        renderIconosBotonesEditar();
+        seleccionarIconoEditar(item.icono_id);
+
+        // Estado.
+        const activo = Number(item.estado) === 1;
+        $('#input_estado_editar').prop('checked', activo);
+        $('#label-estado-editar').text(activo ? 'Activo' : 'Inactivo');
+
+        // Posición actual del ítem (se respeta como punto de partida en Asignar Posición).
+        $('#input_posicion_editar').val(item.posicion);
+        $('#posicion_editar').val(item.posicion);
+
+        // Habilita Asignar Posición según el menú cargado.
+        actualizarBotonPosicionEditar();
+    }
+
+    // Abrir edición: trae el ítem y, si llega bien, puebla el formulario y muestra el modal.
+    $('#tabla-consulta tbody').on('click', '.btn-editar-item', function() {
+        const id = $(this).data('id');
+
+        $.ajax({
+            url: 'controllers/item_menus_controller.php?action=obtener',
+            type: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    mostrarMensajeFormulario('#alert-container', 'Atención', res.message || 'No se pudo cargar el ítem menú.', 'danger');
+                    return;
+                }
+                poblarFormularioEdicion(res.data);
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalItemMenuEditar')).show();
+            },
+            error: function(jqXHR, textStatus) {
+                manejarErrorAjax(jqXHR, textStatus, '#alert-container');
+            }
+        });
+    });
+
+    // Actualizar Ítem Menú.
+    $('#form-item-menu-editar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btnActualizarItemMenu');
+        const formulario   = '#form-item-menu-editar';
+        const modalMensaje = '#modal-mensajes-editar';
+
+        setBtnLoading(btn, 'Actualizando...');
+
+        $.ajax({
+            url: 'controllers/item_menus_controller.php?action=actualizar',
+            type: 'POST',
+            data: $(this).serialize(),   // id, csrf_token, menu_id, nombre, icono_id, enlace, estado, posicion
+            dataType: 'json',
+            success: function(res) {
+                resetBtnLoading(btn);
+
+                if (res.status === 'success') {
+                    cargarMenus();                          // refresca la cantidad de ítems por menú
+                    tablaConsulta.ajax.reload(null, false); // refleja los cambios en la tabla
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                }
+                else if (res.status === 'error') {
+                    $(modalMensaje).slideUp(150);
+                    if (res.type === 'fields') {
+                        renderizarErroresCampos(formulario, res.errors);
+                        // El error del menú apunta al hidden #menu_id_editar: márcalo también en el combobox visible.
+                        if (res.errors && res.errors.menu_id) {
+                            $inputMenuEditar.addClass('is-invalid').removeClass('is-valid');
+                        }
+                    }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                resetBtnLoading(btn);
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            }
+        });
     });
 
     // Carga inicial: menús para el combobox e íconos para el selector de botones.
