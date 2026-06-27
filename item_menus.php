@@ -93,6 +93,7 @@
 
     include 'modals/modal_item_menus_crear.php';
     include 'modals/modal_item_menus_editar.php';
+    include 'modals/modal_item_menus_eliminar.php';
     include 'modals/modal_asignar_posicion.php';
 
 ?>

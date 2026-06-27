@@ -814,6 +814,88 @@ $(document).ready(function() {
         });
     });
 
+    // ============================================================
+    //  Eliminación de ítem menú
+    // ============================================================
+
+    // Abre el modal de eliminación y carga los datos del ítem seleccionado.
+    $('#tabla-consulta tbody').on('click', '.btn-eliminar-item', function() {
+        const id           = $(this).data('id');
+        const formulario   = '#form-item-menu-eliminar';
+        const modalMensaje = '#modal-mensajes-eliminar';
+
+        limpiarFormularioCompleto(formulario, modalMensaje, true);
+        $('#preview-icono-item-eliminar').html(PLACEHOLDER_ICONO);   // reinicia la vista previa
+
+        $.ajax({
+            url: 'controllers/item_menus_controller.php?action=obtener',
+            type: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    $('#id-item-eliminar').val(res.data.id);
+                    $('#input-nombre-item-eliminar').val(res.data.nombre);
+                    $('#input-enlace-item-eliminar').val(res.data.enlace || '');
+
+                    // El menú se resuelve con el catálogo MENUS (obtener solo trae menu_id).
+                    const menu = MENUS.find(function(m) { return String(m.id) === String(res.data.menu_id); });
+                    $('#input-menu-item-eliminar').val(menu ? nombreMenu(menu) : '');
+
+                    // Vista previa del ícono (catálogo ICONOS); si no tiene, queda el placeholder.
+                    const ico = ICONOS.find(function(i) { return String(i.id) === String(res.data.icono_id); });
+                    $('#preview-icono-item-eliminar').html(ico ? iconoPreviewHtml(ico) : PLACEHOLDER_ICONO);
+                } else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger', 0);
+                }
+            },
+            error: function() {
+                mostrarMensajeFormulario(modalMensaje, 'Error de Sistema', 'No se pudieron recuperar los datos del ítem menú.', 'danger', 0);
+            },
+            complete: function() {
+                $('#modalItemMenuEliminar').modal('show');
+            }
+        });
+    });
+
+    // Confirmar eliminación del ítem menú.
+    $('#form-item-menu-eliminar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btnEliminarItemMenu');
+        const modalMensaje = '#modal-mensajes-eliminar';
+
+        setBtnLoading(btn, 'Eliminando...');
+
+        $.ajax({
+            url: 'controllers/item_menus_controller.php?action=eliminar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    cargarMenus();   // refresca la cantidad de ítems por menú
+                    tablaConsulta.ajax.reload(function() {
+                        // Si la página actual quedó vacía, retrocede a la última con registros.
+                        const info = tablaConsulta.page.info();
+                        if (info.pages > 0 && info.page >= info.pages) {
+                            tablaConsulta.page(info.pages - 1).draw('page');
+                        }
+                    }, false);
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                } else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            },
+            complete: function() {
+                resetBtnLoading(btn);
+            }
+        });
+    });
+
     // Carga inicial: menús para el combobox e íconos para el selector de botones.
     cargarMenus();
     cargarIconos();

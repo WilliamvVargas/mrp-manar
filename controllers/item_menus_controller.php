@@ -352,4 +352,33 @@ switch ($action) {
             responderErrorServidor($e);
         }
         exit;
+
+    case 'eliminar':
+
+        retrasar();
+
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id < 1) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            if ($itemMenuModel->eliminar($id) > 0) {
+                echo json_encode([
+                    'status'  => 'success',
+                    'message' => 'Ítem menú eliminado con éxito.'
+                ]);
+            } else {
+                echo json_encode([
+                    'status'  => 'error',
+                    'message' => 'El ítem menú que intenta eliminar no existe.'
+                ]);
+            }
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
 }

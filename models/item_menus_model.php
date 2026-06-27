@@ -231,6 +231,48 @@
         }
 
         /**
+         * Elimina un ítem y recompacta las posiciones de los ítems que quedan EN SU MISMO
+         * menú (los posteriores bajan una posición), todo dentro de una transacción. La
+         * posición es relativa a cada menú, así que solo se tocan los de ese menú padre.
+         *
+         * @param int $id
+         * @return int Cantidad de filas eliminadas (0 si no existía).
+         */
+        public function eliminar($id)
+        {
+            $this->pdo->beginTransaction();
+
+            try {
+                $item = $this->buscarPorId($id);
+
+                if (!$item) {
+                    $this->pdo->commit();
+                    return 0;
+                }
+
+                $menuId   = (int) $item['menu_id'];
+                $posicion = (int) $item['posicion'];
+
+                $borrar = $this->pdo->prepare("DELETE FROM item_menus WHERE id = ?");
+                $borrar->execute([(int) $id]);
+                $filas = $borrar->rowCount();
+
+                // Recompacta SOLO el menú del ítem eliminado: los posteriores bajan una posición.
+                $this->pdo->prepare(
+                    "UPDATE item_menus SET posicion = posicion - 1 WHERE menu_id = ? AND posicion > ?"
+                )->execute([$menuId, $posicion]);
+
+                $this->pdo->commit();
+
+                return $filas;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+
+        /**
          * Lista todos los ítems con su menú, ordenados por menú y posición. Lo usa el
          * modal de Asignar Posición (que filtra por el menú elegido en el formulario).
          *
