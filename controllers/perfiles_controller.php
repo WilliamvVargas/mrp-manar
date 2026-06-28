@@ -78,4 +78,42 @@ switch ($action) {
             responderErrorServidor($e);
         }
         exit;
+
+    case 'listar':
+
+        // Listado paginado para la tabla principal (DataTables server-side).
+        $draw     = (int) ($_GET['draw'] ?? 0);
+        $inicio   = (int) ($_GET['start'] ?? 0);
+        $longitud = (int) ($_GET['length'] ?? 10);
+
+        $consulta = trim($_GET['consulta'] ?? '');
+
+        // Columna y dirección de ordenamiento (índice -> nombre lógico). Acciones (2) no ordena.
+        $columnas     = [0 => 'id', 1 => 'nombre'];
+        $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
+        $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'id';
+        $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';
+
+        try {
+            $totalRegistros = $perfilModel->contarTodos();
+            $totalFiltrados = $perfilModel->contarFiltrados($consulta);
+            $datos          = $perfilModel->listarPagina($consulta, $columnaOrden, $dirOrden, $inicio, $longitud);
+
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => $totalRegistros,
+                'recordsFiltered' => $totalFiltrados,
+                'data'            => $datos
+            ]);
+        } catch (PDOException $e) {
+            error_log('[PERFILES] ' . $e->getMessage());
+            echo json_encode([
+                'draw'            => $draw,
+                'recordsTotal'    => 0,
+                'recordsFiltered' => 0,
+                'data'            => [],
+                'error'           => 'Ocurrió un error al cargar los perfiles.'
+            ]);
+        }
+        exit;
 }

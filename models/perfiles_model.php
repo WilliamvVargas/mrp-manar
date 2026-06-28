@@ -54,4 +54,71 @@
 
             return (int) $stmt->fetchColumn() > 0;
         }
+
+        /**
+         * Cantidad total de perfiles (sin filtro).
+         */
+        public function contarTodos()
+        {
+            return (int) $this->pdo->query("SELECT COUNT(*) FROM perfiles")->fetchColumn();
+        }
+
+        /**
+         * Cantidad de perfiles que coinciden con el filtro de búsqueda (por nombre).
+         * Si el filtro está vacío, equivale al total.
+         */
+        public function contarFiltrados($busqueda)
+        {
+            if ($busqueda === '') {
+                return $this->contarTodos();
+            }
+
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM perfiles WHERE nombre LIKE ?");
+            $stmt->execute(['%' . $busqueda . '%']);
+
+            return (int) $stmt->fetchColumn();
+        }
+
+        /**
+         * Devuelve una página de perfiles para DataTables (server-side).
+         *
+         * @param string $busqueda     Texto a buscar en el nombre.
+         * @param string $columnaOrden Nombre lógico de la columna a ordenar.
+         * @param string $dirOrden     'asc' o 'desc'.
+         * @param int    $inicio       Offset (registro inicial).
+         * @param int    $longitud     Cantidad de registros (-1 = todos).
+         */
+        public function listarPagina($busqueda, $columnaOrden, $dirOrden, $inicio, $longitud)
+        {
+            // Lista blanca de columnas ordenables (evita inyección en el ORDER BY).
+            $columnasValidas = [
+                'id'     => 'id',
+                'nombre' => 'nombre',
+            ];
+            $columna   = $columnasValidas[$columnaOrden] ?? 'id';
+            $direccion = (strtolower($dirOrden) === 'desc') ? 'DESC' : 'ASC';
+
+            $inicio   = max(0, (int) $inicio);
+            $longitud = (int) $longitud;
+
+            $where  = '';
+            $params = [];
+            if ($busqueda !== '') {
+                $where    = "WHERE nombre LIKE ?";
+                $params[] = '%' . $busqueda . '%';
+            }
+
+            $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
+
+            $sql = "SELECT id, nombre
+                    FROM perfiles
+                    $where
+                    ORDER BY $columna $direccion
+                    $limit";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+
+            return $stmt->fetchAll();
+        }
     }
