@@ -1,6 +1,8 @@
-// Flag: true mientras se "salta" del modal de creación al de "Ver perfiles". Sirve para NO
-// resetear el formulario de creación al ocultarlo, y poder volver a él al cerrar el informativo.
+// Flag: true mientras se "salta" del formulario (creación o edición) al de "Ver accesos por
+// perfil". Sirve para NO resetear el formulario al ocultarlo y poder volver a él al cerrarlo.
 let saltandoVerPerfiles = false;
+// A qué formulario vuelve "Ver accesos" al cerrarse: 'crear' | 'editar'.
+let origenVerAccesos = 'crear';
 
 $(document).ready(function() {
 
@@ -110,6 +112,42 @@ $(document).ready(function() {
         ejecutarValidacionUniversal($('#id_perfil'));   // muestra "Debe seleccionar un Perfil"
     });
 
+    // --- Combobox de Perfil (modal de edición) ---
+    const $inputPerfilEditar = $('#input_perfil_editar');
+
+    function limpiarSeleccionPerfilEditar() {
+        $('#id_perfil_editar').val('');
+        $inputPerfilEditar.removeClass('is-valid');
+    }
+
+    inicializarCombobox({
+        input:      '#input_perfil_editar',
+        lista:      '#lista-perfiles-editar',
+        chevron:    '#btn-abrir-perfiles-editar',
+        contenedor: '#combobox-perfil-editar',
+        max:        50,
+        campo:      'nombre',
+        opciones:   function() { return PERFILES; },
+        render: function(p) {
+            return '<span class="small">' + $('<div>').text(p.nombre).html() + '</span>';
+        },
+        onInput:  limpiarSeleccionPerfilEditar,
+        onSelect: function(p) {
+            $inputPerfilEditar.val(p.nombre).addClass('is-valid').removeClass('is-invalid');
+            $('#id_perfil_editar').val(p.id);
+            limpiarErrorCampo($inputPerfilEditar);
+        }
+    });
+
+    $inputPerfilEditar.on('blur', function() {
+        if ($('#id_perfil_editar').val() !== '') {
+            limpiarErrorCampo($inputPerfilEditar);
+            return;
+        }
+        $inputPerfilEditar.addClass('is-invalid').removeClass('is-valid');
+        ejecutarValidacionUniversal($('#id_perfil_editar'));
+    });
+
     cargarPerfiles();
 
     // ============================================================
@@ -206,12 +244,14 @@ $(document).ready(function() {
         });
     }
 
-    // Botón "Ver perfiles": "salta" al modal informativo. Oculta el de creación (sin resetearlo,
-    // por el flag) y su evento 'hidden' se encarga de mostrar el informativo a continuación.
-    $('#btn-ver-perfiles').on('click', function() {
-        // El informativo se abre con el MISMO perfil elegido en creación; si hay, carga sus accesos.
-        const idActual     = $('#id_perfil').val();
-        const nombreActual = $('#input_perfil').val();
+    // Botón "Ver Accesos": "salta" al modal informativo. Oculta el formulario de origen (sin
+    // resetearlo, por el flag) y su evento 'hidden' se encarga de mostrar el informativo. El
+    // informativo se abre con el MISMO perfil elegido en el formulario; si hay, carga sus accesos.
+    function abrirVerAccesos(origen, idHidden, inputVisible) {
+        origenVerAccesos = origen;
+
+        const idActual     = $(idHidden).val();
+        const nombreActual = $(inputVisible).val();
 
         if (idActual) {
             $('#id_perfil_ver').val(idActual);
@@ -224,7 +264,16 @@ $(document).ready(function() {
         }
 
         saltandoVerPerfiles = true;
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUsuarioCrear')).hide();
+        const modalId = (origen === 'editar') ? 'modalUsuarioEditar' : 'modalUsuarioCrear';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).hide();
+    }
+
+    $('#btn-ver-perfiles').on('click', function() {
+        abrirVerAccesos('crear', '#id_perfil', '#input_perfil');
+    });
+
+    $('#btn-ver-perfiles-editar').on('click', function() {
+        abrirVerAccesos('editar', '#id_perfil_editar', '#input_perfil_editar');
     });
 
     // Combobox de perfil dentro del modal "Ver perfiles".
@@ -328,10 +377,14 @@ $(document).ready(function() {
                 } 
                 else {
 
-                    $(modalMensaje).slideUp(150); 
-                    
+                    $(modalMensaje).slideUp(150);
+
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
+                        // El error de Perfil apunta al hidden #id_perfil: márcalo en el combobox visible.
+                        if (res.errors && res.errors.id_perfil) {
+                            $('#input_perfil_editar').addClass('is-invalid').removeClass('is-valid');
+                        }
                     }
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
 
@@ -447,22 +500,36 @@ $('#modalUsuarioCrear').on('hidden.bs.modal', function (e) {
 
 });
 
-// Al cerrar "Ver perfiles" (informativo) se vuelve al modal de creación. El perfil que quedó
-// elegido en el informativo se refleja en el campo Perfil del formulario de creación.
+// Edición: si venimos del botón "Ver Accesos", mostrar el informativo (no se resetea el
+// formulario de edición al ocultarse; se rellena al abrirlo).
+$('#modalUsuarioEditar').on('hidden.bs.modal', function () {
+    if (saltandoVerPerfiles) {
+        saltandoVerPerfiles = false;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUsuarioVerPerfiles')).show();
+    }
+});
+
+// Al cerrar "Ver accesos por perfil" se vuelve al formulario de origen (creación o edición). El
+// perfil que quedó elegido en el informativo se refleja en el campo Perfil de ese formulario.
 $('#modalUsuarioVerPerfiles').on('hidden.bs.modal', function () {
     const idVer     = $('#id_perfil_ver').val();
     const nombreVer = $('#input_perfil_ver').val();
 
-    if (idVer) {
-        $('#id_perfil').val(idVer);
-        $('#input_perfil').val(nombreVer).addClass('is-valid').removeClass('is-invalid');
-    } else {
-        $('#id_perfil').val('');
-        $('#input_perfil').val('').removeClass('is-valid is-invalid');
-    }
-    limpiarErrorCampo($('#input_perfil'));
+    const esEditar     = (origenVerAccesos === 'editar');
+    const idDestino    = esEditar ? '#id_perfil_editar'    : '#id_perfil';
+    const inputDestino = esEditar ? '#input_perfil_editar' : '#input_perfil';
+    const modalDestino = esEditar ? 'modalUsuarioEditar'   : 'modalUsuarioCrear';
 
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUsuarioCrear')).show();
+    if (idVer) {
+        $(idDestino).val(idVer);
+        $(inputDestino).val(nombreVer).addClass('is-valid').removeClass('is-invalid');
+    } else {
+        $(idDestino).val('');
+        $(inputDestino).val('').removeClass('is-valid is-invalid');
+    }
+    limpiarErrorCampo($(inputDestino));
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById(modalDestino)).show();
 });
 
 // Cargar datos en Modal de Edición
@@ -487,7 +554,12 @@ $(document).on('click', '.btn-editar', function() {
                 $('#usuario_editar').val(response.data.usuario);
                 $('#nombres_editar').val(response.data.nombres);
                 $('#apellidos_editar').val(response.data.apellidos);
-                
+
+                // Perfil actual: id en el hidden, nombre en el visible (sin marcar check al cargar).
+                $('#id_perfil_editar').val(response.data.id_perfil || '');
+                $('#input_perfil_editar').val(response.data.perfil || '').removeClass('is-valid is-invalid');
+                limpiarErrorCampo($('#input_perfil_editar'));
+
             } 
             else {
                 mostrarMensajeFormulario(modalMensaje, 'Atención', response.message, 'danger', 0);

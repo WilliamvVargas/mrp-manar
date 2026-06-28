@@ -165,6 +165,7 @@ switch ($action) {
         $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
         $nombres = trim($_POST['nombres'] ?? '');
         $apellidos = trim($_POST['apellidos'] ?? '');
+        $idPerfil = $_POST['id_perfil'] ?? '';
 
         $errores = [];
 
@@ -178,24 +179,42 @@ switch ($action) {
         if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
             $errores['apellidos'] = $err;
 
+        if ($err = validarPerfilUsuario($idPerfil, $perfilModel))
+            $errores['id_perfil'] = $err;
+
         enviarErrorCamposFormulario($errores);
 
         try {
 
-            $filasAfectadas = $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos, $_SESSION['usuario_id']);
-
-            if ($filasAfectadas > 0) {
-                echo json_encode([
-                    'status' => 'success',
-                    'message' => 'Usuario actualizado con éxito.'
-                ]);
+            // El usuario debe existir (guardamos su estado actual para comparar cambios).
+            $actual = $usuarioModel->buscarPorId($id);
+            if (!$actual) {
+                echo json_encode(['status' => 'error', 'message' => 'El usuario no existe.']);
+                exit;
             }
-            else {
+
+            // Sin cambios: los datos son idénticos a los actuales. Se detecta comparando el DATO
+            // (no por filas afectadas), porque actualizar tocaría updated_by y daría un falso
+            // "éxito" en un registro recién creado (cuyo updated_by aún es NULL).
+            $sinCambios = $actual['usuario']   === $usuario
+                       && $actual['nombres']   === $nombres
+                       && $actual['apellidos'] === $apellidos
+                       && (string) $actual['id_perfil'] === (string) $idPerfil;
+
+            if ($sinCambios) {
                 echo json_encode([
-                    'status' => 'no_changes',
+                    'status'  => 'no_changes',
                     'message' => 'No se realizaron cambios.'
                 ]);
+                exit;
             }
+
+            $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos, $idPerfil, $_SESSION['usuario_id']);
+
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Usuario actualizado con éxito.'
+            ]);
 
         }
         catch (PDOException $e) {

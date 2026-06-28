@@ -168,12 +168,15 @@
          */
         public function buscarPorId($id)
         {
-            $stmt = $this->pdo->prepare("SELECT id,
-                                                usuario,
-                                                nombres,
-                                                apellidos
-                                         FROM usuarios
-                                         WHERE id = ?");
+            $stmt = $this->pdo->prepare("SELECT u.id,
+                                                u.usuario,
+                                                u.nombres,
+                                                u.apellidos,
+                                                u.id_perfil,
+                                                p.nombre AS perfil
+                                         FROM usuarios u
+                                         LEFT JOIN perfiles p ON p.id = u.id_perfil
+                                         WHERE u.id = ?");
             $stmt->execute([$id]);
             $fila = $stmt->fetch();
 
@@ -211,16 +214,24 @@
          * $modificadoPor es el id del usuario que realiza el cambio (auditoría).
          * Retorna la cantidad de filas afectadas (0 si no hubo cambios).
          */
-        public function actualizarDatos($id, $usuario, $nombres, $apellidos, $modificadoPor = null)
+        public function actualizarDatos($id, $usuario, $nombres, $apellidos, $idPerfil = null, $modificadoPor = null)
         {
             $sql = "UPDATE usuarios
                     SET usuario = ?,
                         nombres = ?,
                         apellidos = ?,
+                        id_perfil = ?,
                         updated_by = ?
                     WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([$usuario, $nombres, $apellidos, $modificadoPor, $id]);
+            $stmt->execute([
+                $usuario,
+                $nombres,
+                $apellidos,
+                ($idPerfil !== null && ctype_digit((string) $idPerfil)) ? (int) $idPerfil : null,
+                $modificadoPor,
+                $id,
+            ]);
 
             return $stmt->rowCount();
         }
