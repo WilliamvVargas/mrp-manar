@@ -11,11 +11,19 @@ $(document).ready(function() {
         tabla: '#tabla-consulta',
         url: 'controllers/usuarios_controller.php?action=listar',
         input: '#consulta',
-        orden: [[3, 'desc']],   // Por fecha de creación, más recientes primero
+        orden: [[4, 'desc']],   // Por fecha de creación, más recientes primero
         columnas: [
             { data: 'usuario',   render: $.fn.dataTable.render.text() },
             { data: 'nombres',   render: $.fn.dataTable.render.text() },
             { data: 'apellidos', render: $.fn.dataTable.render.text() },
+            {
+                data: 'perfil',
+                render: function(perfil) {
+                    return perfil
+                        ? $('<div>').text(perfil).html()
+                        : '<span class="text-muted">—</span>';
+                }
+            },
             { data: 'fecha' },
             {
                 data: 'id',

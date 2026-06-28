@@ -119,12 +119,13 @@
         {
             // Lista blanca de columnas ordenables: evita inyección en el ORDER BY.
             $columnasValidas = [
-                'usuario'   => 'usuario',
-                'nombres'   => 'nombres',
-                'apellidos' => 'apellidos',
-                'fecha'     => 'created_at',
+                'usuario'   => 'u.usuario',
+                'nombres'   => 'u.nombres',
+                'apellidos' => 'u.apellidos',
+                'perfil'    => 'p.nombre',
+                'fecha'     => 'u.created_at',
             ];
-            $columna   = $columnasValidas[$columnaOrden] ?? 'created_at';
+            $columna   = $columnasValidas[$columnaOrden] ?? 'u.created_at';
             $direccion = (strtolower($dirOrden) === 'asc') ? 'ASC' : 'DESC';
 
             // Casteo a entero: seguro para incrustar en el LIMIT (las prepares
@@ -136,18 +137,21 @@
             $params = [];
             if ($busqueda !== '') {
                 $like   = '%' . $busqueda . '%';
-                $where  = "WHERE usuario LIKE ? OR nombres LIKE ? OR apellidos LIKE ?";
+                $where  = "WHERE u.usuario LIKE ? OR u.nombres LIKE ? OR u.apellidos LIKE ?";
                 $params = [$like, $like, $like];
             }
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
-            $sql = "SELECT id,
-                           usuario,
-                           nombres,
-                           apellidos,
-                           DATE_FORMAT(created_at, '%d/%m/%Y %H:%i') AS fecha
-                    FROM usuarios
+            // LEFT JOIN: los usuarios sin perfil (id_perfil NULL) igual aparecen, con perfil NULL.
+            $sql = "SELECT u.id,
+                           u.usuario,
+                           u.nombres,
+                           u.apellidos,
+                           p.nombre AS perfil,
+                           DATE_FORMAT(u.created_at, '%d/%m/%Y %H:%i') AS fecha
+                    FROM usuarios u
+                    LEFT JOIN perfiles p ON p.id = u.id_perfil
                     $where
                     ORDER BY $columna $direccion
                     $limit";

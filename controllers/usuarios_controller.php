@@ -46,8 +46,8 @@ switch ($action) {
         $consulta = trim($_GET['consulta'] ?? '');
 
         // Columna y dirección de ordenamiento (índice -> nombre lógico)
-        $columnas     = ['usuario', 'nombres', 'apellidos', 'fecha'];
-        $idxOrden     = (int) ($_GET['order'][0]['column'] ?? 3);
+        $columnas     = ['usuario', 'nombres', 'apellidos', 'perfil', 'fecha'];
+        $idxOrden     = (int) ($_GET['order'][0]['column'] ?? 4);
         $columnaOrden = $columnas[$idxOrden] ?? 'fecha';
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'desc';
 
