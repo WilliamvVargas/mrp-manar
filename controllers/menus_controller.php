@@ -3,11 +3,13 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/conexion.php';
 require_once __DIR__ . '/../includes/funciones_validacion.php';
 require_once __DIR__ . '/../models/menus_model.php';
+require_once __DIR__ . '/../models/item_menus_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-$menuModel = new Menu($pdo);
+$menuModel     = new Menu($pdo);
+$itemMenuModel = new ItemMenu($pdo);
 
 // Reglas de validación del nombre del menú (compartidas por registrar y validar_campo).
 $REGLAS_NOMBRE = [
@@ -60,6 +62,9 @@ switch ($action) {
             $menu = $menuModel->buscarPorId($id);
 
             if ($menu) {
+                // Cantidad de ítems menú asociados (lo muestra el modal de eliminación).
+                $menu['total_items'] = $itemMenuModel->contarPorMenu($id);
+
                 echo json_encode([
                     'status' => 'success',
                     'data'   => $menu
@@ -174,6 +179,18 @@ switch ($action) {
         }
 
         try {
+            // No se puede eliminar un menú con ítems menú asociados: la FK tiene ON DELETE
+            // CASCADE, así que borrarlo arrastraría esos ítems. Se exige resolver primero
+            // esas relaciones (cambiarlas de menú o eliminarlas).
+            if ($itemMenuModel->contarPorMenu($id) > 0) {
+                echo json_encode([
+                    'status'  => 'error',
+                    'message' => 'No puede eliminar un Menú que está asociado al menos a un Ítem Menú. 
+                                  Cambie o elimine las relaciones a este menú antes de continuar con este procedimiento de eliminación.'
+                ]);
+                exit;
+            }
+
             if ($menuModel->eliminar($id) > 0) {
                 echo json_encode([
                     'status'  => 'success',

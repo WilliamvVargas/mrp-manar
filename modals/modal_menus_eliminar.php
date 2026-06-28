@@ -40,6 +40,17 @@
                         </div>
                     </div>
 
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input-items-eliminar">N° de Ítem Menús</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-menu-app-fill"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input-items-eliminar"
+                                   disabled>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button"

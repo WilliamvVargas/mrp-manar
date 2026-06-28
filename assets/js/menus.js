@@ -133,6 +133,7 @@ $(document).ready(function() {
                 if (res.status === 'success') {
                     $('#id_menu_eliminar').val(res.data.id);
                     $('#input-nombre-eliminar').val(res.data.nombre);
+                    $('#input-items-eliminar').val(res.data.total_items);
                 } else {
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger', 0);
                 }
