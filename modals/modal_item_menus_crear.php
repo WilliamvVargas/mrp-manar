@@ -23,7 +23,7 @@
                         <div id="modal-mensajes"></div>
                     </div>
 
-                    <!-- Fila superior: Nombre y Menú (izquierda) + vista previa del ícono (derecha) -->
+                    <!-- Fila superior: Nombre y Enlace (izquierda) + vista previa del ícono (derecha) -->
                     <div class="row g-3 mb-3">
 
                         <!-- Columna izquierda: los dos primeros inputs -->
@@ -44,6 +44,82 @@
                                 </div>
                                 <div class="invalid-feedback small" id="error-nombre"></div>
                             </div>
+
+                            <!-- Enlace / Ruta -->
+                            <div class="mb-2">
+                                <label class="form-label fw-bold small mb-1" for="input_enlace">Enlace <span class="text-danger">*</span></label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                                    <input type="text"
+                                           class="form-control form-control-sm"
+                                           id="input_enlace"
+                                           name="enlace"
+                                           placeholder="Ej: usuarios"
+                                           maxlength="<?php echo ITEM_MENU_ENLACE_MAX_LENGTH;?>"
+                                           data-comparar-con="nombre"
+                                           data-check='true'>
+                                </div>
+                                <div class="invalid-feedback small" id="error-enlace"></div>
+                            </div>
+
+                        </div>
+
+                        <!-- Columna derecha: vista previa del ícono seleccionado -->
+                        <div class="col-md-5 d-flex flex-column">
+                            <label class="form-label fw-bold small mb-1 d-block">Vista Previa</label>
+                            <div class="d-flex flex-grow-1 align-items-center justify-content-center">
+                                <div id="preview-icono-item"
+                                     class="border rounded d-flex align-items-center justify-content-center bg-light"
+                                     style="height: 7.5rem; aspect-ratio: 1 / 1;">
+                                    <i class="bi bi-question-square text-muted" style="font-size: 3rem;"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Fila: Estado (izquierda) + Ícono (derecha) -->
+                    <div class="row g-3 mb-2">
+
+                        <!-- Estado -->
+                        <div class="col-md-7">
+                            <label class="form-label fw-bold small mb-1 d-block">Estado</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       role="switch"
+                                       id="input_estado"
+                                       name="estado"
+                                       value="1"
+                                       checked>
+                                <label class="form-check-label small" for="input_estado" id="label-estado">Activo</label>
+                            </div>
+                        </div>
+
+                        <!-- Ícono (se elige desde los botones) -->
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold small mb-1" for="input_icono">Ícono</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-grid-3x3-gap"></i></span>
+                                <input type="text"
+                                       class="form-control form-control-sm bg-light"
+                                       id="input_icono"
+                                       placeholder="Elige un ícono"
+                                       disabled>
+                            </div>
+
+                            <!-- Id (FK) del ícono elegido del catálogo (lo completa el JS al seleccionar) -->
+                            <input type="hidden" id="icono_id" name="icono_id">
+                            <div class="invalid-feedback small" id="error-icono_id"></div>
+                        </div>
+
+                    </div>
+
+                    <!-- Fila inferior: Menú + Posición (izquierda) + botones de íconos (derecha) -->
+                    <div class="row g-3 mb-2">
+
+                        <!-- Menú y Posición -->
+                        <div class="col-md-7">
 
                             <!-- Menú padre (combobox con búsqueda) -->
                             <div class="mb-2">
@@ -79,82 +155,6 @@
 
                                 <!-- Id real del menú elegido (lo completa el JS al seleccionar) -->
                                 <input type="hidden" id="menu_id" name="menu_id">
-                            </div>
-
-                        </div>
-
-                        <!-- Columna derecha: vista previa del ícono seleccionado -->
-                        <div class="col-md-5 d-flex flex-column">
-                            <label class="form-label fw-bold small mb-1 d-block">Vista Previa</label>
-                            <div class="d-flex flex-grow-1 align-items-center justify-content-center">
-                                <div id="preview-icono-item"
-                                     class="border rounded d-flex align-items-center justify-content-center bg-light"
-                                     style="height: 7.5rem; aspect-ratio: 1 / 1;">
-                                    <i class="bi bi-question-square text-muted" style="font-size: 3rem;"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- Fila: Enlace (izquierda) + Ícono (derecha) -->
-                    <div class="row g-3 mb-2">
-
-                        <!-- Enlace / Ruta -->
-                        <div class="col-md-7">
-                            <label class="form-label fw-bold small mb-1" for="input_enlace">Enlace <span class="text-danger">*</span></label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
-                                <input type="text"
-                                       class="form-control form-control-sm"
-                                       id="input_enlace"
-                                       name="enlace"
-                                       placeholder="Ej: usuarios"
-                                       maxlength="<?php echo ITEM_MENU_ENLACE_MAX_LENGTH;?>"
-                                       data-comparar-con="nombre"
-                                       data-check='true'>
-                            </div>
-                            <div class="invalid-feedback small" id="error-enlace"></div>
-                        </div>
-
-                        <!-- Ícono (se elige desde los botones) -->
-                        <div class="col-md-5">
-                            <label class="form-label fw-bold small mb-1" for="input_icono">Ícono</label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text"><i class="bi bi-grid-3x3-gap"></i></span>
-                                <input type="text"
-                                       class="form-control form-control-sm bg-light"
-                                       id="input_icono"
-                                       placeholder="Elige un ícono"
-                                       disabled>
-                            </div>
-
-                            <!-- Id (FK) del ícono elegido del catálogo (lo completa el JS al seleccionar) -->
-                            <input type="hidden" id="icono_id" name="icono_id">
-                            <div class="invalid-feedback small" id="error-icono_id"></div>
-                        </div>
-
-                    </div>
-
-                    <!-- Fila inferior: Estado + Posición (izquierda) + botones de íconos (derecha) -->
-                    <div class="row g-3 mb-2">
-
-                        <!-- Estado y Posición -->
-                        <div class="col-md-7">
-
-                            <!-- Estado -->
-                            <div class="mb-2">
-                                <label class="form-label fw-bold small mb-1 d-block">Estado</label>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           role="switch"
-                                           id="input_estado"
-                                           name="estado"
-                                           value="1"
-                                           checked>
-                                    <label class="form-check-label small" for="input_estado" id="label-estado">Activo</label>
-                                </div>
                             </div>
 
                             <!-- Posición -->

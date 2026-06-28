@@ -273,6 +273,20 @@
         }
 
         /**
+         * Alterna el estado de un ítem (activo <-> inactivo).
+         *
+         * @param int $id
+         * @return bool true si se actualizó alguna fila.
+         */
+        public function cambiarEstado($id)
+        {
+            $stmt = $this->pdo->prepare("UPDATE item_menus SET estado = 1 - estado WHERE id = ?");
+            $stmt->execute([(int) $id]);
+
+            return $stmt->rowCount() > 0;
+        }
+
+        /**
          * Reasigna las posiciones de un conjunto de ítems según el orden recibido (posición
          * 1 al primer id, 2 al segundo, etc.). Lo usa el reordenamiento masivo de un menú:
          * los ids vienen todos del MISMO menú, en su nuevo orden. Todo en una transacción.

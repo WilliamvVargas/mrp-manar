@@ -55,12 +55,18 @@ $(document).ready(function() {
                 orderable: false,
                 searchable: false,
                 className: 'text-center',
-                render: function(id) {
+                render: function(id, type, fila) {
+                    const activo = Number(fila.estado) === 1;
+                    const titulo = activo ? 'Inactivar ítem' : 'Activar ítem';
+                    const clase  = activo ? 'btn-success' : 'btn-secondary';
+
+                    const btnEstado = '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-item me-1" '
+                                    + 'data-id="' + id + '" title="' + titulo + '"><i class="bi bi-power"></i></button>';
                     const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-item me-1" '
                                     + 'data-id="' + id + '" title="Editar ítem"><i class="bi bi-pencil"></i></button>';
                     const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-item" '
                                       + 'data-id="' + id + '" title="Eliminar ítem"><i class="bi bi-trash"></i></button>';
-                    return btnEditar + btnEliminar;
+                    return btnEstado + btnEditar + btnEliminar;
                 }
             }
         ]
@@ -69,6 +75,32 @@ $(document).ready(function() {
     // Recargar la tabla al cambiar los filtros de menú o estado.
     $('#filtro-menu, #filtro-estado').on('change', function() {
         tablaConsulta.ajax.reload();
+    });
+
+    // Botón de la columna Acciones: alterna el estado del ítem (activo <-> inactivo).
+    // Solo refresca la tabla ante un 'success'; no muestra mensajes en pantalla.
+    $('#tabla-consulta tbody').on('click', '.btn-estado-item', function() {
+        const $btn = $(this);
+        const id   = $btn.data('id');
+
+        $btn.prop('disabled', true);
+
+        $.ajax({
+            url: 'controllers/item_menus_controller.php?action=cambiar_estado',
+            type: 'POST',
+            data: { id: id, csrf_token: $('#csrf_token').val() },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(null, false);   // el redibujo restituye el botón
+                } else {
+                    $btn.prop('disabled', false);
+                }
+            },
+            error: function() {
+                $btn.prop('disabled', false);
+            }
+        });
     });
 
     // ============================================================
@@ -773,10 +805,12 @@ $(document).ready(function() {
         $('#input_nombre_editar').val(item.nombre);
         $('#input_enlace_editar').val(item.enlace || '');
 
-        // Menú (combobox): se resuelve con el catálogo MENUS.
+        // Menú (combobox): se resuelve con el catálogo MENUS. Se carga el valor SIN el check
+        // verde (is-valid); este solo aparece si el usuario cambia el menú manualmente
+        // (igual que Nombre/Enlace, que se validan al interactuar).
         const menu = MENUS.find(function(m) { return String(m.id) === String(item.menu_id); });
         if (menu) {
-            $inputMenuEditar.val(nombreMenu(menu)).addClass('is-valid').removeClass('is-invalid');
+            $inputMenuEditar.val(nombreMenu(menu)).removeClass('is-valid is-invalid');
             $('#menu_id_editar').val(menu.id);
             mostrarEstadoMenuEditar(menu);
         } else {

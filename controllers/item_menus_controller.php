@@ -273,6 +273,25 @@ switch ($action) {
         }
         exit;
 
+    case 'cambiar_estado':
+
+        // Alterna activo/inactivo del ítem (botón de la columna Acciones).
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id < 1) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            $itemMenuModel->cambiarEstado($id);
+            echo json_encode(['status' => 'success']);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'obtener':
 
         // Datos de un ítem para poblar el formulario de edición.
