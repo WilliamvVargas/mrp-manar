@@ -28,6 +28,7 @@
   //Perfiles
   define('PERFIL_NOMBRE_MIN_LENGTH', 2);
   define('PERFIL_NOMBRE_MAX_LENGTH', 50);
+  define('PERFIL_ADMIN_ID', 1);   // Perfil Administrador fijo: no se puede editar ni eliminar
 
   //Seguridad de acceso (freno de fuerza bruta)
   define('LOGIN_MAX_INTENTOS', 5);      // Intentos fallidos permitidos por IP + usuario

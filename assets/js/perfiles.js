@@ -15,10 +15,19 @@ $(document).ready(function() {
                 searchable: false,
                 className: 'text-center',
                 render: function(id) {
+                    // El perfil Administrador (Id 1) es fijo: sus botones quedan deshabilitados.
+                    const esAdmin = Number(id) === 1;
+
                     const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-perfil me-1" '
-                                    + 'data-id="' + id + '" title="Editar perfil"><i class="bi bi-pencil"></i></button>';
+                                    + 'data-id="' + id + '" ' + (esAdmin ? 'disabled ' : '')
+                                    + 'title="' + (esAdmin ? 'El perfil Administrador no se puede editar' : 'Editar perfil') + '">'
+                                    + '<i class="bi bi-pencil"></i></button>';
+
                     const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-perfil" '
-                                      + 'data-id="' + id + '" title="Eliminar perfil"><i class="bi bi-trash"></i></button>';
+                                      + 'data-id="' + id + '" ' + (esAdmin ? 'disabled ' : '')
+                                      + 'title="' + (esAdmin ? 'El perfil Administrador no se puede eliminar' : 'Eliminar perfil') + '">'
+                                      + '<i class="bi bi-trash"></i></button>';
+
                     return btnEditar + btnEliminar;
                 }
             }

@@ -15,3 +15,8 @@ CREATE TABLE IF NOT EXISTS `perfiles` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uq_perfiles_nombre` (`nombre`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Perfil Administrador FIJO en el Id 1: la app no permite editar su nombre ni eliminarlo
+-- (ver PERFIL_ADMIN_ID en config/config.php y las validaciones del controlador).
+-- INSERT IGNORE: no falla si ya existe (por id o por el nombre único).
+INSERT IGNORE INTO `perfiles` (`id`, `nombre`) VALUES (1, 'Administrador');

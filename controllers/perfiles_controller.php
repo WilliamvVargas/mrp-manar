@@ -117,6 +117,12 @@ switch ($action) {
             exit;
         }
 
+        // El perfil Administrador (Id 1) es fijo: no se puede editar su nombre.
+        if ((int) $id === PERFIL_ADMIN_ID) {
+            echo json_encode(['status' => 'error', 'message' => 'El perfil <b>Administrador</b> no se puede editar.']);
+            exit;
+        }
+
         // Mismas reglas que la creación. La unicidad excluye el propio id (id_registro),
         // así que conservar su mismo nombre NO se considera duplicado.
         $errores = [];
@@ -157,6 +163,12 @@ switch ($action) {
         if ($id < 1) {
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        // El perfil Administrador (Id 1) es fijo: no se puede eliminar.
+        if ($id === PERFIL_ADMIN_ID) {
+            echo json_encode(['status' => 'error', 'message' => 'El perfil <b>Administrador</b> no se puede eliminar.']);
             exit;
         }
 
