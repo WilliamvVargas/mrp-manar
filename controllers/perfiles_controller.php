@@ -79,6 +79,75 @@ switch ($action) {
         }
         exit;
 
+    case 'obtener':
+
+        // Datos de un perfil para poblar el formulario de edición.
+        $id = $_GET['id'] ?? '';
+
+        if (!ctype_digit((string) $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            $perfil = $perfilModel->buscarPorId((int) $id);
+
+            if (!$perfil) {
+                echo json_encode(['status' => 'error', 'message' => 'El perfil no existe.']);
+                exit;
+            }
+
+            echo json_encode(['status' => 'success', 'data' => $perfil]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'actualizar':
+
+        retrasar();
+
+        $id     = $_POST['id_registro'] ?? '';
+        $nombre = trim($_POST['nombre'] ?? '');
+
+        // El perfil debe existir (guardamos su estado actual para comparar cambios).
+        $actual = ctype_digit((string) $id) ? $perfilModel->buscarPorId((int) $id) : false;
+        if (!$actual) {
+            echo json_encode(['status' => 'error', 'message' => 'El perfil no existe.']);
+            exit;
+        }
+
+        // Mismas reglas que la creación. La unicidad excluye el propio id (id_registro),
+        // así que conservar su mismo nombre NO se considera duplicado.
+        $errores = [];
+        if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+            $errores['nombre'] = $err;
+        }
+        enviarErrorCamposFormulario($errores);
+
+        // Sin cambios: el nombre es idéntico al actual. Se detecta comparando el DATO (no por
+        // filas afectadas), porque actualizar tocaría updated_by y daría un falso "éxito" en
+        // un registro recién creado (cuyo updated_by aún es NULL).
+        if ($actual['nombre'] === $nombre) {
+            echo json_encode([
+                'status'  => 'no_changes',
+                'message' => 'No se realizaron cambios.'
+            ]);
+            exit;
+        }
+
+        try {
+            $perfilModel->actualizar((int) $id, $nombre, $_SESSION['usuario_id']);
+
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Perfil actualizado con éxito.'
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'listar':
 
         // Listado paginado para la tabla principal (DataTables server-side).

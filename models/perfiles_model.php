@@ -32,6 +32,38 @@
         }
 
         /**
+         * Devuelve un perfil por su id (para poblar el formulario de edición).
+         *
+         * @param int $id
+         * @return array|false ['id', 'nombre'] o false si no existe.
+         */
+        public function buscarPorId($id)
+        {
+            $stmt = $this->pdo->prepare("SELECT id, nombre FROM perfiles WHERE id = ?");
+            $stmt->execute([(int) $id]);
+
+            return $stmt->fetch();
+        }
+
+        /**
+         * Actualiza el nombre de un perfil.
+         *
+         * @param int         $id
+         * @param string      $nombre
+         * @param string|null $actualizadoPor Id del usuario que edita (auditoría).
+         * @return int Cantidad de filas afectadas.
+         */
+        public function actualizar($id, $nombre, $actualizadoPor = null)
+        {
+            $stmt = $this->pdo->prepare(
+                "UPDATE perfiles SET nombre = ?, updated_by = ? WHERE id = ?"
+            );
+            $stmt->execute([$nombre, $actualizadoPor, (int) $id]);
+
+            return $stmt->rowCount();
+        }
+
+        /**
          * ¿Existe un perfil con ese nombre? La unicidad es case-insensitive (colación de la
          * tabla). Permite excluir un id (para la edición). Lo usa la validación de unicidad.
          *

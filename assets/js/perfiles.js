@@ -14,9 +14,9 @@ $(document).ready(function() {
                 orderable: false,
                 searchable: false,
                 className: 'text-center',
-                render: function() {
-                    // Acciones (editar / eliminar): pendientes. La columna queda lista.
-                    return '';
+                render: function(id) {
+                    return '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-perfil" '
+                         + 'data-id="' + id + '" title="Editar perfil"><i class="bi bi-pencil"></i></button>';
                 }
             }
         ]
@@ -47,6 +47,76 @@ $(document).ready(function() {
                     limpiarFormularioCompleto(formulario, modalMensaje, true);
                     tablaConsulta.ajax.reload(null, false);   // muestra el nuevo perfil en la tabla
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                }
+                else if (res.status === 'error') {
+                    $(modalMensaje).slideUp(150);
+                    if (res.type === 'fields') {
+                        renderizarErroresCampos(formulario, res.errors);
+                    }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                resetBtnLoading(btn);
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            }
+        });
+    });
+
+    // Abre el modal de edición y carga los datos del perfil seleccionado.
+    $('#tabla-consulta tbody').on('click', '.btn-editar-perfil', function() {
+        const id           = $(this).data('id');
+        const formulario   = '#form-perfil-editar';
+        const modalMensaje = '#modal-mensajes-editar';
+
+        limpiarFormularioCompleto(formulario, modalMensaje, true);
+
+        $.ajax({
+            url: 'controllers/perfiles_controller.php?action=obtener',
+            type: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    $('#id_perfil_editar').val(res.data.id);
+                    $('#input_nombre_editar').val(res.data.nombre);
+                } else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger', 0);
+                }
+            },
+            error: function() {
+                mostrarMensajeFormulario(modalMensaje, 'Error de Sistema', 'No se pudieron recuperar los datos del perfil.', 'danger', 0);
+            },
+            complete: function() {
+                $('#modalPerfilEditar').modal('show');
+            }
+        });
+    });
+
+    // Actualizar Perfil.
+    $('#form-perfil-editar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btnActualizarPerfil');
+        const formulario   = '#form-perfil-editar';
+        const modalMensaje = '#modal-mensajes-editar';
+
+        setBtnLoading(btn, 'Actualizando...');
+
+        $.ajax({
+            url: 'controllers/perfiles_controller.php?action=actualizar',
+            type: 'POST',
+            data: $(this).serialize(),   // csrf_token, id_registro, nombre
+            dataType: 'json',
+            success: function(res) {
+                resetBtnLoading(btn);
+
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(null, false);   // refleja el cambio en la tabla
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                }
+                else if (res.status === 'no_changes') {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'warning');
                 }
                 else if (res.status === 'error') {
                     $(modalMensaje).slideUp(150);
