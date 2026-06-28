@@ -25,6 +25,10 @@
   define('ITEM_MENU_ICONO_MAX_LENGTH', 60);
   define('ITEM_MENU_ENLACE_MAX_LENGTH', 100);
 
+  //Perfiles
+  define('PERFIL_NOMBRE_MIN_LENGTH', 2);
+  define('PERFIL_NOMBRE_MAX_LENGTH', 50);
+
   //Seguridad de acceso (freno de fuerza bruta)
   define('LOGIN_MAX_INTENTOS', 5);      // Intentos fallidos permitidos por IP + usuario
   define('LOGIN_VENTANA_MINUTOS', 15);  // Ventana de tiempo y duración del bloqueo
