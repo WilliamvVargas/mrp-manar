@@ -15,8 +15,11 @@ $(document).ready(function() {
                 searchable: false,
                 className: 'text-center',
                 render: function(id) {
-                    return '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-perfil" '
-                         + 'data-id="' + id + '" title="Editar perfil"><i class="bi bi-pencil"></i></button>';
+                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-perfil me-1" '
+                                    + 'data-id="' + id + '" title="Editar perfil"><i class="bi bi-pencil"></i></button>';
+                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-perfil" '
+                                      + 'data-id="' + id + '" title="Eliminar perfil"><i class="bi bi-trash"></i></button>';
+                    return btnEditar + btnEliminar;
                 }
             }
         ]
@@ -129,6 +132,73 @@ $(document).ready(function() {
             error: function(jqXHR, textStatus) {
                 resetBtnLoading(btn);
                 manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            }
+        });
+    });
+
+    // Abre el modal de eliminación y carga los datos del perfil seleccionado.
+    $('#tabla-consulta tbody').on('click', '.btn-eliminar-perfil', function() {
+        const id           = $(this).data('id');
+        const formulario   = '#form-perfil-eliminar';
+        const modalMensaje = '#modal-mensajes-eliminar';
+
+        limpiarFormularioCompleto(formulario, modalMensaje, true);
+
+        $.ajax({
+            url: 'controllers/perfiles_controller.php?action=obtener',
+            type: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    $('#id-perfil-eliminar').val(res.data.id);
+                    $('#input-nombre-perfil-eliminar').val(res.data.nombre);
+                } else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger', 0);
+                }
+            },
+            error: function() {
+                mostrarMensajeFormulario(modalMensaje, 'Error de Sistema', 'No se pudieron recuperar los datos del perfil.', 'danger', 0);
+            },
+            complete: function() {
+                $('#modalPerfilEliminar').modal('show');
+            }
+        });
+    });
+
+    // Confirmar eliminación del perfil.
+    $('#form-perfil-eliminar').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btnEliminarPerfil');
+        const modalMensaje = '#modal-mensajes-eliminar';
+
+        setBtnLoading(btn, 'Eliminando...');
+
+        $.ajax({
+            url: 'controllers/perfiles_controller.php?action=eliminar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(function() {
+                        // Si la página actual quedó vacía, retrocede a la última con registros.
+                        const info = tablaConsulta.page.info();
+                        if (info.pages > 0 && info.page >= info.pages) {
+                            tablaConsulta.page(info.pages - 1).draw('page');
+                        }
+                    }, false);
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                } else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            },
+            complete: function() {
+                resetBtnLoading(btn);
             }
         });
     });

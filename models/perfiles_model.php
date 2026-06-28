@@ -64,6 +64,20 @@
         }
 
         /**
+         * Elimina un perfil por su id.
+         *
+         * @param int $id
+         * @return int Cantidad de filas eliminadas (0 si no existía).
+         */
+        public function eliminar($id)
+        {
+            $stmt = $this->pdo->prepare("DELETE FROM perfiles WHERE id = ?");
+            $stmt->execute([(int) $id]);
+
+            return $stmt->rowCount();
+        }
+
+        /**
          * ¿Existe un perfil con ese nombre? La unicidad es case-insensitive (colación de la
          * tabla). Permite excluir un id (para la edición). Lo usa la validación de unicidad.
          *

@@ -65,6 +65,7 @@
 <?php
     include 'modals/modal_perfiles_crear.php';
     include 'modals/modal_perfiles_editar.php';
+    include 'modals/modal_perfiles_eliminar.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
