@@ -38,26 +38,26 @@ $(document).ready(function() {
                     const titulo = activo ? 'Inactivar menú' : 'Activar menú';
                     const clase  = activo ? 'btn-success' : 'btn-secondary';
 
-                    const btnEstado = '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-menu me-1" '
+                    const btnEstado = '<button type="button" class="btn ' + clase + ' btn-estado-menu" '
                                     + 'data-id="' + id + '" title="' + titulo + '"><i class="bi bi-power"></i></button>';
 
                     // Reordenar las posiciones de los ítems del menú. Se muestra siempre, pero
                     // queda deshabilitado si el menú no tiene ítems (nada que reordenar).
                     const nombreAttr = $('<div>').text(fila.nombre == null ? '' : fila.nombre).html().replace(/"/g, '&quot;');
                     const sinItems   = Number(fila.total_items) === 0;
-                    const btnAsignarItems = '<button type="button" class="btn btn-sm btn-outline-dark btn-asignar-items-menu me-1" '
+                    const btnAsignarItems = '<button type="button" class="btn btn-outline-dark btn-asignar-items-menu" '
                                           + 'data-id="' + id + '" data-nombre="' + nombreAttr + '" '
                                           + (sinItems ? 'disabled ' : '')
                                           + 'title="' + (sinItems ? 'El menú no tiene ítems menú' : 'Asignar posición ítem menús') + '">'
                                           + '<i class="bi bi-sort-numeric-down"></i></button>';
 
-                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-menu me-1" '
+                    const btnEditar = '<button type="button" class="btn btn-outline-dark btn-editar-menu" '
                                     + 'data-id="' + id + '" title="Editar menú"><i class="bi bi-pencil"></i></button>';
 
-                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-menu" '
+                    const btnEliminar = '<button type="button" class="btn btn-outline-danger btn-eliminar-menu" '
                                       + 'data-id="' + id + '" title="Eliminar menú"><i class="bi bi-trash"></i></button>';
 
-                    return btnEstado + btnAsignarItems + btnEditar + btnEliminar;
+                    return '<div class="btn-group btn-group-sm" role="group">' + btnEstado + btnAsignarItems + btnEditar + btnEliminar + '</div>';
                 }
             }
         ]

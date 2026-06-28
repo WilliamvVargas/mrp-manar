@@ -34,15 +34,20 @@ $(document).ready(function() {
                 className: 'text-center',
                 render: function(id) {
                     return `
-                        <button class="btn btn-sm btn-outline-dark btn-editar" data-id="${id}">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-dark btn-password" data-id="${id}">
-                            <i class="bi bi-key"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger btn-eliminar" data-id="${id}">
-                            <i class="bi bi-trash"></i>
-                        </button>`;
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-dark btn-ver-perfil" data-id="${id}" title="Ver Perfil">
+                                <i class="bi bi-person-badge"></i>
+                            </button>
+                            <button class="btn btn-outline-dark btn-editar" data-id="${id}" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-dark btn-password" data-id="${id}" title="Contraseña">
+                                <i class="bi bi-key"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>`;
                 }
             }
         ]
@@ -202,9 +207,10 @@ $(document).ready(function() {
         return cards || '<div class="text-muted small p-2">Este perfil no tiene accesos asignados.</div>';
     }
 
-    // Carga menús + ítems + accesos del perfil y arma las cards informativas.
-    function cargarAccesosPerfilVer(idPerfil) {
-        const $cont = $('#accordion-ver-perfiles');
+    // Carga menús + ítems + accesos del perfil y arma las cards informativas en el contenedor
+    // indicado (por defecto, el del modal "Ver accesos por perfil" de creación/edición).
+    function cargarAccesosPerfilVer(idPerfil, contenedor) {
+        const $cont = $(contenedor || '#accordion-ver-perfiles');
         $cont.html('<div class="text-muted small p-2">Cargando...</div>');
 
         $.when(
@@ -293,6 +299,45 @@ $(document).ready(function() {
             $('#id_perfil_ver').val(p.id);
             cargarAccesosPerfilVer(p.id);
         }
+    });
+
+    // Botón "Ver Perfil" (columna Acciones): modal de solo lectura con el perfil del usuario y
+    // sus accesos. Reusa el render de cards (cargarAccesosPerfilVer) en su propio contenedor.
+    $(document).on('click', '.btn-ver-perfil', function() {
+        const idUsuario = $(this).data('id');
+        const $nombre   = $('#perfil-usuario-nombre');
+        const $cards    = $('#cards-perfil-usuario');
+
+        $nombre.val('');
+        $cards.html('<div class="text-muted small p-2">Cargando...</div>');
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=obtener',
+            type: 'GET',
+            data: { id: idUsuario },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    if (response.data.id_perfil) {
+                        $nombre.val(response.data.perfil || '');
+                        cargarAccesosPerfilVer(response.data.id_perfil, '#cards-perfil-usuario');
+                    } else {
+                        $nombre.val('Sin perfil asignado');
+                        $cards.html('<div class="text-muted small p-2">Este usuario no tiene un perfil asignado.</div>');
+                    }
+                } else {
+                    $nombre.val('');
+                    $cards.html('<div class="text-danger small p-2">' + response.message + '</div>');
+                }
+            },
+            error: function() {
+                $nombre.val('');
+                $cards.html('<div class="text-danger small p-2">No se pudieron recuperar los datos del usuario.</div>');
+            },
+            complete: function() {
+                $('#modalVerPerfilUsuario').modal('show');
+            }
+        });
     });
 
 

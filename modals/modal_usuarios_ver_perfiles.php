@@ -40,7 +40,8 @@
                     <input type="hidden" id="id_perfil_ver">
                 </div>
 
-                <!-- Cards de menús + ítems con acceso del perfil seleccionado (lo completa el JS) -->
+                <!-- Accesos del perfil (cards de menús + ítems con acceso; lo completa el JS) -->
+                <label class="form-label fw-bold small mb-1">Accesos</label>
                 <div id="accordion-ver-perfiles"></div>
 
             </div>

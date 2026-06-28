@@ -39,21 +39,21 @@ $(document).ready(function() {
                     const esAdmin    = Number(id) === 1;
                     const nombreAttr = $('<div>').text(fila.nombre == null ? '' : fila.nombre).html().replace(/"/g, '&quot;');
 
-                    const btnAccesos = '<button type="button" class="btn btn-sm btn-outline-dark btn-accesos-perfil me-1" '
+                    const btnAccesos = '<button type="button" class="btn btn-outline-dark btn-accesos-perfil" '
                                      + 'data-id="' + id + '" data-nombre="' + nombreAttr + '" '
                                      + 'title="Accesos del perfil"><i class="bi bi-shield-lock"></i></button>';
 
-                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-perfil me-1" '
+                    const btnEditar = '<button type="button" class="btn btn-outline-dark btn-editar-perfil" '
                                     + 'data-id="' + id + '" ' + (esAdmin ? 'disabled ' : '')
                                     + 'title="' + (esAdmin ? 'El perfil Administrador no se puede editar' : 'Editar perfil') + '">'
                                     + '<i class="bi bi-pencil"></i></button>';
 
-                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-perfil" '
+                    const btnEliminar = '<button type="button" class="btn btn-outline-danger btn-eliminar-perfil" '
                                       + 'data-id="' + id + '" ' + (esAdmin ? 'disabled ' : '')
                                       + 'title="' + (esAdmin ? 'El perfil Administrador no se puede eliminar' : 'Eliminar perfil') + '">'
                                       + '<i class="bi bi-trash"></i></button>';
 
-                    return btnAccesos + btnEditar + btnEliminar;
+                    return '<div class="btn-group btn-group-sm" role="group">' + btnAccesos + btnEditar + btnEliminar + '</div>';
                 }
             }
         ]

@@ -60,13 +60,13 @@ $(document).ready(function() {
                     const titulo = activo ? 'Inactivar ítem' : 'Activar ítem';
                     const clase  = activo ? 'btn-success' : 'btn-secondary';
 
-                    const btnEstado = '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-item me-1" '
+                    const btnEstado = '<button type="button" class="btn ' + clase + ' btn-estado-item" '
                                     + 'data-id="' + id + '" title="' + titulo + '"><i class="bi bi-power"></i></button>';
-                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-item me-1" '
+                    const btnEditar = '<button type="button" class="btn btn-outline-dark btn-editar-item" '
                                     + 'data-id="' + id + '" title="Editar ítem"><i class="bi bi-pencil"></i></button>';
-                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-item" '
+                    const btnEliminar = '<button type="button" class="btn btn-outline-danger btn-eliminar-item" '
                                       + 'data-id="' + id + '" title="Eliminar ítem"><i class="bi bi-trash"></i></button>';
-                    return btnEstado + btnEditar + btnEliminar;
+                    return '<div class="btn-group btn-group-sm" role="group">' + btnEstado + btnEditar + btnEliminar + '</div>';
                 }
             }
         ]

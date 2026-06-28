@@ -55,13 +55,13 @@ $(document).ready(function() {
                 searchable: false,
                 className: 'text-center',
                 render: function(id) {
-                    const btnVista = '<button type="button" class="btn btn-sm btn-outline-secondary btn-vista-previa-icono me-1" '
+                    const btnVista = '<button type="button" class="btn btn-outline-secondary btn-vista-previa-icono" '
                                    + 'data-id="' + id + '" title="Vista Previa"><i class="bi bi-eye"></i></button>';
-                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-icono me-1" '
+                    const btnEditar = '<button type="button" class="btn btn-outline-dark btn-editar-icono" '
                                     + 'data-id="' + id + '" title="Editar icono"><i class="bi bi-pencil"></i></button>';
-                    const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-icono" '
+                    const btnEliminar = '<button type="button" class="btn btn-outline-danger btn-eliminar-icono" '
                                       + 'data-id="' + id + '" title="Eliminar icono"><i class="bi bi-trash"></i></button>';
-                    return btnVista + btnEditar + btnEliminar;
+                    return '<div class="btn-group btn-group-sm" role="group">' + btnVista + btnEditar + btnEliminar + '</div>';
                 }
             }
         ]

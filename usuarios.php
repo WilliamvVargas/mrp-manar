@@ -53,8 +53,8 @@
                             <th style="width: 18%">Nombres</th>
                             <th style="width: 18%">Apellidos</th>
                             <th style="width: 14%">Perfil</th>
-                            <th style="width: 20%">Fecha de Creación</th>
-                            <th style="width: 12%" class="text-center">Acciones</th>
+                            <th style="width: 16%">Fecha de Creación</th>
+                            <th style="width: 16%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -72,6 +72,7 @@
     include 'modals/modal_usuarios_eliminar.php';
     include 'modals/modal_usuarios_password.php';
     include 'modals/modal_usuarios_ver_perfiles.php';
+    include 'modals/modal_usuarios_ver_perfil.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
