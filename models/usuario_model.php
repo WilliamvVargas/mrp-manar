@@ -181,17 +181,25 @@
          * $creadoPor es el id del usuario que realiza la creación (auditoría).
          * Retorna true si la inserción fue exitosa.
          */
-        public function crear($usuario, $nombres, $apellidos, $passwordHash, $creadoPor = null)
+        public function crear($usuario, $nombres, $apellidos, $passwordHash, $idPerfil = null, $creadoPor = null)
         {
             $sql = "INSERT INTO usuarios (usuario,
                                           nombres,
                                           apellidos,
                                           password_hash,
+                                          id_perfil,
                                           created_by)
-                    VALUES (?, ?, ?, ?, ?)";
+                    VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
 
-            return $stmt->execute([$usuario, $nombres, $apellidos, $passwordHash, $creadoPor]);
+            return $stmt->execute([
+                $usuario,
+                $nombres,
+                $apellidos,
+                $passwordHash,
+                ($idPerfil !== null && ctype_digit((string) $idPerfil)) ? (int) $idPerfil : null,
+                $creadoPor,
+            ]);
         }
 
         /**

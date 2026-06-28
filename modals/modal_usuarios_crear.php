@@ -61,6 +61,42 @@
                         </div>
                     </div>
 
+                    <!-- Perfil (combobox con búsqueda) + botón "Ver perfiles" (informativo) -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input_perfil">Perfil</label>
+                        <div class="d-flex gap-2 align-items-start">
+                            <div class="position-relative flex-grow-1" id="combobox-perfil">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                    <input type="text"
+                                           class="form-control form-control-sm"
+                                           id="input_perfil"
+                                           placeholder="Selecciona un perfil..."
+                                           autocomplete="off"
+                                           maxlength="<?php echo PERFIL_NOMBRE_MAX_LENGTH;?>">
+                                    <span class="input-group-text" id="btn-abrir-perfiles" style="cursor: pointer;" title="Ver perfiles">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </span>
+                                </div>
+
+                                <!-- Resultados de la búsqueda (se completan por JS) -->
+                                <ul class="list-group position-absolute w-100 shadow-sm d-none"
+                                    id="lista-perfiles"
+                                    style="z-index: 1060; max-height: 220px; overflow-y: auto;">
+                                </ul>
+
+                                <div class="invalid-feedback small" id="error-id_perfil"></div>
+                            </div>
+
+                            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="btn-ver-perfiles">
+                                <i class="bi bi-eye me-1"></i>Ver Accesos
+                            </button>
+                        </div>
+
+                        <!-- Id real del perfil elegido (lo completa el JS al seleccionar) -->
+                        <input type="hidden" id="id_perfil" name="id_perfil">
+                    </div>
+
                     <div class="row g-2 mb-1">
                         <div class="col-md-6">
                             <label class="form-label fw-bold small mb-1" for="password">Contraseña</label>

@@ -102,6 +102,17 @@
         }
 
         /**
+         * Todos los perfiles (id + nombre), ordenados por nombre. Lo usa el combobox de
+         * Perfil del formulario de usuarios.
+         *
+         * @return array Lista de ['id', 'nombre'].
+         */
+        public function listarTodos()
+        {
+            return $this->pdo->query("SELECT id, nombre FROM perfiles ORDER BY nombre ASC")->fetchAll();
+        }
+
+        /**
          * Cantidad total de perfiles (sin filtro).
          */
         public function contarTodos()

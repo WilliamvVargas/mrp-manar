@@ -1,3 +1,7 @@
+// Flag: true mientras se "salta" del modal de creación al de "Ver perfiles". Sirve para NO
+// resetear el formulario de creación al ocultarlo, y poder volver a él al cerrar el informativo.
+let saltandoVerPerfiles = false;
+
 $(document).ready(function() {
 
     // --- 1. INICIALIZACIONES ---
@@ -45,6 +49,195 @@ $(document).ready(function() {
     activarTogglePassword('#togglePasswordEdit', '#password-editar', '#iconEyeEdit');
     activarTogglePassword('#togglePasswordConfirmEdit', '#confirm-password-editar', '#iconEyeConfirmEdit');
 
+    // --- Combobox de Perfil (modal de creación) ---
+    let PERFILES = [];                       // catálogo de perfiles {id, nombre}
+    const $inputPerfil = $('#input_perfil');
+
+    function cargarPerfiles() {
+        $.ajax({
+            url: 'controllers/perfiles_controller.php?action=combo',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    PERFILES = res.data || [];
+                }
+            }
+        });
+    }
+
+    // Limpia la selección de perfil (cuando se edita el texto sin elegir de la lista).
+    function limpiarSeleccionPerfil() {
+        $('#id_perfil').val('');
+        $inputPerfil.removeClass('is-valid');
+    }
+
+    inicializarCombobox({
+        input:      '#input_perfil',
+        lista:      '#lista-perfiles',
+        chevron:    '#btn-abrir-perfiles',
+        contenedor: '#combobox-perfil',
+        max:        50,
+        campo:      'nombre',
+        opciones:   function() { return PERFILES; },
+        render: function(p) {
+            return '<span class="small">' + $('<div>').text(p.nombre).html() + '</span>';
+        },
+        onInput:  limpiarSeleccionPerfil,
+        onSelect: function(p) {
+            $inputPerfil.val(p.nombre).addClass('is-valid').removeClass('is-invalid');
+            $('#id_perfil').val(p.id);
+            limpiarErrorCampo($inputPerfil);
+        }
+    });
+
+    // Validación del Perfil al SALIR del combobox: el motor valida por `name` y el valor real
+    // va en el hidden #id_perfil, así que se valida aparte (igual que el menú en Ítem Menús).
+    $inputPerfil.on('blur', function() {
+        if ($('#id_perfil').val() !== '') {
+            limpiarErrorCampo($inputPerfil);
+            return;
+        }
+        $inputPerfil.addClass('is-invalid').removeClass('is-valid');
+        ejecutarValidacionUniversal($('#id_perfil'));   // muestra "Debe seleccionar un Perfil"
+    });
+
+    cargarPerfiles();
+
+    // ============================================================
+    //  Modal "Ver perfiles" (informativo): combobox + cards de menús/accesos
+    // ============================================================
+
+    // Ícono del ítem (Bootstrap con la fuente; personalizado con su archivo). Vacío si no tiene.
+    function iconoItemVer(it) {
+        if (!it.icono_id) {
+            return '';
+        }
+        if (it.icono_tipo === 'bootstrap') {
+            return '<i class="bi bi-' + it.icono_valor + ' me-1"></i>';
+        }
+        if (it.icono_archivo) {
+            return '<img class="me-1" src="assets/icons/personalizados/' + it.icono_archivo + '" alt="" '
+                 + 'style="width: 1em; height: 1em; object-fit: contain; vertical-align: -0.125em;">';
+        }
+        return '';
+    }
+
+    // Cards (con list-group): SOLO los menús e ítems menú que el perfil tiene con acceso
+    // activo. La cabecera de la card es el menú ("posición. nombre"); la lista, sus ítems
+    // concedidos ("posición. nombre" + ícono). Los menús/ítems sin acceso NO se muestran.
+    function construirCardsVer(menus, itemsPorMenu, concedidos) {
+        const cards = menus.map(function(m) {
+            const itemsConcedidos = (itemsPorMenu[String(m.id)] || []).filter(function(it) {
+                return concedidos.has(Number(it.id));
+            });
+            if (!itemsConcedidos.length) {
+                return '';
+            }
+
+            const tituloEsc = $('<div>').text(m.nombre).html();
+            const lista = itemsConcedidos.map(function(it) {
+                const nombreEsc   = $('<div>').text(it.nombre).html();
+                const estadoBadge = Number(it.estado) === 1
+                    ? '<span class="badge bg-success">Activo</span>'
+                    : '<span class="badge bg-secondary">Inactivo</span>';
+                return '<li class="list-group-item d-flex align-items-center py-1 px-2 small">'
+                     +     '<span class="flex-grow-1">' + iconoItemVer(it) + nombreEsc + '</span>'
+                     +     estadoBadge
+                     + '</li>';
+            }).join('');
+
+            return '<div class="card mb-2">'
+                 +     '<div class="card-header py-1 px-2 fw-semibold small">' + tituloEsc + '</div>'
+                 +     '<ul class="list-group list-group-flush">' + lista + '</ul>'
+                 + '</div>';
+        }).filter(Boolean).join('');
+
+        return cards || '<div class="text-muted small p-2">Este perfil no tiene accesos asignados.</div>';
+    }
+
+    // Carga menús + ítems + accesos del perfil y arma las cards informativas.
+    function cargarAccesosPerfilVer(idPerfil) {
+        const $cont = $('#accordion-ver-perfiles');
+        $cont.html('<div class="text-muted small p-2">Cargando...</div>');
+
+        $.when(
+            $.ajax({ url: 'controllers/item_menus_controller.php?action=menus',        type: 'GET', dataType: 'json' }),
+            $.ajax({ url: 'controllers/item_menus_controller.php?action=listar_orden', type: 'GET', dataType: 'json' }),
+            $.ajax({ url: 'controllers/perfiles_controller.php?action=accesos', type: 'GET', dataType: 'json', data: { id: idPerfil } })
+        ).done(function(menusResp, itemsResp, accesosResp) {
+            const menusRes   = menusResp[0];
+            const itemsRes   = itemsResp[0];
+            const accesosRes = accesosResp[0];
+
+            if (!menusRes || menusRes.status !== 'success') {
+                $cont.html('<div class="text-danger small p-2">No se pudieron cargar los menús.</div>');
+                return;
+            }
+
+            const menus = menusRes.data || [];
+            const items = (itemsRes && itemsRes.status === 'success') ? (itemsRes.data || []) : [];
+            const concedidos = new Set(
+                ((accesosRes && accesosRes.status === 'success') ? (accesosRes.data || []) : []).map(Number)
+            );
+
+            if (!menus.length) {
+                $cont.html('<div class="text-muted small p-2">No hay menús registrados.</div>');
+                return;
+            }
+
+            const itemsPorMenu = {};
+            items.forEach(function(it) {
+                const k = String(it.menu_id);
+                (itemsPorMenu[k] = itemsPorMenu[k] || []).push(it);
+            });
+
+            $cont.html(construirCardsVer(menus, itemsPorMenu, concedidos));
+        }).fail(function() {
+            $cont.html('<div class="text-danger small p-2">Error al cargar los datos.</div>');
+        });
+    }
+
+    // Botón "Ver perfiles": "salta" al modal informativo. Oculta el de creación (sin resetearlo,
+    // por el flag) y su evento 'hidden' se encarga de mostrar el informativo a continuación.
+    $('#btn-ver-perfiles').on('click', function() {
+        // El informativo se abre con el MISMO perfil elegido en creación; si hay, carga sus accesos.
+        const idActual     = $('#id_perfil').val();
+        const nombreActual = $('#input_perfil').val();
+
+        if (idActual) {
+            $('#id_perfil_ver').val(idActual);
+            $('#input_perfil_ver').val(nombreActual);
+            cargarAccesosPerfilVer(idActual);
+        } else {
+            $('#id_perfil_ver').val('');
+            $('#input_perfil_ver').val('');
+            $('#accordion-ver-perfiles').html('<div class="text-muted small p-2">Selecciona un perfil para ver sus accesos.</div>');
+        }
+
+        saltandoVerPerfiles = true;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUsuarioCrear')).hide();
+    });
+
+    // Combobox de perfil dentro del modal "Ver perfiles".
+    inicializarCombobox({
+        input:      '#input_perfil_ver',
+        lista:      '#lista-perfiles-ver',
+        chevron:    '#btn-abrir-perfiles-ver',
+        contenedor: '#combobox-perfil-ver',
+        max:        50,
+        campo:      'nombre',
+        opciones:   function() { return PERFILES; },
+        render: function(p) {
+            return '<span class="small">' + $('<div>').text(p.nombre).html() + '</span>';
+        },
+        onSelect: function(p) {
+            $('#input_perfil_ver').val(p.nombre);
+            $('#id_perfil_ver').val(p.id);
+            cargarAccesosPerfilVer(p.id);
+        }
+    });
+
 
     // --- 2. ACCIONES DE FORMULARIOS (SUBMITS) ---
 
@@ -79,10 +272,14 @@ $(document).ready(function() {
                 } 
                 else if (res.status === 'error') {
 
-                    $(modalMensaje).slideUp(150); 
-                    
+                    $(modalMensaje).slideUp(150);
+
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
+                        // El error de Perfil apunta al hidden #id_perfil: márcalo en el combobox visible.
+                        if (res.errors && res.errors.id_perfil) {
+                            $('#input_perfil').addClass('is-invalid').removeClass('is-valid');
+                        }
                     }
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                 }
@@ -230,8 +427,34 @@ $(document).ready(function() {
 
 $('#modalUsuarioCrear').on('hidden.bs.modal', function (e) {
 
+    // Si venimos del botón "Ver perfiles", mostramos el informativo y NO reseteamos el
+    // formulario (volveremos a él al cerrar el informativo).
+    if (saltandoVerPerfiles) {
+        saltandoVerPerfiles = false;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUsuarioVerPerfiles')).show();
+        return;
+    }
+
     limpiarFormularioCompleto("#form-usuario","#modal-mensajes", true);
 
+});
+
+// Al cerrar "Ver perfiles" (informativo) se vuelve al modal de creación. El perfil que quedó
+// elegido en el informativo se refleja en el campo Perfil del formulario de creación.
+$('#modalUsuarioVerPerfiles').on('hidden.bs.modal', function () {
+    const idVer     = $('#id_perfil_ver').val();
+    const nombreVer = $('#input_perfil_ver').val();
+
+    if (idVer) {
+        $('#id_perfil').val(idVer);
+        $('#input_perfil').val(nombreVer).addClass('is-valid').removeClass('is-invalid');
+    } else {
+        $('#id_perfil').val('');
+        $('#input_perfil').val('').removeClass('is-valid is-invalid');
+    }
+    limpiarErrorCampo($('#input_perfil'));
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUsuarioCrear')).show();
 });
 
 // Cargar datos en Modal de Edición

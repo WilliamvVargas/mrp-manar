@@ -3,11 +3,31 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/conexion.php';
 require_once __DIR__ . '/../includes/funciones_validacion.php';
 require_once __DIR__ . '/../models/usuario_model.php';
+require_once __DIR__ . '/../models/perfiles_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 $usuarioModel = new Usuario($pdo);
+$perfilModel  = new Perfil($pdo);
+
+/**
+ * Valida el Perfil elegido: requerido + que exista en la BD.
+ *
+ * @return string|null Error si falla, null si pasa.
+ */
+function validarPerfilUsuario($valor, Perfil $perfilModel)
+{
+    $valor = trim((string) $valor);
+
+    if ($valor === '') {
+        return 'Debe seleccionar un <b>Perfil</b>.';
+    }
+    if (!ctype_digit($valor) || !$perfilModel->buscarPorId((int) $valor)) {
+        return 'El <b>Perfil</b> seleccionado no es válido.';
+    }
+    return null;
+}
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -87,6 +107,7 @@ switch ($action) {
         $usuario = isset($_POST['usuario']) ? strtolower(trim($_POST['usuario'])) : '';
         $nombres = trim($_POST['nombres'] ?? '');
         $apellidos = trim($_POST['apellidos'] ?? '');
+        $idPerfil = $_POST['id_perfil'] ?? '';
         $password = $_POST['password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
 
@@ -102,6 +123,9 @@ switch ($action) {
         if ($err = validarCampoTexto($apellidos, 'Apellidos', 'apellidos'))
             $errores['apellidos'] = $err;
 
+        if ($err = validarPerfilUsuario($idPerfil, $perfilModel))
+            $errores['id_perfil'] = $err;
+
         if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
             $errores['password'] = $err;
 
@@ -115,7 +139,7 @@ switch ($action) {
 
             $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-            if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash, $_SESSION['usuario_id'])) {
+            if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash, $idPerfil, $_SESSION['usuario_id'])) {
 
                 echo json_encode(['status' => 'success',
                                   'message' => 'Usuario creado con éxito',
@@ -308,6 +332,8 @@ switch ($action) {
             $errores[$campo] = validarCampoTexto($valor, $nombreFormulario,
                                                                     ['requerido' => true,
                                                                      'coincide_con' => $extra]);
+        else if ($campo === 'id_perfil')
+            $errores[$campo] = validarPerfilUsuario($valor, $perfilModel);
         else{
            $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, $campo, $pdo);
         }

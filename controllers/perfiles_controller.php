@@ -191,6 +191,19 @@ switch ($action) {
         }
         exit;
 
+    case 'combo':
+
+        // Todos los perfiles (id + nombre) para el combobox de Perfil del form de usuarios.
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $perfilModel->listarTodos()
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'listar':
 
         // Listado paginado para la tabla principal (DataTables server-side).
