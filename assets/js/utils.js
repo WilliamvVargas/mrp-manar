@@ -687,26 +687,32 @@ function itemPosicion(id, nombre, ordenOriginal, tipo, textoBadge, estado, icono
  *   }
  */
 function inicializarAsignadorPosicion(config) {
-    const SEL_MODAL       = '#modalAsignarPosicion';
-    const SEL_LISTA       = '#lista-posicion';
-    const SEL_MENSAJES    = '#modal-mensajes-posicion';
-    const SEL_BTN_VOLVER  = '#btn-volver-posicion';
-    const SEL_BTN_CANCEL  = '#btn-cancelar-posicion';
-    const SEL_BTN_GUARDAR = '#btn-guardar-posicion';
-    const SEL_INSTR_UNO   = '#instruccion-posicion-uno';
-    const SEL_INSTR_TODOS = '#instruccion-posicion-todos';
+    // Selectores del modal (configurables vía config.selectores): permiten una SEGUNDA
+    // instancia sobre OTRO modal en la misma página. Por defecto usan los IDs del modal
+    // compartido original.
+    const sel = config.selectores || {};
+    const SEL_MODAL       = sel.modal       || '#modalAsignarPosicion';
+    const SEL_LISTA       = sel.lista       || '#lista-posicion';
+    const SEL_MENSAJES    = sel.mensajes    || '#modal-mensajes-posicion';
+    const SEL_BTN_VOLVER  = sel.btnVolver   || '#btn-volver-posicion';
+    const SEL_BTN_CANCEL  = sel.btnCancelar || '#btn-cancelar-posicion';
+    const SEL_BTN_GUARDAR = sel.btnGuardar  || '#btn-guardar-posicion';
+    const SEL_INSTR_UNO   = sel.instrUno    || '#instruccion-posicion-uno';
+    const SEL_INSTR_TODOS = sel.instrTodos  || '#instruccion-posicion-todos';
 
     const selectorCsrf = config.csrf || '#csrf_token';
     const modalAsignar = bootstrap.Modal.getOrCreateInstance(document.querySelector(SEL_MODAL));
 
-    let ctxActivo = null;    // contexto activo del modal (creación, edición o global)
-    let saltando  = false;   // true mientras se "salta" desde el modal padre a Asignar Posición
+    let ctxActivo    = null;    // contexto activo del modal (creación, edición o global)
+    let $botonActivo = null;    // botón que abrió el modal (para el spinner y para construirItems)
+    let saltando     = false;   // true mientras se "salta" desde el modal padre a Asignar Posición
 
     // Abre el modal desde un contexto: arma el listado y, según el modo, salta del modal
     // padre (evita el destello) o lo abre directo (global, sin modal padre).
-    function abrir(ctx) {
-        ctxActivo = ctx;
-        setBtnLoading($(ctx.boton), 'Cargando...');
+    function abrir(ctx, $boton) {
+        ctxActivo    = ctx;
+        $botonActivo = ($boton && $boton.length) ? $boton : $(ctx.boton);
+        setBtnLoading($botonActivo, 'Cargando...');
 
         const esGlobal = !!ctx.global;
 
@@ -744,7 +750,7 @@ function inicializarAsignadorPosicion(config) {
                     return;
                 }
 
-                const items     = ctx.construirItems(res.data);
+                const items     = ctx.construirItems(res.data, $botonActivo);
                 const idMovible = ctx.idMovible();
 
                 // Destruye un sortable previo antes de re-pintar (mientras conserva 'ui-sortable').
@@ -846,8 +852,10 @@ function inicializarAsignadorPosicion(config) {
     // --- Conexión de eventos ---
 
     config.contextos.forEach(function(ctx) {
-        $(ctx.boton).on('click', function() {
-            abrir(ctx);
+        // Binding DELEGADO: soporta botones estáticos y botones dentro de filas de un
+        // DataTable (que se redibujan). Se pasa el botón clickeado a abrir().
+        $(document).on('click', ctx.boton, function() {
+            abrir(ctx, $(this));
         });
 
         // Contextos con modal padre: gestiona el "salto" a Asignar Posición o el cierre real.
@@ -884,13 +892,18 @@ function inicializarAsignadorPosicion(config) {
             data: { orden: orden, csrf_token: $(selectorCsrf).val() },
             dataType: 'json',
             success: function(res) {
+                resetBtnLoading($btn);
+
                 if (res.status === 'success') {
-                    modalAsignar.hide();
+                    // El modal NO se cierra solo: refresca la tabla de fondo (si la hay),
+                    // re-pinta la lista con el nuevo orden como base (limpia las etiquetas de
+                    // "Posición Original") y muestra el éxito arriba. El usuario cierra cuando quiera.
                     if (config.tabla) {
                         config.tabla.ajax.reload(null, false);
                     }
+                    cargarLista(ctxActivo);
+                    mostrarMensajeFormulario(SEL_MENSAJES, 'Éxito', res.message, 'success');
                 } else {
-                    resetBtnLoading($btn);
                     mostrarMensajeFormulario(SEL_MENSAJES, 'Atención', res.message, 'danger');
                 }
             },
@@ -928,8 +941,8 @@ function inicializarAsignadorPosicion(config) {
 
     // Al abrir Asignar Posición (ya cargado), el botón del contexto vuelve a su estado original.
     $(SEL_MODAL).on('shown.bs.modal', function() {
-        if (ctxActivo) {
-            resetBtnLoading($(ctxActivo.boton));
+        if ($botonActivo) {
+            resetBtnLoading($botonActivo);
         }
     });
 

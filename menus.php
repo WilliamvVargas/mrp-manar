@@ -64,9 +64,10 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 20%">Posición</th>
-                            <th style="width: 30%">Nombre</th>
-                            <th style="width: 30%">Estado</th>
+                            <th style="width: 15%">Posición</th>
+                            <th style="width: 28%">Nombre</th>
+                            <th style="width: 15%" class="text-center">N° de Item Menús</th>
+                            <th style="width: 22%">Estado</th>
                             <th style="width: 20%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -83,6 +84,7 @@
     include 'modals/modal_menus_crear.php';
     include 'modals/modal_menus_editar.php';
     include 'modals/modal_asignar_posicion.php';
+    include 'modals/modal_asignar_posicion_items.php';
     include 'modals/modal_menus_eliminar.php';
 
 ?>

@@ -255,7 +255,7 @@ switch ($action) {
         $estado   = $_GET['estado'] ?? '';   // '' = todos, '1' = activo, '0' = inactivo
 
         // Columna y dirección de ordenamiento (índice -> nombre lógico).
-        $columnas     = ['posicion', 'nombre', 'estado'];
+        $columnas     = [0 => 'posicion', 1 => 'nombre', 2 => 'total_items', 3 => 'estado'];
         $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
         $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'posicion';
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';

@@ -366,9 +366,10 @@
         {
             // Lista blanca de columnas ordenables: evita inyección en el ORDER BY.
             $columnasValidas = [
-                'posicion' => 'posicion',
-                'nombre'   => 'nombre',
-                'estado'   => 'estado',
+                'posicion'    => 'posicion',
+                'nombre'      => 'nombre',
+                'estado'      => 'estado',
+                'total_items' => 'total_items',   // conteo de ítems menú asociados (ordenable)
             ];
             $columna   = $columnasValidas[$columnaOrden] ?? 'posicion';
             $direccion = (strtolower($dirOrden) === 'desc') ? 'DESC' : 'ASC';
@@ -380,7 +381,10 @@
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
-            $sql = "SELECT id, posicion, nombre, estado
+            // El conteo de ítems menú asociados se calcula en el SQL (subconsulta) para poder
+            // ordenarlo desde la BD sobre TODO el conjunto, no solo la página visible.
+            $sql = "SELECT id, posicion, nombre, estado,
+                           (SELECT COUNT(*) FROM item_menus im WHERE im.menu_id = menus.id) AS total_items
                     FROM menus
                     $where
                     ORDER BY $columna $direccion

@@ -13,6 +13,13 @@ $(document).ready(function() {
             { data: 'posicion', className: 'text-center' },
             { data: 'nombre', render: $.fn.dataTable.render.text() },
             {
+                data: 'total_items',
+                className: 'text-center',
+                render: function(total) {
+                    return (total === null || total === undefined) ? 0 : total;
+                }
+            },
+            {
                 data: 'estado',
                 className: 'text-center',
                 render: function(estado) {
@@ -31,16 +38,26 @@ $(document).ready(function() {
                     const titulo = activo ? 'Inactivar menú' : 'Activar menú';
                     const clase  = activo ? 'btn-success' : 'btn-secondary';
 
-                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-menu me-1" '
-                                    + 'data-id="' + id + '" title="Editar menú"><i class="bi bi-pencil"></i></button>';
-
                     const btnEstado = '<button type="button" class="btn btn-sm ' + clase + ' btn-estado-menu me-1" '
                                     + 'data-id="' + id + '" title="' + titulo + '"><i class="bi bi-power"></i></button>';
+
+                    // Reordenar las posiciones de los ítems del menú. Se muestra siempre, pero
+                    // queda deshabilitado si el menú no tiene ítems (nada que reordenar).
+                    const nombreAttr = $('<div>').text(fila.nombre == null ? '' : fila.nombre).html().replace(/"/g, '&quot;');
+                    const sinItems   = Number(fila.total_items) === 0;
+                    const btnAsignarItems = '<button type="button" class="btn btn-sm btn-outline-dark btn-asignar-items-menu me-1" '
+                                          + 'data-id="' + id + '" data-nombre="' + nombreAttr + '" '
+                                          + (sinItems ? 'disabled ' : '')
+                                          + 'title="' + (sinItems ? 'El menú no tiene ítems menú' : 'Asignar posición ítem menús') + '">'
+                                          + '<i class="bi bi-sort-numeric-down"></i></button>';
+
+                    const btnEditar = '<button type="button" class="btn btn-sm btn-outline-dark btn-editar-menu me-1" '
+                                    + 'data-id="' + id + '" title="Editar menú"><i class="bi bi-pencil"></i></button>';
 
                     const btnEliminar = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-menu" '
                                       + 'data-id="' + id + '" title="Eliminar menú"><i class="bi bi-trash"></i></button>';
 
-                    return btnEstado + btnEditar + btnEliminar;
+                    return btnEstado + btnAsignarItems + btnEditar + btnEliminar;
                 }
             }
         ]
@@ -390,6 +407,44 @@ $(document).ready(function() {
         urlReordenar: 'controllers/menus_controller.php?action=reordenar',
         tabla:        tablaConsulta,
         contextos:    [ctxCrear, ctxEditar, ctxGlobal]
+    });
+
+    // --- Asignar Posición de los ÍTEMS de un menú (botón por fila del DataTable) ---
+    // Reusa el MISMO motor, pero sobre su PROPIO modal (selectores configurables) y apuntando
+    // al backend de item_menus. El menú es fijo (el de la fila), por eso no hay combobox.
+    const ctxItemsMenu = {
+        global:    true,
+        boton:     '.btn-asignar-items-menu',
+        idMovible: function() { return null; },
+        construirItems: function(data, $boton) {
+            const menuId = $boton ? String($boton.data('id')) : '';
+
+            // Refleja el nombre del menú en su campo de solo lectura.
+            $('#input-menu-items').val($boton ? ($boton.data('nombre') || '') : '');
+
+            // Solo los ítems del menú de la fila, todos movibles ('libre').
+            return data
+                .filter(function(r) { return String(r.menu_id) === menuId; })
+                .map(function(r, i) {
+                    return itemPosicion(r.id, r.nombre, i + 1, 'libre', null, r.estado);
+                });
+        }
+    };
+
+    inicializarAsignadorPosicion({
+        urlListar:    'controllers/item_menus_controller.php?action=listar_orden',
+        urlReordenar: 'controllers/item_menus_controller.php?action=reordenar',
+        selectores: {
+            modal:       '#modalAsignarPosicionItems',
+            lista:       '#lista-posicion-items',
+            mensajes:    '#modal-mensajes-posicion-items',
+            btnVolver:   '#btn-volver-posicion-items',
+            btnCancelar: '#btn-cancelar-posicion-items',
+            btnGuardar:  '#btn-guardar-posicion-items',
+            instrUno:    '#instruccion-posicion-uno-items',
+            instrTodos:  '#instruccion-posicion-todos-items'
+        },
+        contextos: [ctxItemsMenu]
     });
 
 });
