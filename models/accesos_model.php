@@ -1,0 +1,115 @@
+<?php
+
+    /*
+     * Modelo de acceso a datos de la tabla `accesos` (ítems menú habilitados por perfil).
+     * Un registro por (id_perfil, id_item_menu). `estado` 1 = con acceso, 0 = revocado.
+     * Al revocar NO se borra: se cambia el estado (conserva el rastro de quién lo modificó).
+     */
+    class Acceso
+    {
+        /** @var PDO */
+        private $pdo;
+
+        public function __construct(PDO $pdo)
+        {
+            $this->pdo = $pdo;
+        }
+
+        /**
+         * Ids de los ítems menú con acceso ACTIVO (estado = 1) para un perfil.
+         * Lo usa el modal para marcar los checkboxes correspondientes.
+         *
+         * @param int $idPerfil
+         * @return int[] Lista de id_item_menu.
+         */
+        public function itemMenusConcedidos($idPerfil)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT id_item_menu FROM accesos WHERE id_perfil = ? AND estado = 1"
+            );
+            $stmt->execute([(int) $idPerfil]);
+
+            return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        }
+
+        /**
+         * Resumen de accesos por menú para un perfil: por cada menú (TODOS) devuelve su
+         * posición, nombre, el total de ítems menú del menú y cuántos de esos ítems tiene el
+         * perfil con acceso ACTIVO (estado = 1). Lo usa la columna "Total Accesos" del
+         * DataTable de perfiles. Ordenado por la posición del menú.
+         *
+         * @param int $idPerfil
+         * @return array Lista de ['id','posicion','nombre','total_items','accesos_activos'].
+         */
+        public function resumenPorMenu($idPerfil)
+        {
+            $sql = "SELECT m.id, m.posicion, m.nombre,
+                           COUNT(im.id) AS total_items,
+                           COUNT(a.id)  AS accesos_activos
+                    FROM menus m
+                    LEFT JOIN item_menus im ON im.menu_id = m.id
+                    LEFT JOIN accesos a ON a.id_item_menu = im.id AND a.id_perfil = ? AND a.estado = 1
+                    GROUP BY m.id, m.posicion, m.nombre
+                    ORDER BY m.posicion ASC";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([(int) $idPerfil]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Aplica los accesos de un perfil según los ítems MARCADOS:
+         *   - Marcados   -> estado = 1 (se crea el registro o se reactiva uno revocado).
+         *   - Los que estaban activos y ya NO vienen marcados -> estado = 0 (se conserva el
+         *     registro y se anota updated_by, p. ej. quién lo desmarcó).
+         * Todo dentro de una transacción.
+         *
+         * @param int   $idPerfil
+         * @param array $itemsMarcados Ids de item_menu marcados.
+         * @param string|null $usuario  Id del usuario que aplica los cambios (auditoría).
+         * @return bool
+         */
+        public function actualizar($idPerfil, array $itemsMarcados, $usuario = null)
+        {
+            $idPerfil = (int) $idPerfil;
+            $marcados = array_values(array_unique(array_map('intval', $itemsMarcados)));
+
+            $this->pdo->beginTransaction();
+
+            try {
+                // 1. Marcados -> estado = 1 (crea o reactiva). En insert anota created_by;
+                //    en duplicado (ya existía) anota updated_by.
+                if ($marcados) {
+                    $up = $this->pdo->prepare(
+                        "INSERT INTO accesos (id_perfil, id_item_menu, estado, created_by)
+                         VALUES (?, ?, 1, ?)
+                         ON DUPLICATE KEY UPDATE estado = 1, updated_by = ?"
+                    );
+                    foreach ($marcados as $idItem) {
+                        $up->execute([$idPerfil, $idItem, $usuario, $usuario]);
+                    }
+                }
+
+                // 2. Los activos que ya no vienen marcados -> estado = 0 (conserva el registro).
+                if ($marcados) {
+                    $placeholders = implode(',', array_fill(0, count($marcados), '?'));
+                    $sql    = "UPDATE accesos SET estado = 0, updated_by = ?
+                               WHERE id_perfil = ? AND estado = 1 AND id_item_menu NOT IN ($placeholders)";
+                    $params = array_merge([$usuario, $idPerfil], $marcados);
+                } else {
+                    $sql    = "UPDATE accesos SET estado = 0, updated_by = ? WHERE id_perfil = ? AND estado = 1";
+                    $params = [$usuario, $idPerfil];
+                }
+                $this->pdo->prepare($sql)->execute($params);
+
+                $this->pdo->commit();
+
+                return true;
+
+            } catch (Throwable $e) {
+                $this->pdo->rollBack();
+                throw $e;
+            }
+        }
+    }

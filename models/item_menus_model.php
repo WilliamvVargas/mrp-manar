@@ -326,7 +326,12 @@
         public function listarOrdenados()
         {
             return $this->pdo
-                ->query("SELECT id, menu_id, nombre, icono_id, estado, posicion FROM item_menus ORDER BY menu_id ASC, posicion ASC")
+                ->query("SELECT im.id, im.menu_id, im.nombre, im.icono_id,
+                                ic.tipo AS icono_tipo, ic.valor AS icono_valor, ic.archivo AS icono_archivo,
+                                im.estado, im.posicion
+                         FROM item_menus im
+                         LEFT JOIN iconos ic ON ic.id = im.icono_id
+                         ORDER BY im.menu_id ASC, im.posicion ASC")
                 ->fetchAll();
         }
 

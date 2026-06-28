@@ -326,3 +326,9 @@
     padding-top: 0.3rem;
     padding-bottom: 0.3rem;
 }
+
+/* Filas de ítems en el modal de Accesos del perfil: cursor de mano (toda la fila es clickeable). */
+.acceso-item-fila,
+.acceso-item-fila .form-check-input {
+    cursor: pointer;
+}

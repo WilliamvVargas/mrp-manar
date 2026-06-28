@@ -3,11 +3,13 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/conexion.php';
 require_once __DIR__ . '/../includes/funciones_validacion.php';
 require_once __DIR__ . '/../models/perfiles_model.php';
+require_once __DIR__ . '/../models/accesos_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 $perfilModel = new Perfil($pdo);
+$accesoModel = new Acceso($pdo);
 
 // Reglas de validación del nombre del perfil (compartidas por registrar y validar_campo):
 // obligatorio, entre 2 y 50 caracteres, y único (case-insensitive).
@@ -209,6 +211,12 @@ switch ($action) {
             $totalFiltrados = $perfilModel->contarFiltrados($consulta);
             $datos          = $perfilModel->listarPagina($consulta, $columnaOrden, $dirOrden, $inicio, $longitud);
 
+            // Columna "Total Accesos": desglose por menú (activos/total) de cada perfil.
+            foreach ($datos as &$p) {
+                $p['resumen_accesos'] = $accesoModel->resumenPorMenu($p['id']);
+            }
+            unset($p);
+
             echo json_encode([
                 'draw'            => $draw,
                 'recordsTotal'    => $totalRegistros,
@@ -224,6 +232,53 @@ switch ($action) {
                 'data'            => [],
                 'error'           => 'Ocurrió un error al cargar los perfiles.'
             ]);
+        }
+        exit;
+
+    case 'accesos':
+
+        // Ids de ítems menú con acceso ACTIVO del perfil (para marcar los checkboxes).
+        $id = $_GET['id'] ?? '';
+
+        if (!ctype_digit((string) $id) || !$perfilModel->buscarPorId((int) $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'El perfil no existe.']);
+            exit;
+        }
+
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $accesoModel->itemMenusConcedidos((int) $id)
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'actualizar_accesos':
+
+        retrasar();
+
+        $idPerfil = $_POST['id_perfil'] ?? '';
+        $items    = $_POST['items'] ?? [];   // ids de item_menu MARCADOS
+
+        if (!ctype_digit((string) $idPerfil) || !$perfilModel->buscarPorId((int) $idPerfil)) {
+            echo json_encode(['status' => 'error', 'message' => 'El perfil no existe.']);
+            exit;
+        }
+        if (!is_array($items)) {
+            $items = [];
+        }
+
+        try {
+            $accesoModel->actualizar((int) $idPerfil, $items, $_SESSION['usuario_id']);
+
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Accesos actualizados con éxito.'
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
         }
         exit;
 }

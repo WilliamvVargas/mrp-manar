@@ -49,8 +49,9 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 15%" class="text-center">Id</th>
-                            <th style="width: 65%">Nombre</th>
+                            <th style="width: 8%"  class="text-center">Id</th>
+                            <th style="width: 22%">Nombre</th>
+                            <th style="width: 50%">Total Accesos</th>
                             <th style="width: 20%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -66,6 +67,7 @@
     include 'modals/modal_perfiles_crear.php';
     include 'modals/modal_perfiles_editar.php';
     include 'modals/modal_perfiles_eliminar.php';
+    include 'modals/modal_perfiles_accesos.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
