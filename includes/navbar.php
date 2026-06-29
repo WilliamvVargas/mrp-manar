@@ -1,3 +1,30 @@
+<?php
+    // Navbar dinámico: los menús, ítems, enlaces y estado activo dependen del perfil del usuario
+    // en sesión y de sus accesos activos. Solo se muestran menús e ítems activos con acceso.
+    require_once __DIR__ . '/../config/conexion.php';
+    require_once __DIR__ . '/../models/accesos_model.php';
+
+    $menuNavegacion = (new Acceso($pdo))->menuNavegacion($_SESSION['usuario_id'] ?? null);
+
+    // Ruta actual (archivo sin .php) para marcar el menú/ítem activo. Los archivos de página se
+    // llaman igual que el `enlace` del item_menu, así que basta comparar el nombre del archivo.
+    $rutaActual = basename($_SERVER['PHP_SELF'], '.php');
+
+    // HTML del ícono de un ítem (Bootstrap por fuente o personalizado por archivo).
+    if (!function_exists('iconoNavbar')) {
+        function iconoNavbar(array $item): string
+        {
+            if (($item['icono_tipo'] ?? '') === 'bootstrap' && !empty($item['icono_valor'])) {
+                return '<i class="bi bi-' . htmlspecialchars($item['icono_valor']) . ' me-2"></i>';
+            }
+            if (($item['icono_tipo'] ?? '') === 'personalizado' && !empty($item['icono_archivo'])) {
+                return '<img src="assets/icons/personalizados/' . htmlspecialchars($item['icono_archivo'])
+                     . '" alt="" class="me-2" style="width:1em;height:1em;object-fit:contain;vertical-align:-0.125em;">';
+            }
+            return '';
+        }
+    }
+?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container">
         <a class="navbar-brand fw-bold" href="dashboard">Panel de Control</a>
@@ -7,69 +34,34 @@
 
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle <?php echo (basename($_SERVER['PHP_SELF']) == 'usuarios.php') ? 'active' : ''; ?>" 
-                       href="#" id="navbarAdmin" role="button" data-bs-toggle="dropdown">
-                        Administración
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-dark">
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'usuarios.php') ? 'active' : ''; ?>" href="usuarios">
-                                <i class="bi bi-people-fill me-2"></i>Usuarios
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'perfiles.php') ? 'active' : ''; ?>" href="perfiles">
-                                <i class="bi bi-person-badge me-2"></i>Perfiles
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'menus.php') ? 'active' : ''; ?>" href="menus">
-                                <i class="bi bi-segmented-nav me-2"></i>Menús
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'item_menus.php') ? 'active' : ''; ?>" href="item_menus">
-                                <i class="bi bi-menu-app-fill me-2"></i>Ítem Menús
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'iconos.php') ? 'active' : ''; ?>" href="iconos">
-                                <i class="bi bi-grid-3x3-gap-fill me-2"></i>Íconos
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item disabled" href="#">Configuración</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle <?php echo (basename($_SERVER['PHP_SELF']) == 'usuarios.php') ? 'active' : ''; ?>" 
-                       href="#" id="navbarAdmin" role="button" data-bs-toggle="dropdown">
-                        Procesos
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-dark">
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'forecast.php') ? 'active' : ''; ?>" href="forecast">
-                                <i class="bi bi-graph-up me-2"></i>MRP
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'presupuesto.php') ? 'active' : ''; ?>" href="presupuesto">
-                                <i class="bi bi-cash-coin me-2"></i>Presupuesto
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'ventas_historicas.php') ? 'active' : ''; ?>" href="ventas_historicas">
-                                <i class="bi bi-currency-dollar me-2"></i>Ventas Historicas
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item <?php echo (basename($_SERVER['PHP_SELF']) == 'consultas_sap.php') ? 'active' : ''; ?>" href="consultas_sap">
-                                <i class="bi bi-database-fill-gear me-2"></i>Consultas SAP
-                            </a>
-                        </li>
-                    </ul>
-                </li>
+                <?php foreach ($menuNavegacion as $menu): ?>
+                    <?php
+                        // El menú queda "activo" si la ruta actual coincide con alguno de sus ítems.
+                        $menuActivo = false;
+                        foreach ($menu['items'] as $it) {
+                            if ($it['enlace'] === $rutaActual) {
+                                $menuActivo = true;
+                                break;
+                            }
+                        }
+                    ?>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle <?php echo $menuActivo ? 'active' : ''; ?>"
+                           href="#" role="button" data-bs-toggle="dropdown">
+                            <?php echo htmlspecialchars($menu['nombre']); ?>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <?php foreach ($menu['items'] as $item): ?>
+                                <li>
+                                    <a class="dropdown-item <?php echo ($item['enlace'] === $rutaActual) ? 'active' : ''; ?>"
+                                       href="<?php echo htmlspecialchars($item['enlace']); ?>">
+                                        <?php echo iconoNavbar($item) . htmlspecialchars($item['nombre']); ?>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </li>
+                <?php endforeach; ?>
             </ul>
             <div class="d-flex align-items-center">
                 <span class="navbar-text me-3 small">

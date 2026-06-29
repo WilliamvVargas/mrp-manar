@@ -59,6 +59,57 @@
         }
 
         /**
+         * Árbol de navegación (menús -> ítems) para el usuario indicado, según su perfil y sus
+         * accesos ACTIVOS. Solo incluye menús e ítems ACTIVOS (estado = 1) a los que el perfil
+         * tiene acceso (accesos.estado = 1). Ordenado por posición. Lo usa el navbar.
+         *
+         * @param string|null $usuarioId Id (UUID) del usuario en sesión.
+         * @return array Lista de menús: ['nombre', 'items' => [['nombre','enlace','icono_tipo','icono_valor','icono_archivo'], ...]].
+         */
+        public function menuNavegacion($usuarioId)
+        {
+            if (!$usuarioId) {
+                return [];
+            }
+
+            $sql = "SELECT m.id      AS menu_id,
+                           m.nombre  AS menu_nombre,
+                           im.nombre AS item_nombre,
+                           im.enlace AS item_enlace,
+                           ic.tipo   AS icono_tipo,
+                           ic.valor  AS icono_valor,
+                           ic.archivo AS icono_archivo
+                    FROM usuarios u
+                    JOIN accesos a     ON a.id_perfil = u.id_perfil AND a.estado = 1
+                    JOIN item_menus im ON im.id = a.id_item_menu AND im.estado = 1
+                    JOIN menus m       ON m.id = im.menu_id AND m.estado = 1
+                    LEFT JOIN iconos ic ON ic.id = im.icono_id
+                    WHERE u.id = ?
+                    ORDER BY m.posicion ASC, im.posicion ASC";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$usuarioId]);
+
+            // Agrupa los ítems por menú, conservando el orden de la consulta.
+            $menus = [];
+            foreach ($stmt->fetchAll() as $f) {
+                $idMenu = $f['menu_id'];
+                if (!isset($menus[$idMenu])) {
+                    $menus[$idMenu] = ['nombre' => $f['menu_nombre'], 'items' => []];
+                }
+                $menus[$idMenu]['items'][] = [
+                    'nombre'        => $f['item_nombre'],
+                    'enlace'        => $f['item_enlace'],
+                    'icono_tipo'    => $f['icono_tipo'],
+                    'icono_valor'   => $f['icono_valor'],
+                    'icono_archivo' => $f['icono_archivo'],
+                ];
+            }
+
+            return array_values($menus);
+        }
+
+        /**
          * Aplica los accesos de un perfil según los ítems MARCADOS:
          *   - Marcados   -> estado = 1 (se crea el registro o se reactiva uno revocado).
          *   - Los que estaban activos y ya NO vienen marcados -> estado = 0 (se conserva el
