@@ -13,6 +13,10 @@ $(document).ready(function() {
         tabla: '#tabla-consulta',
         url: 'controllers/usuarios_controller.php?action=listar',
         input: '#consulta',
+        extra: function(d) {
+            d.id_perfil = $('#filtro-perfil').val();   // '' = todos
+            d.estado    = $('#filtro-estado').val();   // '', '1' o '0'
+        },
         orden: [[4, 'desc']],   // Por fecha de creación, más recientes primero
         columnas: [
             { data: 'usuario',   render: $.fn.dataTable.render.text() },
@@ -69,6 +73,11 @@ $(document).ready(function() {
                 }
             }
         ]
+    });
+
+    // Recargar la tabla al cambiar el filtro de perfil o estado.
+    $('#filtro-perfil, #filtro-estado').on('change', function() {
+        tablaConsulta.ajax.reload();
     });
 
     // Listeners de limpieza automática al escribir

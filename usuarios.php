@@ -1,5 +1,9 @@
-<?php 
-    require_once 'includes/auth.php'; 
+<?php
+    require_once 'includes/auth.php';
+    require_once 'models/perfiles_model.php';
+
+    // Perfiles para el filtro de la tabla (opción "Todos" + cada perfil).
+    $perfilesFiltro = (new Perfil($pdo))->listarTodos();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -32,9 +36,9 @@
         <div class="card-body">
             <div class="table-responsive">
 
-                <div class="mb-2">
-                    <label class="form-label fw-bold small mb-1" for="consulta">Consulta</label>
-                    <div class="col-md-4 px-0">
+                <div class="row g-2 mb-2 mx-0">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small mb-1" for="consulta">Consulta</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                             <input type="text"
@@ -43,6 +47,23 @@
                                    name="consulta"
                                    placeholder="Ej: jperez, Juan, Pérez">
                         </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small mb-1" for="filtro-perfil">Perfil</label>
+                        <select class="form-select form-select-sm" id="filtro-perfil">
+                            <option value="">Todos</option>
+                            <?php foreach ($perfilesFiltro as $pf): ?>
+                                <option value="<?php echo (int) $pf['id']; ?>"><?php echo htmlspecialchars($pf['nombre']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small mb-1" for="filtro-estado">Estado</label>
+                        <select class="form-select form-select-sm" id="filtro-estado">
+                            <option value="">Todos</option>
+                            <option value="1">Activo</option>
+                            <option value="0">Inactivo</option>
+                        </select>
                     </div>
                 </div>
 

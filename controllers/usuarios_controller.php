@@ -49,6 +49,10 @@ switch ($action) {
         // Filtro propio del buscador (#consulta): por usuario, nombres o apellidos
         $consulta = trim($_GET['consulta'] ?? '');
 
+        // Filtros adicionales de la tabla.
+        $idPerfil = $_GET['id_perfil'] ?? '';   // '' = todos
+        $estado   = $_GET['estado'] ?? '';      // '', '1' o '0'
+
         // Columna y dirección de ordenamiento (índice -> nombre lógico)
         $columnas     = ['usuario', 'nombres', 'apellidos', 'perfil', 'fecha', 'estado'];
         $idxOrden     = (int) ($_GET['order'][0]['column'] ?? 4);
@@ -58,8 +62,8 @@ switch ($action) {
         try {
 
             $totalRegistros = $usuarioModel->contarTodos();
-            $totalFiltrados = $usuarioModel->contarFiltrados($consulta);
-            $datos          = $usuarioModel->listarPagina($consulta, $columnaOrden, $dirOrden, $inicio, $longitud);
+            $totalFiltrados = $usuarioModel->contarFiltrados($consulta, $idPerfil, $estado);
+            $datos          = $usuarioModel->listarPagina($consulta, $idPerfil, $estado, $columnaOrden, $dirOrden, $inicio, $longitud);
 
             echo json_encode([
                 'draw'            => $draw,

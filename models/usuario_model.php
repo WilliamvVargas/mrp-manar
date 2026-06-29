@@ -87,36 +87,70 @@
         }
 
         /**
-         * Cantidad de usuarios que coinciden con el filtro en usuario, nombres o apellidos.
-         * Si el filtro está vacío, equivale al total.
+         * Cantidad de usuarios que coinciden con los filtros (búsqueda, perfil y estado).
+         * Si no hay ningún filtro, equivale al total.
          */
-        public function contarFiltrados($busqueda)
+        public function contarFiltrados($busqueda, $idPerfil = '', $estado = '')
         {
-            if ($busqueda === '') {
+            list($where, $params) = $this->construirFiltro($busqueda, $idPerfil, $estado);
+
+            if ($where === '') {
                 return $this->contarTodos();
             }
 
-            $like = '%' . $busqueda . '%';
-            $stmt = $this->pdo->prepare("SELECT COUNT(*)
-                                         FROM usuarios
-                                         WHERE usuario LIKE ?
-                                            OR nombres LIKE ?
-                                            OR apellidos LIKE ?");
-            $stmt->execute([$like, $like, $like]);
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM usuarios u $where");
+            $stmt->execute($params);
 
             return (int) $stmt->fetchColumn();
+        }
+
+        /**
+         * Construye el WHERE de los filtros de la tabla principal (búsqueda en usuario/nombres/
+         * apellidos, perfil y estado), con los campos prefijados con el alias `u` de usuarios.
+         * Compartido por contarFiltrados y listarPagina.
+         *
+         * @return array [string $where, array $params]
+         */
+        private function construirFiltro($busqueda, $idPerfil, $estado)
+        {
+            $condiciones = [];
+            $params      = [];
+
+            if ($busqueda !== '') {
+                $like          = '%' . $busqueda . '%';
+                $condiciones[] = "(u.usuario LIKE ? OR u.nombres LIKE ? OR u.apellidos LIKE ?)";
+                $params[]      = $like;
+                $params[]      = $like;
+                $params[]      = $like;
+            }
+
+            if ($idPerfil !== '' && ctype_digit((string) $idPerfil)) {
+                $condiciones[] = "u.id_perfil = ?";
+                $params[]      = (int) $idPerfil;
+            }
+
+            if ($estado === '0' || $estado === '1') {
+                $condiciones[] = "u.estado = ?";
+                $params[]      = (int) $estado;
+            }
+
+            $where = $condiciones ? ('WHERE ' . implode(' AND ', $condiciones)) : '';
+
+            return [$where, $params];
         }
 
         /**
          * Devuelve una página de usuarios para DataTables (server-side).
          *
          * @param string $busqueda     Texto a buscar en usuario, nombres o apellidos.
+         * @param string $idPerfil     Id de perfil a filtrar ('' = todos).
+         * @param string $estado       '' (todos), '1' (activo) o '0' (inactivo).
          * @param string $columnaOrden Nombre lógico de la columna a ordenar.
          * @param string $dirOrden     'asc' o 'desc'.
          * @param int    $inicio       Offset (registro inicial).
          * @param int    $longitud     Cantidad de registros (-1 = todos).
          */
-        public function listarPagina($busqueda, $columnaOrden, $dirOrden, $inicio, $longitud)
+        public function listarPagina($busqueda, $idPerfil, $estado, $columnaOrden, $dirOrden, $inicio, $longitud)
         {
             // Lista blanca de columnas ordenables: evita inyección en el ORDER BY.
             $columnasValidas = [
@@ -135,13 +169,7 @@
             $inicio   = max(0, (int) $inicio);
             $longitud = (int) $longitud;
 
-            $where  = '';
-            $params = [];
-            if ($busqueda !== '') {
-                $like   = '%' . $busqueda . '%';
-                $where  = "WHERE u.usuario LIKE ? OR u.nombres LIKE ? OR u.apellidos LIKE ?";
-                $params = [$like, $like, $like];
-            }
+            list($where, $params) = $this->construirFiltro($busqueda, $idPerfil, $estado);
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
