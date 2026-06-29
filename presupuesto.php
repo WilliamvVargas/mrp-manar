@@ -22,7 +22,7 @@
 <div class="container">
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 text-black"><i class="bi bi-cash-coin me-2"></i>Presupuesto</h5>
+            <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Presupuesto'); ?></h5>
             <button class="btn btn-primary btn-sm"
                     data-bs-toggle="modal"
                     data-bs-target="#modalCargaMasivaPresupuesto">

@@ -24,7 +24,7 @@
 <div class="container-fluid">
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 text-black"><i class="bi bi-currency-dollar me-2"></i>Ventas Históricas</h5>
+            <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Ventas Históricas'); ?></h5>
             <div class="d-flex gap-2">
                 <button class="btn btn-primary btn-sm"
                         type="button"

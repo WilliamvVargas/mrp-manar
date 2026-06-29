@@ -78,7 +78,8 @@
                            im.enlace AS item_enlace,
                            ic.tipo   AS icono_tipo,
                            ic.valor  AS icono_valor,
-                           ic.archivo AS icono_archivo
+                           ic.archivo AS icono_archivo,
+                           ic.coloreable AS icono_coloreable
                     FROM usuarios u
                     JOIN accesos a     ON a.id_perfil = u.id_perfil AND a.estado = 1
                     JOIN item_menus im ON im.id = a.id_item_menu AND im.estado = 1
@@ -98,11 +99,12 @@
                     $menus[$idMenu] = ['nombre' => $f['menu_nombre'], 'items' => []];
                 }
                 $menus[$idMenu]['items'][] = [
-                    'nombre'        => $f['item_nombre'],
-                    'enlace'        => $f['item_enlace'],
-                    'icono_tipo'    => $f['icono_tipo'],
-                    'icono_valor'   => $f['icono_valor'],
-                    'icono_archivo' => $f['icono_archivo'],
+                    'nombre'           => $f['item_nombre'],
+                    'enlace'           => $f['item_enlace'],
+                    'icono_tipo'       => $f['icono_tipo'],
+                    'icono_valor'      => $f['icono_valor'],
+                    'icono_archivo'    => $f['icono_archivo'],
+                    'icono_coloreable' => $f['icono_coloreable'],
                 ];
             }
 

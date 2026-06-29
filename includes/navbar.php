@@ -3,6 +3,7 @@
     // en sesión y de sus accesos activos. Solo se muestran menús e ítems activos con acceso.
     require_once __DIR__ . '/../config/conexion.php';
     require_once __DIR__ . '/../models/accesos_model.php';
+    require_once __DIR__ . '/funciones_mantenedor.php';   // encabezadoMantenedor() para el card de cada mantenedor
 
     $menuNavegacion = (new Acceso($pdo))->menuNavegacion($_SESSION['usuario_id'] ?? null);
 
@@ -18,8 +19,11 @@
                 return '<i class="bi bi-' . htmlspecialchars($item['icono_valor']) . ' me-2"></i>';
             }
             if (($item['icono_tipo'] ?? '') === 'personalizado' && !empty($item['icono_archivo'])) {
+                // Monocromático (coloreable): clase `icono-mono` para forzarlo a blanco vía CSS.
+                // Los multicolor no la llevan y conservan sus colores.
+                $claseMono = !empty($item['icono_coloreable']) ? ' icono-mono' : '';
                 return '<img src="assets/icons/personalizados/' . htmlspecialchars($item['icono_archivo'])
-                     . '" alt="" class="me-2" style="width:1em;height:1em;object-fit:contain;vertical-align:-0.125em;">';
+                     . '" alt="" class="me-2' . $claseMono . '" style="width:1em;height:1em;object-fit:contain;vertical-align:-0.125em;">';
             }
             return '';
         }

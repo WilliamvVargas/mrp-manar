@@ -332,3 +332,16 @@
 .acceso-item-fila .form-check-input {
     cursor: pointer;
 }
+
+/* Íconos personalizados monocromáticos (coloreables) en el navbar oscuro: se fuerzan a blanco.
+   Un <img> no hereda el color del texto como sí lo hacen los íconos de fuente (Bootstrap), así
+   que se tiñe con filtro. Los multicolor no llevan .icono-mono y conservan sus colores. */
+.navbar-nav .dropdown-item img.icono-mono {
+    filter: brightness(0) invert(1);
+}
+
+/* Ícono personalizado monocromático en el encabezado del mantenedor (card-header, fondo claro):
+   se tiñe de negro para que acompañe al texto oscuro del título. */
+.card-header img.icono-mono {
+    filter: brightness(0);
+}

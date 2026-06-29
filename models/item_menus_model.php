@@ -231,6 +231,30 @@
         }
 
         /**
+         * Devuelve un ítem menú por su `enlace` (la ruta de la página), junto con los datos de su
+         * ícono. Lo usa el encabezado del mantenedor para mostrar su nombre e ícono.
+         *
+         * @param  string $enlace
+         * @return array|false ['nombre','enlace','icono_tipo','icono_valor','icono_archivo','icono_coloreable'] o false.
+         */
+        public function obtenerPorEnlace($enlace)
+        {
+            $sql = "SELECT im.nombre, im.enlace,
+                           ic.tipo    AS icono_tipo,
+                           ic.valor   AS icono_valor,
+                           ic.archivo AS icono_archivo,
+                           ic.coloreable AS icono_coloreable
+                    FROM item_menus im
+                    LEFT JOIN iconos ic ON ic.id = im.icono_id
+                    WHERE im.enlace = ?
+                    LIMIT 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$enlace]);
+
+            return $stmt->fetch();
+        }
+
+        /**
          * Elimina un ítem y recompacta las posiciones de los ítems que quedan EN SU MISMO
          * menú (los posteriores bajan una posición), todo dentro de una transacción. La
          * posición es relativa a cada menú, así que solo se tocan los de ese menú padre.
