@@ -275,6 +275,43 @@ switch ($action) {
         }
         exit;
 
+    case 'cambiar_password_propio':
+
+        retrasar();
+
+        // El usuario en sesión cambia SU PROPIA contraseña: el id viene de la sesión, nunca del
+        // cliente, así que no puede cambiar la de otro usuario.
+        $id = $_SESSION['usuario_id'];
+        $password = $_POST['password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+
+        $errores = [];
+
+        if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
+            $errores['password'] = $err;
+
+        if ($err = validarCampoTexto($confirm_password, 'Repetir Contraseña', ['requerido' => true,
+                                                                               'coincide_con' => $password]))
+            $errores['confirm_password'] = $err;
+
+        enviarErrorCamposFormulario($errores);
+
+        try {
+
+            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+            $usuarioModel->actualizarPassword($id, $password_hash, $_SESSION['usuario_id']);
+
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Tu contraseña ha sido actualizada con éxito.'
+            ]);
+
+        }
+        catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'cambiar_password':
 
         retrasar();

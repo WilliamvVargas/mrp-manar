@@ -1091,6 +1091,62 @@ function ejecutarValidacionUniversal($input, aprobar_input = true) {
     });
 }
 
+// === Cambiar contraseña del usuario en sesión (botón "Cambiar Contraseña" del navbar) ===
+// El modal se incluye junto al navbar, así que está disponible en todas las páginas autenticadas.
+$(document).ready(function() {
+    if (!document.getElementById('modalCambiarPasswordPropio')) {
+        return;   // página sin navbar (p. ej. el login)
+    }
+
+    activarTogglePassword('#togglePasswordPropio', '#password-propio', '#iconEyePropio');
+    activarTogglePassword('#togglePasswordConfirmPropio', '#confirm-password-propio', '#iconEyeConfirmPropio');
+
+    // Abrir el modal desde el navbar (con el formulario limpio).
+    $('#btn-cambiar-password-propio').on('click', function() {
+        limpiarFormularioCompleto('#form-password-propio', '#modal-mensajes-password-propio', true);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarPasswordPropio')).show();
+    });
+
+    // Submit: actualiza la contraseña del usuario en sesión.
+    $('#form-password-propio').on('submit', function(e) {
+        e.preventDefault();
+
+        const btn          = $('#btn-guardar-password-propio');
+        const formulario   = '#form-password-propio';
+        const modalMensaje = '#modal-mensajes-password-propio';
+        setBtnLoading(btn, 'Actualizando...');
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=cambiar_password_propio',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    limpiarFormularioCompleto(formulario, modalMensaje, false);
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
+                }
+                else if (res.status === 'error') {
+                    $(modalMensaje).slideUp(150);
+                    if (res.type === 'fields') {
+                        renderizarErroresCampos(formulario, res.errors);
+                    }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+                else {
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'warning');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            },
+            complete: function() {
+                resetBtnLoading(btn);
+            }
+        });
+    });
+});
+
 // Listener delegado universal para la acción del robot generador de claves
 $(document).on("click", ".btn-generar-password-global", function() {
     const $btn = $(this);
