@@ -27,16 +27,46 @@
                         <div id="modal-mensajes-eliminar"></div>
                     </div>
 
-                    <p class="small text-muted mb-2">¿Estás seguro de que deseas eliminar permanentemente este usuario?</p>
+                    <p class="small text-muted mb-2">¿Estás seguro de que deseas <span class="text-danger fw-bold">eliminar permanentemente</span> este usuario?</p>
 
                     <div class="mb-2">
                         <label class="form-label fw-bold small mb-1" for="input-usuario-eliminar">Nombre de Usuario</label>
                         <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" 
-                                   class="form-control form-control-sm fw-bold text-danger bg-light" 
-                                   name="usuario" 
+                            <input type="text"
+                                   class="form-control form-control-sm fw-bold text-danger bg-light"
+                                   name="usuario"
                                    id="input-usuario-eliminar"
                                    disabled>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input-nombres-eliminar">Nombres</label>
+                        <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input-nombres-eliminar"
+                                   readonly>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input-apellidos-eliminar">Apellidos</label>
+                        <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input-apellidos-eliminar"
+                                   readonly>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="input-perfil-eliminar">Perfil</label>
+                        <div class="input-group input-group-sm"> <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                            <input type="text"
+                                   class="form-control form-control-sm bg-light"
+                                   id="input-perfil-eliminar"
+                                   readonly>
                         </div>
                     </div>
 

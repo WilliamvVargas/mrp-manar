@@ -32,7 +32,9 @@ $(document).ready(function() {
                 orderable: false,
                 searchable: false,
                 className: 'text-center',
-                render: function(id) {
+                render: function(id, type, fila) {
+                    // El usuario "admin" (primer registro) no se puede eliminar.
+                    const esAdmin = fila.usuario === 'admin';
                     return `
                         <div class="btn-group btn-group-sm" role="group">
                             <button class="btn btn-outline-dark btn-ver-perfil" data-id="${id}" title="Ver Perfil">
@@ -44,7 +46,7 @@ $(document).ready(function() {
                             <button class="btn btn-outline-dark btn-password" data-id="${id}" title="Contraseña">
                                 <i class="bi bi-key"></i>
                             </button>
-                            <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" title="Eliminar">
+                            <button class="btn btn-outline-danger btn-eliminar" data-id="${id}" ${esAdmin ? 'disabled' : ''} title="${esAdmin ? 'No se puede eliminar al usuario admin' : 'Eliminar'}">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>`;
@@ -600,6 +602,12 @@ $(document).on('click', '.btn-editar', function() {
                 $('#nombres_editar').val(response.data.nombres);
                 $('#apellidos_editar').val(response.data.apellidos);
 
+                // El usuario "admin" no puede cambiar su nombre de usuario: campo en solo lectura.
+                const esAdmin = response.data.usuario === 'admin';
+                $('#usuario_editar')
+                    .prop('readonly', esAdmin)
+                    .attr('title', esAdmin ? 'El usuario admin no puede cambiar su nombre de usuario' : '');
+
                 // Perfil actual: id en el hidden, nombre en el visible (sin marcar check al cargar).
                 $('#id_perfil_editar').val(response.data.id_perfil || '');
                 $('#input_perfil_editar').val(response.data.perfil || '').removeClass('is-valid is-invalid');
@@ -679,7 +687,10 @@ $(document).on('click', '.btn-eliminar', function() {
 
                 $('#id_usuario_eliminar').val(response.data.id);
                 $('#input-usuario-eliminar').val(response.data.usuario);
-                
+                $('#input-nombres-eliminar').val(response.data.nombres);
+                $('#input-apellidos-eliminar').val(response.data.apellidos);
+                $('#input-perfil-eliminar').val(response.data.perfil || 'Sin perfil');
+
             } 
             else {
                 mostrarMensajeFormulario(modalMensaje, 'Atención', response.message, 'danger', 0);

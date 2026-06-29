@@ -27,7 +27,7 @@
                         <div id="modal-mensajes-eliminar"></div>
                     </div>
 
-                    <p class="small text-muted mb-2">¿Estás seguro de que deseas eliminar permanentemente este ítem menú?</p>
+                    <p class="small text-muted mb-2">¿Estás seguro de que deseas <span class="text-danger fw-bold">eliminar permanentemente</span> este ítem menú?</p>
 
                     <!-- Vista previa del ícono del ítem (la completa el JS) -->
                     <div class="d-flex justify-content-center mb-3">

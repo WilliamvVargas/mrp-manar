@@ -27,7 +27,7 @@
                         <div id="modal-mensajes-eliminar"></div>
                     </div>
 
-                    <p class="small text-muted mb-2">¿Estás seguro de que deseas eliminar permanentemente este icono?</p>
+                    <p class="small text-muted mb-2">¿Estás seguro de que deseas <span class="text-danger fw-bold">eliminar permanentemente</span> este icono?</p>
 
                     <div class="d-flex justify-content-center mb-3">
                         <div id="preview-icono-eliminar"

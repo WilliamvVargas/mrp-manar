@@ -11,6 +11,10 @@ header('Cache-Control: no-store');
 $usuarioModel = new Usuario($pdo);
 $perfilModel  = new Perfil($pdo);
 
+// El primer usuario (sembrado) se llama "admin": no puede cambiar su nombre de usuario
+// ni eliminarse. Se identifica por su nombre de usuario (el id es un UUID).
+const USUARIO_ADMIN = 'admin';
+
 /**
  * Valida el Perfil elegido: requerido + que exista en la BD.
  *
@@ -193,6 +197,15 @@ switch ($action) {
                 exit;
             }
 
+            // El usuario "admin" no puede cambiar su nombre de usuario (sí el resto de sus datos).
+            if ($actual['usuario'] === USUARIO_ADMIN && $usuario !== USUARIO_ADMIN) {
+                echo json_encode([
+                    'status'  => 'error',
+                    'message' => 'No se puede cambiar el nombre de usuario de <b>admin</b>.'
+                ]);
+                exit;
+            }
+
             // Sin cambios: los datos son idénticos a los actuales. Se detecta comparando el DATO
             // (no por filas afectadas), porque actualizar tocaría updated_by y daría un falso
             // "éxito" en un registro recién creado (cuyo updated_by aún es NULL).
@@ -307,11 +320,22 @@ switch ($action) {
 
         try {
 
-            if (!$usuarioModel->existePorId($id)) {
+            $registro = $usuarioModel->buscarPorId($id);
+
+            if (!$registro) {
                 echo json_encode([
                     'status' => 'error',
                     'type' => 'fields',
                     'message' => 'El usuario que intenta eliminar no existe.'
+                ]);
+                exit;
+            }
+
+            // El usuario "admin" no se puede eliminar.
+            if ($registro['usuario'] === USUARIO_ADMIN) {
+                echo json_encode([
+                    'status'  => 'error',
+                    'message' => 'No se puede eliminar al usuario <b>admin</b>.'
                 ]);
                 exit;
             }
