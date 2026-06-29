@@ -49,12 +49,13 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 18%">Usuario</th>
-                            <th style="width: 18%">Nombres</th>
-                            <th style="width: 18%">Apellidos</th>
-                            <th style="width: 14%">Perfil</th>
+                            <th style="width: 16%">Usuario</th>
+                            <th style="width: 16%">Nombres</th>
+                            <th style="width: 16%">Apellidos</th>
+                            <th style="width: 13%">Perfil</th>
                             <th style="width: 16%">Fecha de Creación</th>
-                            <th style="width: 16%" class="text-center">Acciones</th>
+                            <th style="width: 9%" class="text-center">Estado</th>
+                            <th style="width: 14%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

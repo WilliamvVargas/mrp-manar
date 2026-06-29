@@ -36,29 +36,28 @@
                         <div class="invalid-feedback small" id="error-usuario"></div>
                     </div>
 
-                    <div class="row g-2 mb-2"> 
-                        <div class="col-md-6">
-                            <label for="nombres" class="form-label fw-bold small mb-1">Nombres</label>
-                            <input type="text"
-                                   class="form-control form-control-sm"
-                                   id="nombres"
-                                   name="nombres"
-                                   placeholder="Ej: Juan Carlos" 
-                                   maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>"
-                                   data-check='true'>
-                            <div class="invalid-feedback small" id="error-nombres"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="apellidos" class="form-label fw-bold small mb-1">Apellidos</label>
-                            <input type="text"
-                                   class="form-control form-control-sm"
-                                   id="apellidos"
-                                   name="apellidos"
-                                   placeholder="Ej: Pérez Rossi"
-                                   maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>"
-                                   data-check='true'>
-                            <div class="invalid-feedback small" id="error-apellidos"></div>
-                        </div>
+                    <div class="mb-2">
+                        <label for="nombres" class="form-label fw-bold small mb-1">Nombres</label>
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               id="nombres"
+                               name="nombres"
+                               placeholder="Ej: Juan Carlos"
+                               maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>"
+                               data-check='true'>
+                        <div class="invalid-feedback small" id="error-nombres"></div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="apellidos" class="form-label fw-bold small mb-1">Apellidos</label>
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               id="apellidos"
+                               name="apellidos"
+                               placeholder="Ej: Pérez Rossi"
+                               maxlength="<?php echo NOMBRE_APELLIDO_MAX_LENGTH;?>"
+                               data-check='true'>
+                        <div class="invalid-feedback small" id="error-apellidos"></div>
                     </div>
 
                     <!-- Perfil (combobox con búsqueda) + botón "Ver perfiles" (informativo) -->
@@ -95,6 +94,21 @@
 
                         <!-- Id real del perfil elegido (lo completa el JS al seleccionar) -->
                         <input type="hidden" id="id_perfil" name="id_perfil">
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1 d-block">Estado</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   role="switch"
+                                   id="input_estado"
+                                   name="estado"
+                                   value="1"
+                                   checked>
+                            <label class="form-check-label small" for="input_estado" id="label-estado">Activo</label>
+                        </div>
                     </div>
 
                     <div class="row g-2 mb-1">

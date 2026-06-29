@@ -28,6 +28,15 @@ $(document).ready(function() {
             },
             { data: 'fecha' },
             {
+                data: 'estado',
+                className: 'text-center',
+                render: function(estado) {
+                    return Number(estado) === 1
+                        ? '<span class="badge bg-success">Activo</span>'
+                        : '<span class="badge bg-secondary">Inactivo</span>';
+                }
+            },
+            {
                 data: 'id',
                 orderable: false,
                 searchable: false,
@@ -35,8 +44,15 @@ $(document).ready(function() {
                 render: function(id, type, fila) {
                     // El usuario "admin" (primer registro) no se puede eliminar.
                     const esAdmin = fila.usuario === 'admin';
+                    // Botón de estado (igual que menús): verde si activo, gris si inactivo.
+                    const activo       = Number(fila.estado) === 1;
+                    const claseEstado  = activo ? 'btn-success' : 'btn-secondary';
+                    const tituloEstado = activo ? 'Inactivar usuario' : 'Activar usuario';
                     return `
                         <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn ${claseEstado} btn-estado-usuario" data-id="${id}" ${esAdmin ? 'disabled' : ''} title="${esAdmin ? 'No se puede cambiar el estado del usuario admin' : tituloEstado}">
+                                <i class="bi bi-power"></i>
+                            </button>
                             <button class="btn btn-outline-dark btn-ver-perfil" data-id="${id}" title="Ver Perfil">
                                 <i class="bi bi-person-badge"></i>
                             </button>
@@ -65,6 +81,14 @@ $(document).ready(function() {
     activarTogglePassword('#togglePasswordConfirm', '#confirm_password', '#iconEyeConfirm');
     activarTogglePassword('#togglePasswordEdit', '#password-editar', '#iconEyeEdit');
     activarTogglePassword('#togglePasswordConfirmEdit', '#confirm-password-editar', '#iconEyeConfirmEdit');
+
+    // Switch de Estado: actualiza su etiqueta (Activo/Inactivo) en creación y edición.
+    $('#input_estado').on('change', function() {
+        $('#label-estado').text(this.checked ? 'Activo' : 'Inactivo');
+    });
+    $('#input_estado_editar').on('change', function() {
+        $('#label-estado-editar').text(this.checked ? 'Activo' : 'Inactivo');
+    });
 
     // --- Combobox de Perfil (modal de creación) ---
     let PERFILES = [];                       // catálogo de perfiles {id, nombre}
@@ -342,6 +366,32 @@ $(document).ready(function() {
         });
     });
 
+    // Botón de estado (columna Acciones): alterna activo <-> inactivo. Solo refresca la tabla
+    // ante un 'success'; no muestra mensajes en pantalla (igual que menús).
+    $('#tabla-consulta tbody').on('click', '.btn-estado-usuario', function() {
+        const $btn = $(this);
+        const id   = $btn.data('id');
+
+        $btn.prop('disabled', true);
+
+        $.ajax({
+            url: 'controllers/usuarios_controller.php?action=cambiar_estado',
+            type: 'POST',
+            data: { id: id, csrf_token: $('#csrf_token').val() },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    tablaConsulta.ajax.reload(null, false);   // el redibujo restituye el botón
+                } else {
+                    $btn.prop('disabled', false);
+                }
+            },
+            error: function() {
+                $btn.prop('disabled', false);
+            }
+        });
+    });
+
 
     // --- 2. ACCIONES DE FORMULARIOS (SUBMITS) ---
 
@@ -364,16 +414,17 @@ $(document).ready(function() {
                 resetBtnLoading(btn);
                 if (res.status === 'success') {
                     limpiarFormularioCompleto(formulario, modalMensaje, true);
+                    $('#label-estado').text('Activo');   // switch vuelve a su valor por defecto
                     tablaConsulta.ajax.reload(null, true);
                     mostrarMensajeFormulario(
-                        modalMensaje, 
-                        'Éxito', 
-                        res.message, 
-                        'success', 
-                        400, 
+                        modalMensaje,
+                        'Éxito',
+                        res.message,
+                        'success',
+                        400,
                         res.credenciales
                     );
-                } 
+                }
                 else if (res.status === 'error') {
 
                     $(modalMensaje).slideUp(150);
@@ -544,6 +595,7 @@ $('#modalUsuarioCrear').on('hidden.bs.modal', function (e) {
     }
 
     limpiarFormularioCompleto("#form-usuario","#modal-mensajes", true);
+    $('#label-estado').text('Activo');   // el switch vuelve a su valor por defecto (activo)
 
 });
 
@@ -612,6 +664,13 @@ $(document).on('click', '.btn-editar', function() {
                 $('#id_perfil_editar').val(response.data.id_perfil || '');
                 $('#input_perfil_editar').val(response.data.perfil || '').removeClass('is-valid is-invalid');
                 limpiarErrorCampo($('#input_perfil_editar'));
+
+                // Estado actual del usuario en el switch ("admin" no lo puede cambiar).
+                const activoEditar = Number(response.data.estado) === 1;
+                $('#input_estado_editar')
+                    .prop('checked', activoEditar)
+                    .prop('disabled', esAdmin);
+                $('#label-estado-editar').text(activoEditar ? 'Activo' : 'Inactivo');
 
             } 
             else {

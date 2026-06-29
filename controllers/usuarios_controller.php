@@ -50,7 +50,7 @@ switch ($action) {
         $consulta = trim($_GET['consulta'] ?? '');
 
         // Columna y dirección de ordenamiento (índice -> nombre lógico)
-        $columnas     = ['usuario', 'nombres', 'apellidos', 'perfil', 'fecha'];
+        $columnas     = ['usuario', 'nombres', 'apellidos', 'perfil', 'fecha', 'estado'];
         $idxOrden     = (int) ($_GET['order'][0]['column'] ?? 4);
         $columnaOrden = $columnas[$idxOrden] ?? 'fecha';
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'desc';
@@ -112,6 +112,7 @@ switch ($action) {
         $nombres = trim($_POST['nombres'] ?? '');
         $apellidos = trim($_POST['apellidos'] ?? '');
         $idPerfil = $_POST['id_perfil'] ?? '';
+        $estado = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
         $password = $_POST['password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
 
@@ -143,7 +144,7 @@ switch ($action) {
 
             $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-            if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash, $idPerfil, $_SESSION['usuario_id'])) {
+            if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash, $idPerfil, $estado, $_SESSION['usuario_id'])) {
 
                 echo json_encode(['status' => 'success',
                                   'message' => 'Usuario creado con éxito',
@@ -170,6 +171,7 @@ switch ($action) {
         $nombres = trim($_POST['nombres'] ?? '');
         $apellidos = trim($_POST['apellidos'] ?? '');
         $idPerfil = $_POST['id_perfil'] ?? '';
+        $estado = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
 
         $errores = [];
 
@@ -206,13 +208,19 @@ switch ($action) {
                 exit;
             }
 
+            // El usuario "admin" tampoco puede cambiar de estado: se conserva el actual.
+            if ($actual['usuario'] === USUARIO_ADMIN) {
+                $estado = (int) $actual['estado'];
+            }
+
             // Sin cambios: los datos son idénticos a los actuales. Se detecta comparando el DATO
             // (no por filas afectadas), porque actualizar tocaría updated_by y daría un falso
             // "éxito" en un registro recién creado (cuyo updated_by aún es NULL).
             $sinCambios = $actual['usuario']   === $usuario
                        && $actual['nombres']   === $nombres
                        && $actual['apellidos'] === $apellidos
-                       && (string) $actual['id_perfil'] === (string) $idPerfil;
+                       && (string) $actual['id_perfil'] === (string) $idPerfil
+                       && (int) $actual['estado'] === $estado;
 
             if ($sinCambios) {
                 echo json_encode([
@@ -222,7 +230,7 @@ switch ($action) {
                 exit;
             }
 
-            $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos, $idPerfil, $_SESSION['usuario_id']);
+            $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos, $idPerfil, $estado, $_SESSION['usuario_id']);
 
             echo json_encode([
                 'status'  => 'success',
@@ -231,6 +239,34 @@ switch ($action) {
 
         }
         catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'cambiar_estado':
+
+        $id = $_POST['id'] ?? '';
+
+        $registro = ($id !== '') ? $usuarioModel->buscarPorId($id) : null;
+
+        if (!$registro) {
+            echo json_encode(['status' => 'error', 'message' => 'El usuario no existe.']);
+            exit;
+        }
+
+        // El usuario "admin" no puede cambiar de estado.
+        if ($registro['usuario'] === USUARIO_ADMIN) {
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'No se puede cambiar el estado del usuario <b>admin</b>.'
+            ]);
+            exit;
+        }
+
+        try {
+            $usuarioModel->cambiarEstado($id, $_SESSION['usuario_id']);
+            echo json_encode(['status' => 'success']);
+        } catch (PDOException $e) {
             responderErrorServidor($e);
         }
         exit;
@@ -377,9 +413,9 @@ switch ($action) {
                                                                      'coincide_con' => $extra]);
         else if ($campo === 'id_perfil')
             $errores[$campo] = validarPerfilUsuario($valor, $perfilModel);
-        else{
+        else if (in_array($campo, ['usuario', 'nombres', 'apellidos', 'password'], true))
            $errores[$campo] = validarCampoTexto($valor, $nombreFormulario, $campo, $pdo);
-        }
+        // Otros campos (p. ej. el switch 'estado') no tienen validación instantánea.
 
         if (!empty($errores[$campo])) {
             echo json_encode([
