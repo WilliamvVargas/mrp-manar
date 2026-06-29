@@ -50,9 +50,10 @@
                     <thead class="table-dark">
                         <tr>
                             <th style="width: 8%"  class="text-center">Id</th>
-                            <th style="width: 22%">Nombre</th>
-                            <th style="width: 50%">Total Accesos</th>
-                            <th style="width: 20%" class="text-center">Acciones</th>
+                            <th style="width: 20%">Nombre</th>
+                            <th style="width: 12%" class="text-center">Total Usuarios</th>
+                            <th style="width: 42%">Total Accesos</th>
+                            <th style="width: 18%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -68,6 +69,7 @@
     include 'modals/modal_perfiles_editar.php';
     include 'modals/modal_perfiles_eliminar.php';
     include 'modals/modal_perfiles_accesos.php';
+    include 'modals/modal_perfiles_usuarios.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>

@@ -149,8 +149,9 @@
         {
             // Lista blanca de columnas ordenables (evita inyección en el ORDER BY).
             $columnasValidas = [
-                'id'     => 'id',
-                'nombre' => 'nombre',
+                'id'             => 'id',
+                'nombre'         => 'nombre',
+                'total_usuarios' => 'total_usuarios',
             ];
             $columna   = $columnasValidas[$columnaOrden] ?? 'id';
             $direccion = (strtolower($dirOrden) === 'desc') ? 'DESC' : 'ASC';
@@ -167,7 +168,8 @@
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
-            $sql = "SELECT id, nombre
+            $sql = "SELECT id, nombre,
+                           (SELECT COUNT(*) FROM usuarios u WHERE u.id_perfil = perfiles.id) AS total_usuarios
                     FROM perfiles
                     $where
                     ORDER BY $columna $direccion

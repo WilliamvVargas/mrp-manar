@@ -9,6 +9,7 @@ $(document).ready(function() {
         columnas: [
             { data: 'id', className: 'text-center' },
             { data: 'nombre', render: $.fn.dataTable.render.text() },
+            { data: 'total_usuarios', className: 'text-center' },
             {
                 // Total Accesos: por cada menú -> "posición. nombre  activos/total" del perfil.
                 data: 'resumen_accesos',
@@ -43,6 +44,10 @@ $(document).ready(function() {
                                      + 'data-id="' + id + '" data-nombre="' + nombreAttr + '" '
                                      + 'title="Accesos del perfil"><i class="bi bi-shield-lock"></i></button>';
 
+                    const btnUsuarios = '<button type="button" class="btn btn-outline-dark btn-usuarios-perfil" '
+                                      + 'data-id="' + id + '" data-nombre="' + nombreAttr + '" '
+                                      + 'title="Usuarios del perfil"><i class="bi bi-people"></i></button>';
+
                     const btnEditar = '<button type="button" class="btn btn-outline-dark btn-editar-perfil" '
                                     + 'data-id="' + id + '" ' + (esAdmin ? 'disabled ' : '')
                                     + 'title="' + (esAdmin ? 'El perfil Administrador no se puede editar' : 'Editar perfil') + '">'
@@ -53,7 +58,7 @@ $(document).ready(function() {
                                       + 'title="' + (esAdmin ? 'El perfil Administrador no se puede eliminar' : 'Eliminar perfil') + '">'
                                       + '<i class="bi bi-trash"></i></button>';
 
-                    return '<div class="btn-group btn-group-sm" role="group">' + btnAccesos + btnEditar + btnEliminar + '</div>';
+                    return '<div class="btn-group btn-group-sm" role="group">' + btnAccesos + btnUsuarios + btnEditar + btnEliminar + '</div>';
                 }
             }
         ]
@@ -321,6 +326,51 @@ $(document).ready(function() {
                  + '</div>';
         }).join('');
     }
+
+    // Botón "Usuarios": abre el modal con los usuarios que pertenecen al perfil (usuario + estado).
+    $('#tabla-consulta tbody').on('click', '.btn-usuarios-perfil', function() {
+        const id     = $(this).data('id');
+        const nombre = $(this).data('nombre');
+
+        $('#input-perfil-usuarios').val(nombre || '');
+        $('#lista-usuarios-perfil').html('<div class="text-muted small p-2">Cargando...</div>');
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPerfilUsuarios')).show();
+
+        $.ajax({
+            url: 'controllers/perfiles_controller.php?action=usuarios',
+            type: 'GET',
+            data: { id: id },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $('#lista-usuarios-perfil').html('<div class="text-danger small p-2">' + (res.message || 'No se pudo cargar.') + '</div>');
+                    return;
+                }
+
+                const usuarios = res.data || [];
+                if (!usuarios.length) {
+                    $('#lista-usuarios-perfil').html('<div class="text-muted small p-2">Este perfil no tiene usuarios.</div>');
+                    return;
+                }
+
+                const filas = usuarios.map(function(u) {
+                    const badge = Number(u.estado) === 1
+                        ? '<span class="badge bg-success">Activo</span>'
+                        : '<span class="badge bg-secondary">Inactivo</span>';
+                    return '<li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2 small">'
+                         +     '<span>' + $('<div>').text(u.usuario).html() + '</span>'
+                         +     badge
+                         + '</li>';
+                }).join('');
+
+                $('#lista-usuarios-perfil').html('<ul class="list-group list-group-flush">' + filas + '</ul>');
+            },
+            error: function() {
+                $('#lista-usuarios-perfil').html('<div class="text-danger small p-2">Error al cargar los usuarios.</div>');
+            }
+        });
+    });
 
     // Botón "Accesos": abre el modal y arma el acordeón con los menús de la tabla menus.
     $('#tabla-consulta tbody').on('click', '.btn-accesos-perfil', function() {

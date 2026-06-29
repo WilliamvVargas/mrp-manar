@@ -166,6 +166,23 @@
         }
 
         /**
+         * Usuarios que pertenecen a un perfil (nombre de usuario + estado), ordenados por usuario.
+         * Lo usa el modal "Usuarios del perfil" del mantenedor de perfiles.
+         *
+         * @param int $idPerfil
+         * @return array Lista de ['usuario','estado'].
+         */
+        public function listarPorPerfil($idPerfil)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT usuario, estado FROM usuarios WHERE id_perfil = ? ORDER BY usuario ASC"
+            );
+            $stmt->execute([(int) $idPerfil]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
          * Obtiene los datos de un usuario por su id (sin el hash de contraseña).
          * Retorna null si no existe.
          */

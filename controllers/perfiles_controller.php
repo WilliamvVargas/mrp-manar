@@ -4,12 +4,14 @@ require_once __DIR__ . '/../config/conexion.php';
 require_once __DIR__ . '/../includes/funciones_validacion.php';
 require_once __DIR__ . '/../models/perfiles_model.php';
 require_once __DIR__ . '/../models/accesos_model.php';
+require_once __DIR__ . '/../models/usuario_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-$perfilModel = new Perfil($pdo);
-$accesoModel = new Acceso($pdo);
+$perfilModel  = new Perfil($pdo);
+$accesoModel  = new Acceso($pdo);
+$usuarioModel = new Usuario($pdo);
 
 // Reglas de validación del nombre del perfil (compartidas por registrar y validar_campo):
 // obligatorio, entre 2 y 50 caracteres, y único (case-insensitive).
@@ -213,8 +215,9 @@ switch ($action) {
 
         $consulta = trim($_GET['consulta'] ?? '');
 
-        // Columna y dirección de ordenamiento (índice -> nombre lógico). Acciones (2) no ordena.
-        $columnas     = [0 => 'id', 1 => 'nombre'];
+        // Columna y dirección de ordenamiento (índice -> nombre lógico). Total Accesos (3) y
+        // Acciones (4) no ordenan.
+        $columnas     = [0 => 'id', 1 => 'nombre', 2 => 'total_usuarios'];
         $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
         $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'id';
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';
@@ -262,6 +265,26 @@ switch ($action) {
             echo json_encode([
                 'status' => 'success',
                 'data'   => $accesoModel->itemMenusConcedidos((int) $id)
+            ]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'usuarios':
+
+        // Usuarios que pertenecen a un perfil (para el modal "Usuarios del perfil").
+        $id = $_GET['id'] ?? '';
+
+        if (!ctype_digit((string) $id) || !$perfilModel->buscarPorId((int) $id)) {
+            echo json_encode(['status' => 'error', 'message' => 'El perfil no existe.']);
+            exit;
+        }
+
+        try {
+            echo json_encode([
+                'status' => 'success',
+                'data'   => $usuarioModel->listarPorPerfil((int) $id)
             ]);
         } catch (PDOException $e) {
             responderErrorServidor($e);

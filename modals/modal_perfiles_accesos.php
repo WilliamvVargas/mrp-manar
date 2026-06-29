@@ -16,6 +16,9 @@
                 <!-- Id del perfil cuyos accesos se gestionan -->
                 <input type="hidden" id="id-perfil-accesos">
 
+                <!-- Mensajes del modal: arriba, por encima del campo Perfil -->
+                <div id="accesos-mensajes"></div>
+
                 <!-- Perfil cuyos accesos se gestionan (solo lectura) -->
                 <div class="mb-2">
                     <label class="form-label fw-bold small mb-1" for="input-perfil-accesos">Perfil</label>
@@ -27,8 +30,6 @@
                                disabled>
                     </div>
                 </div>
-
-                <div id="accesos-mensajes"></div>
 
                 <!-- Acordeón de menús (una cabecera por menú); lo completa el JS -->
                 <div class="accordion" id="accordion-accesos"></div>
