@@ -8,15 +8,30 @@ $(document).ready(function() {
     const urlParams = new URLSearchParams(window.location.search);
     
     if (urlParams.get('error') === 'session_expired') {
-        
+
         setTimeout(function() {
             mostrarMensajeFormulario(
-                '#modal-mensajes', 
-                'Sesión Finalizada', 
-                'Su sesión ha expirado por inactividad. Por favor, ingrese sus credenciales nuevamente.', 
-                'warning' 
+                '#modal-mensajes',
+                'Sesión Finalizada',
+                'Su sesión ha expirado por inactividad. Por favor, ingrese sus credenciales nuevamente.',
+                'warning'
             );
-            
+
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 200);
+    }
+
+    // Usuario sacado al login por estar bloqueado (estado inactivo): mensaje de error propio.
+    if (urlParams.get('error') === 'usuario_bloqueado') {
+
+        setTimeout(function() {
+            mostrarMensajeFormulario(
+                '#modal-mensajes',
+                'Atención',
+                'Usuario bloqueado.',
+                'danger'
+            );
+
             window.history.replaceState({}, document.title, window.location.pathname);
         }, 200);
     }

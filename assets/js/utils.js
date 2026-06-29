@@ -1,8 +1,12 @@
-//Configura todas las llamadas ajax con codigo 401 a retornar al login
+//Configura todas las llamadas ajax con codigo 401 a retornar al login.
+//Respeta el código de error de la respuesta (p. ej. 'usuario_bloqueado'); por defecto 'session_expired'.
 $.ajaxSetup({
     statusCode: {
-        401: function() {
-            window.location.href = "index?error=session_expired";
+        401: function(jqXHR) {
+            const error = (jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.error)
+                ? jqXHR.responseJSON.error
+                : 'session_expired';
+            window.location.href = "index?error=" + error;
         }
     }
 });

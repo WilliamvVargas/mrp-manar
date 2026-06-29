@@ -77,6 +77,17 @@
 
                     if ($usuario_db && password_verify($password, $usuario_db['password_hash'])) {
 
+                        // Usuario inactivo (estado = 0): no puede acceder. Mensaje propio de bloqueo.
+                        if ((int) $usuario_db['estado'] !== 1) {
+                            echo json_encode([
+                                'status' => 'error',
+                                'type' => 'auth',
+                                'message' => "Usuario bloqueado.",
+                                'errors' => ['usuario' => '']
+                            ]);
+                            exit;
+                        }
+
                         limpiarIntentosFallidos($pdo, $ip, $usuario);
 
                         // Se regenera el ID de sesión para evitar fijación de sesión

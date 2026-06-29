@@ -66,8 +66,9 @@
          */
         public function obtenerCredenciales($usuario)
         {
-            $stmt = $this->pdo->prepare("SELECT id, 
-                                                password_hash
+            $stmt = $this->pdo->prepare("SELECT id,
+                                                password_hash,
+                                                estado
                                          FROM usuarios
                                          WHERE usuario = ?
                                          LIMIT 1");
