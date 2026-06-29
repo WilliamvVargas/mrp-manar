@@ -35,6 +35,12 @@ function validarPerfilUsuario($valor, Perfil $perfilModel)
 
 $action = $_REQUEST['action'] ?? '';
 
+// Defensa en profundidad: corta con 403 si el perfil del usuario no tiene acceso a esta sección.
+// 'validar_campo' y 'cambiar_password_propio' las usa el modal de contraseña propia del navbar
+// (cualquier usuario), así que quedan exentas.
+require_once __DIR__ . '/../includes/control_acceso_controlador.php';
+exigirAccesoControlador('usuarios', $action, ['validar_campo', 'cambiar_password_propio']);
+
 switch ($action) {
 
     case 'listar':

@@ -83,6 +83,10 @@ function regenerarSpriteIconos(Icono $iconoModel, $carpeta, $rutaSprite)
 
 $action = $_REQUEST['action'] ?? '';
 
+// Defensa en profundidad: corta con 403 si el perfil del usuario no tiene acceso a esta sección.
+require_once __DIR__ . '/../includes/control_acceso_controlador.php';
+exigirAccesoControlador('iconos', $action);
+
 switch ($action) {
 
     case 'validar_campo':

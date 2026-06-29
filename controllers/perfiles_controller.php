@@ -30,6 +30,12 @@ $REGLAS_NOMBRE = [
 
 $action = $_REQUEST['action'] ?? '';
 
+// Defensa en profundidad: corta con 403 si el perfil del usuario no tiene acceso a esta sección.
+// 'combo' (filtro/combos de usuarios) y 'accesos' (modal "Ver accesos" de usuarios) se usan desde
+// otras secciones, así que quedan exentas.
+require_once __DIR__ . '/../includes/control_acceso_controlador.php';
+exigirAccesoControlador('perfiles', $action, ['combo', 'accesos']);
+
 switch ($action) {
 
     case 'validar_campo':

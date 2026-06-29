@@ -112,6 +112,35 @@
         }
 
         /**
+         * ¿El usuario indicado tiene acceso ACTIVO a la página cuyo `enlace` se pasa? Mismo
+         * criterio que el navbar: el perfil debe tener un acceso activo (accesos.estado = 1) a un
+         * ítem menú ACTIVO (im.estado = 1) de un menú ACTIVO (m.estado = 1) con ese enlace.
+         * Lo usa el control de acceso por página.
+         *
+         * @param string|null $usuarioId Id (UUID) del usuario en sesión.
+         * @param string      $enlace    Enlace (ruta) de la página solicitada.
+         * @return bool
+         */
+        public function usuarioTieneAcceso($usuarioId, $enlace)
+        {
+            if (!$usuarioId || $enlace === '') {
+                return false;
+            }
+
+            $sql = "SELECT 1
+                    FROM usuarios u
+                    JOIN accesos a     ON a.id_perfil = u.id_perfil AND a.estado = 1
+                    JOIN item_menus im ON im.id = a.id_item_menu AND im.estado = 1
+                    JOIN menus m       ON m.id = im.menu_id AND m.estado = 1
+                    WHERE u.id = ? AND im.enlace = ?
+                    LIMIT 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$usuarioId, $enlace]);
+
+            return (bool) $stmt->fetchColumn();
+        }
+
+        /**
          * Aplica los accesos de un perfil según los ítems MARCADOS:
          *   - Marcados   -> estado = 1 (se crea el registro o se reactiva uno revocado).
          *   - Los que estaban activos y ya NO vienen marcados -> estado = 0 (se conserva el

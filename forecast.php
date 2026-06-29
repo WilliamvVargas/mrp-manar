@@ -1,5 +1,6 @@
 <?php 
-    require_once 'includes/auth.php'; 
+    require_once 'includes/auth.php';
+    require_once 'includes/control_acceso_pagina.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">

@@ -7,6 +7,13 @@ $.ajaxSetup({
                 ? jqXHR.responseJSON.error
                 : 'session_expired';
             window.location.href = "index?error=" + error;
+        },
+        403: function(jqXHR) {
+            // Acceso denegado a una sección (defensa en profundidad de los controladores): se vuelve
+            // al dashboard. No aplica al error CSRF (status 'csrf_error'), que maneja cada petición.
+            if (jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.status === 'forbidden') {
+                window.location.href = "dashboard";
+            }
         }
     }
 });

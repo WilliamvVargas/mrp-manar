@@ -8,6 +8,11 @@ header('Cache-Control: no-store');
 
 $action = $_REQUEST['action'] ?? '';
 
+// Defensa en profundidad: corta con 403 si el perfil del usuario no tiene acceso a esta sección.
+// (el guard carga su propia conexión MySQL; este controlador usa SQL Server por separado.)
+require_once __DIR__ . '/../includes/control_acceso_controlador.php';
+exigirAccesoControlador('consultas-sap', $action);
+
 switch ($action) {
 
     case 'odv':

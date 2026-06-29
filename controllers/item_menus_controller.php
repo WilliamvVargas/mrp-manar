@@ -99,6 +99,12 @@ function validarEnlace(&$enlace)
 
 $action = $_REQUEST['action'] ?? '';
 
+// Defensa en profundidad: corta con 403 si el perfil del usuario no tiene acceso a esta sección.
+// 'menus' y 'listar_orden' los usan los modales de accesos (perfiles/usuarios) y 'reordenar' lo usa
+// el mantenedor de menús, así que quedan exentas.
+require_once __DIR__ . '/../includes/control_acceso_controlador.php';
+exigirAccesoControlador('item-menus', $action, ['menus', 'listar_orden', 'reordenar']);
+
 switch ($action) {
 
     case 'menus':

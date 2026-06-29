@@ -1,5 +1,6 @@
 <?php
     require_once 'includes/auth.php';
+    require_once 'includes/control_acceso_pagina.php';
     require_once 'models/perfiles_model.php';
 
     // Perfiles para el filtro de la tabla (opción "Todos" + cada perfil).
