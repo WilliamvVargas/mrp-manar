@@ -33,17 +33,36 @@
         <div class="card-body">
             <div class="table-responsive">
 
-                <div class="mb-2">
-                    <label class="form-label fw-bold small mb-1" for="consulta-presupuesto">Consulta</label>
-                    <div class="col-md-4 px-0">
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="text"
-                                   class="form-control form-control-sm"
-                                   id="consulta-presupuesto"
-                                   name="consulta-presupuesto"
-                                   placeholder="Ej: Canal, Familia, Sub-Familia...">
-                        </div>
+                <div class="row g-2 mb-2 mx-0">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small mb-1" for="filtro-anio">Año</label>
+                        <select class="form-select form-select-sm" id="filtro-anio">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small mb-1" for="filtro-mes">Mes</label>
+                        <select class="form-select form-select-sm" id="filtro-mes">
+                            <option value="">Todos</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small mb-1" for="filtro-familia">Familia</label>
+                        <select class="form-select form-select-sm" id="filtro-familia">
+                            <option value="">Todas</option>
+                        </select>
                     </div>
                 </div>
 
@@ -67,6 +86,13 @@
                     </thead>
                     <tbody>
                     </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="7" class="text-end">Total Venta:</td>
+                            <td class="text-end" id="total-venta">—</td>
+                            <td colspan="5"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>

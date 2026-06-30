@@ -36,7 +36,11 @@ $(document).ready(function() {
     const tablaPresupuesto = inicializarTablaConsulta({
         tabla: '#tabla-consulta-presupuesto',
         url:   'controllers/presupuesto_controller.php?action=listar',
-        input: '#consulta-presupuesto',
+        extra: function(d) {
+            d.familia = $('#filtro-familia').val();   // '' = todas
+            d.anio    = $('#filtro-anio').val();      // '' = todos
+            d.mes     = $('#filtro-mes').val();       // '' = todos
+        },
         orden: [[0, 'desc']],   // por id, descendente
         columnas: [
             { data: 'id',            className: 'text-center' },
@@ -68,6 +72,46 @@ $(document).ready(function() {
             }
         ]
     });
+
+    // Recargar la tabla al cambiar el filtro de Familia, Año o Mes.
+    $('#filtro-familia, #filtro-anio, #filtro-mes').on('change', function() {
+        tablaPresupuesto.ajax.reload();
+    });
+
+    // Tras cada dibujado, muestra en el pie el total de Venta del set filtrado (lo manda el servidor).
+    $('#tabla-consulta-presupuesto').on('draw.dt', function() {
+        const json  = tablaPresupuesto.ajax.json();
+        const total = (json && json.suma_venta != null) ? json.suma_venta : 0;
+        $('#total-venta').text('$' + formatearNumero(total, 0));
+    });
+
+    // Carga las opciones de los filtros de Familia y Año (conservan la selección actual).
+    function cargarFiltros() {
+        $.ajax({
+            url: 'controllers/presupuesto_controller.php?action=filtros',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                // Familia (texto escapado vía .text()).
+                const $fam   = $('#filtro-familia');
+                const famSel = $fam.val();
+                $fam.empty().append('<option value="">Todas</option>');
+                (res.familias || []).forEach(function(f) {
+                    $fam.append($('<option>').val(f).text(f));
+                });
+                $fam.val(famSel);
+
+                // Año.
+                const $anio   = $('#filtro-anio');
+                const anioSel = $anio.val();
+                const optsAnio = (res.anios || []).map(function(a) {
+                    return '<option value="' + a + '">' + a + '</option>';
+                }).join('');
+                $anio.html('<option value="">Todos</option>' + optsAnio).val(anioSel);
+            }
+        });
+    }
+    cargarFiltros();
 
     // Carga masiva: solo se aceptan archivos Excel .xlsx
     $('#archivo-excel-presupuesto').on('change', function() {
@@ -124,6 +168,7 @@ $(document).ready(function() {
                 if (res.status === 'success') {
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
                     tablaPresupuesto.ajax.reload(null, true);
+                    cargarFiltros();   // por si la carga trajo un año nuevo
                 } else {
                     let msg = res.message;
                     if (res.errores && res.errores.length) {

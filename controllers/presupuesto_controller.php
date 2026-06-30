@@ -208,8 +208,10 @@ switch ($action) {
         $inicio   = (int) ($_GET['start'] ?? 0);
         $longitud = (int) ($_GET['length'] ?? 10);
 
-        // Filtro del buscador (#consulta-presupuesto): por canal/sub_canal/familia/sub_familia.
-        $consulta = trim($_GET['consulta'] ?? '');
+        // Filtros de la tabla.
+        $familia = trim($_GET['familia'] ?? '');   // '' = todas
+        $anio    = $_GET['anio'] ?? '';            // '' = todos
+        $mes     = $_GET['mes'] ?? '';             // '' = todos
 
         // Columna y dirección de ordenamiento (índice -> nombre lógico).
         $columnas     = ['id', 'anio', 'mes', 'canal', 'sub_canal', 'familia', 'sub_familia', 'venta', 'mg_porcentaje', 'mg_neto', 'pp', 'kg'];
@@ -220,14 +222,16 @@ switch ($action) {
         try {
             $presupuestoModel = new Presupuesto($pdo);
             $totalRegistros   = $presupuestoModel->contarTodos();
-            $totalFiltrados   = $presupuestoModel->contarFiltrados($consulta);
-            $datos            = $presupuestoModel->listarPagina($consulta, $columnaOrden, $dirOrden, $inicio, $longitud);
+            $totalFiltrados   = $presupuestoModel->contarFiltrados($familia, $anio, $mes);
+            $datos            = $presupuestoModel->listarPagina($familia, $anio, $mes, $columnaOrden, $dirOrden, $inicio, $longitud);
 
             echo json_encode([
                 'draw'            => $draw,
                 'recordsTotal'    => $totalRegistros,
                 'recordsFiltered' => $totalFiltrados,
-                'data'            => $datos
+                'data'            => $datos,
+                // Total de la columna Venta sobre TODO el set filtrado (para el pie de la tabla).
+                'suma_venta'      => $presupuestoModel->sumaVenta($familia, $anio, $mes)
             ]);
         } catch (PDOException $e) {
             error_log('[PRESUPUESTO] ' . $e->getMessage());
@@ -238,6 +242,22 @@ switch ($action) {
                 'data'            => [],
                 'error'           => 'Ocurrió un error al cargar los registros.'
             ]);
+        }
+        exit;
+
+    case 'filtros':
+
+        // Valores para el filtro de Año (los meses son estáticos 1-12 en el front).
+        try {
+            $presupuestoModel = new Presupuesto($pdo);
+            echo json_encode([
+                'status'   => 'success',
+                'anios'    => $presupuestoModel->aniosDisponibles(),
+                'familias' => $presupuestoModel->familiasDisponibles()
+            ]);
+        } catch (PDOException $e) {
+            error_log('[PRESUPUESTO][filtros] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'anios' => []]);
         }
         exit;
 
