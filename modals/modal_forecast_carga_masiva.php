@@ -1,7 +1,7 @@
 <?php require_once __DIR__ . '/../config/config.php'; ?>
 
 <div class="modal fade" id="modalCargaMasiva" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog">
         <div class="modal-content border-0 shadow-sm">
             <div class="modal-header bg-dark text-white py-2">
                 <h6 class="modal-title" id="modalTitle"><i class="bi bi-graph-up me-2"></i>Carga Masiva Forecast</h6>
@@ -48,42 +48,6 @@
                         </div>
                     </div>
                 </form>
-
-                <!-- Consulta principal (listado de forecast) -->
-                <div class="table-responsive">
-
-                    <div class="mb-2">
-                        <label class="form-label fw-bold small mb-1" for="consulta-forecast">Consulta</label>
-                        <div class="col-md-4 px-0">
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                <input type="text"
-                                       class="form-control form-control-sm"
-                                       id="consulta-forecast"
-                                       name="consulta-forecast"
-                                       placeholder="Nombre de cliente o de producto">
-                            </div>
-                        </div>
-                    </div>
-
-                    <table class="table table-hover align-middle" id="tabla-consulta-forecast" style="width:100%">
-                        <thead class="table-dark">
-                            <tr>
-                                <th style="width: 5%">ID</th>
-                                <th style="width: 10%">Empresa</th>
-                                <th style="width: 10%">Versión</th>
-                                <th style="width: 15%">Código Cliente</th>
-                                <th style="width: 15%">Nombre Cliente</th>
-                                <th style="width: 15%">Código Producto</th>
-                                <th style="width: 15%">Nombre Producto</th>
-                                <th style="width: 5%">Cantidad</th>
-                                <th style="width: 10%" class="text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-                </div>
 
             </div>
             <div class="modal-footer bg-light py-2">
