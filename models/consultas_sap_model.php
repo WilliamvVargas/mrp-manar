@@ -190,4 +190,123 @@
 
             return $this->pdo->query($sql)->fetchAll();
         }
+
+        /**
+         * Facturas de venta (OINV) y Notas de Crédito de cliente (ORIN) resumidas a
+         * nivel de cabecera. Las notas de crédito quedan en negativo (Neto/Impuesto/Total)
+         * para que un SUM entregue directamente la venta neta. Solo documentos no anulados.
+         *
+         * Filtro opcional por fecha del documento (DocDate). Se acepta solo formato
+         * 'YYYY-MM-DD'; cualquier otro valor se ignora (equivale a sin filtro).
+         *
+         * @param  string $desde Fecha documento desde (inclusive), '' = sin límite inferior.
+         * @param  string $hasta Fecha documento hasta (inclusive), '' = sin límite superior.
+         * @return array Lista de filas (arreglos asociativos).
+         */
+        public function facturasNotasCredito($desde = '', $hasta = '')
+        {
+            // Solo se aceptan fechas 'YYYY-MM-DD'; el resto se descarta.
+            $desde = preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde) ? $desde : '';
+            $hasta = preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta) ? $hasta : '';
+
+            // El filtro se arma una vez y se aplica a ambos SELECT del UNION (mismos alias T0).
+            $filtroFecha = '';
+            $params      = [];
+
+            if ($desde !== '') {
+                $filtroFecha .= " AND T0.DocDate >= ?";
+                $params[]     = $desde;
+            }
+            if ($hasta !== '') {
+                $filtroFecha .= " AND T0.DocDate <= ?";
+                $params[]     = $hasta;
+            }
+
+            $sql = "
+                SELECT
+                    T0.DocEntry                AS DocEntry,
+                    'Factura'                  AS TipoDoc,
+                    T0.DocNum                  AS NumDoc,
+                    T0.DocDate                 AS FechaDocumento,
+                    T0.CardCode                AS CodCliente,
+                    T0.CardName                AS Cliente,
+                    T0.DocCur                  AS Moneda,
+                    (T0.DocTotal - T0.VatSum)  AS Neto,
+                    T0.VatSum                  AS Impuesto,
+                    T0.DocTotal                AS Total,
+                    CASE T0.DocStatus
+                        WHEN 'O' THEN 'Abierta'
+                        WHEN 'C' THEN 'Cerrada'
+                        ELSE T0.DocStatus
+                    END                        AS Estado
+                FROM OINV T0
+                WHERE T0.CANCELED = 'N' $filtroFecha
+
+                UNION ALL
+
+                SELECT
+                    T0.DocEntry,
+                    'Nota de Crédito',
+                    T0.DocNum,
+                    T0.DocDate,
+                    T0.CardCode,
+                    T0.CardName,
+                    T0.DocCur,
+                    -(T0.DocTotal - T0.VatSum),
+                    -T0.VatSum,
+                    -T0.DocTotal,
+                    CASE T0.DocStatus
+                        WHEN 'O' THEN 'Abierta'
+                        WHEN 'C' THEN 'Cerrada'
+                        ELSE T0.DocStatus
+                    END
+                FROM ORIN T0
+                WHERE T0.CANCELED = 'N' $filtroFecha
+
+                ORDER BY FechaDocumento, TipoDoc, NumDoc
+            ";
+
+            // El UNION repite el filtro, así que los parámetros van dos veces (uno por SELECT).
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(array_merge($params, $params));
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Líneas de una factura de venta (INV1) o nota de crédito de cliente (RIN1),
+         * identificadas por su DocEntry. El tipo determina la tabla mediante whitelist.
+         *
+         * @param  string $tipo     'Nota de Crédito' usa RIN1; cualquier otro valor usa INV1.
+         * @param  int    $docEntry DocEntry (clave interna) del documento de cabecera.
+         * @return array Lista de filas (arreglos asociativos).
+         */
+        public function lineasDocumento($tipo, $docEntry)
+        {
+            // La tabla se elige por whitelist (no se interpola texto libre del cliente).
+            $tabla    = ($tipo === 'Nota de Crédito') ? 'RIN1' : 'INV1';
+            $docEntry = (int) $docEntry;
+
+            $sql = "
+                SELECT
+                    T1.LineNum      AS Linea,
+                    T1.ItemCode     AS CodArticulo,
+                    T1.Dscription   AS Articulo,
+                    T1.unitMsr      AS Unidad,
+                    T1.WhsCode      AS Bodega,
+                    T1.Quantity     AS Cantidad,
+                    T1.Price        AS PrecioUnitario,
+                    T1.DiscPrcnt    AS PctDescuento,
+                    T1.VatPrcnt     AS PctIVA,
+                    T1.LineTotal    AS TotalLinea
+                FROM $tabla T1
+                WHERE T1.DocEntry = ?
+                ORDER BY T1.LineNum
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$docEntry]);
+
+            return $stmt->fetchAll();
+        }
     }

@@ -57,6 +57,41 @@ switch ($action) {
         }
         exit;
 
+    case 'facs_ncs':
+
+        // Consulta Facturas y Notas de Crédito: resumen por cabecera (lectura desde SAP / SQL Server).
+        // Filtro opcional por fecha del documento (el modelo valida el formato).
+        try {
+            $desde = $_GET['desde'] ?? '';
+            $hasta = $_GET['hasta'] ?? '';
+
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->facturasNotasCredito($desde, $hasta);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta de Facturas y Notas de Crédito.']);
+        }
+        exit;
+
+    case 'lineas':
+
+        // Líneas de una factura (INV1) o nota de crédito (RIN1), por DocEntry (lectura desde SAP).
+        try {
+            $tipo     = $_GET['tipo'] ?? '';
+            $docEntry = $_GET['docentry'] ?? '';
+
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->lineasDocumento($tipo, $docEntry);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener las líneas del documento.']);
+        }
+        exit;
+
     default:
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida.']);
