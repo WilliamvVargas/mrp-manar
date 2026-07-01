@@ -209,9 +209,10 @@ switch ($action) {
         $longitud = (int) ($_GET['length'] ?? 10);
 
         // Filtros de la tabla.
-        $familia = trim($_GET['familia'] ?? '');   // '' = todas
-        $anio    = $_GET['anio'] ?? '';            // '' = todos
-        $mes     = $_GET['mes'] ?? '';             // '' = todos
+        $familia    = trim($_GET['familia'] ?? '');       // '' = todas
+        $subFamilia = trim($_GET['sub_familia'] ?? '');   // '' = todas
+        $anio       = $_GET['anio'] ?? '';                // '' = todos
+        $mes        = $_GET['mes'] ?? '';                 // '' = todos
 
         // Columna y dirección de ordenamiento (índice -> nombre lógico).
         $columnas     = ['id', 'anio', 'mes', 'canal', 'sub_canal', 'familia', 'sub_familia', 'venta', 'mg_porcentaje', 'mg_neto', 'pp', 'kg'];
@@ -222,8 +223,8 @@ switch ($action) {
         try {
             $presupuestoModel = new Presupuesto($pdo);
             $totalRegistros   = $presupuestoModel->contarTodos();
-            $totalFiltrados   = $presupuestoModel->contarFiltrados($familia, $anio, $mes);
-            $datos            = $presupuestoModel->listarPagina($familia, $anio, $mes, $columnaOrden, $dirOrden, $inicio, $longitud);
+            $totalFiltrados   = $presupuestoModel->contarFiltrados($familia, $subFamilia, $anio, $mes);
+            $datos            = $presupuestoModel->listarPagina($familia, $subFamilia, $anio, $mes, $columnaOrden, $dirOrden, $inicio, $longitud);
 
             echo json_encode([
                 'draw'            => $draw,
@@ -231,7 +232,7 @@ switch ($action) {
                 'recordsFiltered' => $totalFiltrados,
                 'data'            => $datos,
                 // Total de la columna Venta sobre TODO el set filtrado (para el pie de la tabla).
-                'suma_venta'      => $presupuestoModel->sumaVenta($familia, $anio, $mes)
+                'suma_venta'      => $presupuestoModel->sumaVenta($familia, $subFamilia, $anio, $mes)
             ]);
         } catch (PDOException $e) {
             error_log('[PRESUPUESTO] ' . $e->getMessage());
@@ -251,9 +252,10 @@ switch ($action) {
         try {
             $presupuestoModel = new Presupuesto($pdo);
             echo json_encode([
-                'status'   => 'success',
-                'anios'    => $presupuestoModel->aniosDisponibles(),
-                'familias' => $presupuestoModel->familiasDisponibles()
+                'status'       => 'success',
+                'anios'        => $presupuestoModel->aniosDisponibles(),
+                'familias'     => $presupuestoModel->familiasDisponibles(),
+                'sub_familias' => $presupuestoModel->subFamiliasDisponibles()
             ]);
         } catch (PDOException $e) {
             error_log('[PRESUPUESTO][filtros] ' . $e->getMessage());

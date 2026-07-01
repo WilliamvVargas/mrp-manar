@@ -37,9 +37,10 @@ $(document).ready(function() {
         tabla: '#tabla-consulta-presupuesto',
         url:   'controllers/presupuesto_controller.php?action=listar',
         extra: function(d) {
-            d.familia = $('#filtro-familia').val();   // '' = todas
-            d.anio    = $('#filtro-anio').val();      // '' = todos
-            d.mes     = $('#filtro-mes').val();       // '' = todos
+            d.familia     = $('#filtro-familia').val();       // '' = todas
+            d.sub_familia = $('#filtro-sub-familia').val();   // '' = todas
+            d.anio        = $('#filtro-anio').val();          // '' = todos
+            d.mes         = $('#filtro-mes').val();           // '' = todos
         },
         orden: [[0, 'desc']],   // por id, descendente
         columnas: [
@@ -73,9 +74,17 @@ $(document).ready(function() {
         ]
     });
 
-    // Recargar la tabla al cambiar el filtro de Familia, Año o Mes.
-    $('#filtro-familia, #filtro-anio, #filtro-mes').on('change', function() {
+    // Recargar la tabla al cambiar el filtro de Familia, Sub-Familia, Año o Mes.
+    $('#filtro-familia, #filtro-sub-familia, #filtro-anio, #filtro-mes').on('change', function() {
         tablaPresupuesto.ajax.reload();
+    });
+
+    // Botón "Limpiar": deja todos los filtros por defecto y recarga (motor de utils.js).
+    inicializarBotonLimpiar({
+        boton:  '#btn-limpiar-filtros',
+        tabla:  tablaPresupuesto,
+        campos: ['#filtro-familia', '#filtro-sub-familia', '#filtro-anio', '#filtro-mes'],
+        delay:  250
     });
 
     // Tras cada dibujado, muestra en el pie el total de Venta del set filtrado (lo manda el servidor).
@@ -100,6 +109,15 @@ $(document).ready(function() {
                     $fam.append($('<option>').val(f).text(f));
                 });
                 $fam.val(famSel);
+
+                // Sub-Familia (texto escapado).
+                const $sub   = $('#filtro-sub-familia');
+                const subSel = $sub.val();
+                $sub.empty().append('<option value="">Todas</option>');
+                (res.sub_familias || []).forEach(function(sf) {
+                    $sub.append($('<option>').val(sf).text(sf));
+                });
+                $sub.val(subSel);
 
                 // Año.
                 const $anio   = $('#filtro-anio');

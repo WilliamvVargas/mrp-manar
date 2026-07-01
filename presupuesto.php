@@ -34,13 +34,13 @@
             <div class="table-responsive">
 
                 <div class="row g-2 mb-2 mx-0">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="filtro-anio">Año</label>
                         <select class="form-select form-select-sm" id="filtro-anio">
                             <option value="">Todos</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="filtro-mes">Mes</label>
                         <select class="form-select form-select-sm" id="filtro-mes">
                             <option value="">Todos</option>
@@ -58,11 +58,22 @@
                             <option value="12">Diciembre</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold small mb-1" for="filtro-familia">Familia</label>
                         <select class="form-select form-select-sm" id="filtro-familia">
                             <option value="">Todas</option>
                         </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small mb-1" for="filtro-sub-familia">Sub-Familia</label>
+                        <select class="form-select form-select-sm" id="filtro-sub-familia">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros">
+                            <i class="bi bi-eraser me-1"></i> Limpiar
+                        </button>
                     </div>
                 </div>
 

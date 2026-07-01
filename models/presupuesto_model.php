@@ -83,12 +83,12 @@
         }
 
         /**
-         * Cantidad de registros que coinciden con los filtros (familia, año y mes).
+         * Cantidad de registros que coinciden con los filtros (familia, sub-familia, año y mes).
          * Si no hay ningún filtro, equivale al total.
          */
-        public function contarFiltrados($familia, $anio = '', $mes = '')
+        public function contarFiltrados($familia, $subFamilia = '', $anio = '', $mes = '')
         {
-            list($where, $params) = $this->construirFiltro($familia, $anio, $mes);
+            list($where, $params) = $this->construirFiltro($familia, $subFamilia, $anio, $mes);
 
             if ($where === '') {
                 return $this->contarTodos();
@@ -101,12 +101,12 @@
         }
 
         /**
-         * Construye el WHERE de los filtros de la tabla (familia exacta, año y mes).
+         * Construye el WHERE de los filtros de la tabla (familia y sub-familia exactas, año y mes).
          * Compartido por contarFiltrados, listarPagina y sumaVenta.
          *
          * @return array [string $where, array $params]
          */
-        private function construirFiltro($familia, $anio, $mes)
+        private function construirFiltro($familia, $subFamilia, $anio, $mes)
         {
             $condiciones = [];
             $params      = [];
@@ -114,6 +114,11 @@
             if ($familia !== '') {
                 $condiciones[] = "familia = ?";
                 $params[]      = $familia;
+            }
+
+            if ($subFamilia !== '') {
+                $condiciones[] = "sub_familia = ?";
+                $params[]      = $subFamilia;
             }
 
             if ($anio !== '' && ctype_digit((string) $anio)) {
@@ -158,14 +163,26 @@
         }
 
         /**
+         * Sub-familias distintas presentes en los presupuestos (alfabético), para el filtro.
+         *
+         * @return string[]
+         */
+        public function subFamiliasDisponibles()
+        {
+            return $this->pdo->query(
+                "SELECT DISTINCT sub_familia FROM presupuestos WHERE sub_familia IS NOT NULL AND sub_familia <> '' ORDER BY sub_familia ASC"
+            )->fetchAll(PDO::FETCH_COLUMN);
+        }
+
+        /**
          * Suma de la columna `venta` para el conjunto filtrado (mismos filtros que la tabla).
          * Lo usa el total del pie de la tabla.
          *
          * @return float
          */
-        public function sumaVenta($familia, $anio = '', $mes = '')
+        public function sumaVenta($familia, $subFamilia = '', $anio = '', $mes = '')
         {
-            list($where, $params) = $this->construirFiltro($familia, $anio, $mes);
+            list($where, $params) = $this->construirFiltro($familia, $subFamilia, $anio, $mes);
 
             $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(venta), 0) FROM presupuestos $where");
             $stmt->execute($params);
@@ -177,6 +194,7 @@
          * Devuelve una página de registros para DataTables (server-side).
          *
          * @param string $familia      Familia exacta a filtrar ('' = todas).
+         * @param string $subFamilia   Sub-familia exacta a filtrar ('' = todas).
          * @param string $anio         Año a filtrar ('' = todos).
          * @param string $mes          Mes (1-12) a filtrar ('' = todos).
          * @param string $columnaOrden Nombre lógico de la columna a ordenar.
@@ -184,7 +202,7 @@
          * @param int    $inicio       Offset (registro inicial).
          * @param int    $longitud     Cantidad de registros (-1 = todos).
          */
-        public function listarPagina($familia, $anio, $mes, $columnaOrden, $dirOrden, $inicio, $longitud)
+        public function listarPagina($familia, $subFamilia, $anio, $mes, $columnaOrden, $dirOrden, $inicio, $longitud)
         {
             // Lista blanca de columnas ordenables: evita inyección en el ORDER BY.
             $columnasValidas = [
@@ -207,7 +225,7 @@
             $inicio   = max(0, (int) $inicio);
             $longitud = (int) $longitud;
 
-            list($where, $params) = $this->construirFiltro($familia, $anio, $mes);
+            list($where, $params) = $this->construirFiltro($familia, $subFamilia, $anio, $mes);
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
