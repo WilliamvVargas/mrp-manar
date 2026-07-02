@@ -230,7 +230,6 @@
                     T0.DocDate                 AS FechaDocumento,
                     T0.CardCode                AS CodCliente,
                     T0.CardName                AS Cliente,
-                    T0.DocCur                  AS Moneda,
                     (T0.DocTotal - T0.VatSum)  AS Neto,
                     T0.VatSum                  AS Impuesto,
                     T0.DocTotal                AS Total,
@@ -251,7 +250,6 @@
                     T0.DocDate,
                     T0.CardCode,
                     T0.CardName,
-                    T0.DocCur,
                     -(T0.DocTotal - T0.VatSum),
                     -T0.VatSum,
                     -T0.DocTotal,
@@ -295,10 +293,13 @@
                     T1.unitMsr      AS Unidad,
                     T1.WhsCode      AS Bodega,
                     T1.Quantity     AS Cantidad,
+                    T1.PriceBefDi   AS PrecioSinDesc,
                     T1.Price        AS PrecioUnitario,
                     T1.DiscPrcnt    AS PctDescuento,
+                    T1.LineTotal    AS TotalNeto,
                     T1.VatPrcnt     AS PctIVA,
-                    T1.LineTotal    AS TotalLinea
+                    T1.VatSum       AS IvaMonto,
+                    T1.GTotal       AS TotalBruto
                 FROM $tabla T1
                 WHERE T1.DocEntry = ?
                 ORDER BY T1.LineNum

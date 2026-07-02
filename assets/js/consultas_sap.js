@@ -102,12 +102,12 @@ $(document).ready(function() {
             verLineas: true,
             totales: ['Neto', 'Impuesto', 'Total'],
             columnas: [
+                { data: 'DocEntry',         title: 'DocEntry (SAP)', className: 'text-center', render: renderNumero },
                 { data: 'TipoDoc',          title: 'Tipo Doc.',      className: 'text-center', render: renderTexto },
                 { data: 'NumDoc',           title: 'N° Doc.',        className: 'text-center', render: renderNumero },
                 { data: 'FechaDocumento',   title: 'Fecha Documento',className: 'text-center', render: renderFecha },
                 { data: 'CodCliente',       title: 'Cód. Cliente',   render: renderTexto },
                 { data: 'Cliente',          title: 'Cliente',        render: renderTexto },
-                { data: 'Moneda',           title: 'Moneda',         className: 'text-center', render: renderTexto },
                 { data: 'Neto',             title: 'Neto',           className: 'text-end', render: renderMonto },
                 { data: 'Impuesto',         title: 'Impuesto',       className: 'text-end', render: renderMonto },
                 { data: 'Total',            title: 'Total',          className: 'text-end', render: renderMonto },
@@ -413,10 +413,29 @@ $(document).ready(function() {
     //  Ver líneas (modal con las líneas de la factura / NC)
     // ============================================================
 
+    // Dibuja la cabecera del documento en el modal usando las MISMAS columnas y renders
+    // del DataTable activo (así coincide exactamente con lo que se ve en la tabla principal).
+    function renderCabeceraDoc(registro) {
+        const cols = (claveActual && CONSULTAS[claveActual]) ? CONSULTAS[claveActual].columnas : [];
+
+        const ths = cols.map(function(c) {
+            return '<th class="' + (c.className || '') + '">' + c.title + '</th>';
+        }).join('');
+
+        const tds = cols.map(function(c) {
+            const val = registro[c.data];
+            const contenido = c.render ? c.render(val) : ((val === null || val === undefined) ? '' : val);
+            return '<td class="' + (c.className || '') + '">' + contenido + '</td>';
+        }).join('');
+
+        $('#tabla-cabecera-consulta-sap thead').html('<tr>' + ths + '</tr>');
+        $('#tabla-cabecera-consulta-sap tbody').html('<tr>' + tds + '</tr>');
+    }
+
     // Arma las filas del detalle de líneas; colspan 10 = nº de columnas del <thead>.
     function filasLineas(lineas) {
         if (!lineas.length) {
-            return '<tr><td colspan="10" class="text-center text-muted py-3">El documento no tiene líneas.</td></tr>';
+            return '<tr><td colspan="13" class="text-center text-muted py-3">El documento no tiene líneas.</td></tr>';
         }
         return lineas.map(function(l) {
             return '<tr>'
@@ -426,10 +445,13 @@ $(document).ready(function() {
                  + '<td class="text-center">' + renderTexto(l.Unidad) + '</td>'
                  + '<td class="text-center">' + renderTexto(l.Bodega) + '</td>'
                  + '<td class="text-end">' + renderCantidad(l.Cantidad) + '</td>'
-                 + '<td class="text-end">' + renderMonto(l.PrecioUnitario) + '</td>'
+                 + '<td class="text-end">' + renderMonto(l.PrecioSinDesc) + '</td>'
                  + '<td class="text-end">' + renderPorcentaje(l.PctDescuento) + '</td>'
+                 + '<td class="text-end">' + renderMonto(l.PrecioUnitario) + '</td>'
+                 + '<td class="text-end">' + renderMonto(l.TotalNeto) + '</td>'
                  + '<td class="text-end">' + renderPorcentaje(l.PctIVA) + '</td>'
-                 + '<td class="text-end">' + renderMonto(l.TotalLinea) + '</td>'
+                 + '<td class="text-end">' + renderMonto(l.IvaMonto) + '</td>'
+                 + '<td class="text-end">' + renderMonto(l.TotalBruto) + '</td>'
                  + '</tr>';
         }).join('');
     }
@@ -445,8 +467,11 @@ $(document).ready(function() {
         }
 
         $('#lineas-doc-titulo').text('— ' + registro.TipoDoc + ' N° ' + registro.NumDoc);
-        $tbody.html('<tr><td colspan="10" class="text-center text-muted py-3">Cargando...</td></tr>');
-        $('#lineas-total-suma').text('');
+        renderCabeceraDoc(registro);
+        $tbody.html('<tr><td colspan="13" class="text-center text-muted py-3">Cargando...</td></tr>');
+        $('#lineas-total-neto').text('');
+        $('#lineas-total-iva').text('');
+        $('#lineas-total-bruto').text('');
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConsultaSapLineas')).show();
 
         $.ajax({
@@ -459,17 +484,25 @@ $(document).ready(function() {
                     const lineas = res.data || [];
                     $tbody.html(filasLineas(lineas));
 
-                    // Suma de los totales de línea para el pie de la tabla.
-                    const totalSuma = lineas.reduce(function(acc, l) {
-                        return acc + (parseFloat(l.TotalLinea) || 0);
+                    // Sumas del pie: Total Neto, IVA ($) y Total Bruto.
+                    const totalNeto = lineas.reduce(function(acc, l) {
+                        return acc + (parseFloat(l.TotalNeto) || 0);
                     }, 0);
-                    $('#lineas-total-suma').text(lineas.length ? renderMonto(totalSuma) : '');
+                    const totalIva = lineas.reduce(function(acc, l) {
+                        return acc + (parseFloat(l.IvaMonto) || 0);
+                    }, 0);
+                    const totalBruto = lineas.reduce(function(acc, l) {
+                        return acc + (parseFloat(l.TotalBruto) || 0);
+                    }, 0);
+                    $('#lineas-total-neto').text(lineas.length ? renderMonto(totalNeto) : '');
+                    $('#lineas-total-iva').text(lineas.length ? renderMonto(totalIva) : '');
+                    $('#lineas-total-bruto').text(lineas.length ? renderMonto(totalBruto) : '');
                 } else {
-                    $tbody.html('<tr><td colspan="10" class="text-danger small py-3">' + (res.message || 'No se pudieron cargar las líneas.') + '</td></tr>');
+                    $tbody.html('<tr><td colspan="13" class="text-danger small py-3">' + (res.message || 'No se pudieron cargar las líneas.') + '</td></tr>');
                 }
             },
             error: function() {
-                $tbody.html('<tr><td colspan="10" class="text-danger small py-3">Error al cargar las líneas.</td></tr>');
+                $tbody.html('<tr><td colspan="13" class="text-danger small py-3">Error al cargar las líneas.</td></tr>');
             }
         });
     });

@@ -13,9 +13,19 @@
                 </button>
             </div>
             <div class="modal-body py-2">
+                <!-- Cabecera del documento (misma información y formato que el DataTable); la completa el JS. -->
+                <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-file-earmark-text me-1"></i>Cabecera</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-striped align-middle mb-0 small" id="tabla-cabecera-consulta-sap">
+                        <thead class="table-dark"></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-list-ul me-1"></i>Líneas</h6>
                 <div class="table-responsive">
                     <!-- Encabezado fijo; el cuerpo lo completa el JS. -->
-                    <table class="table table-sm table-striped align-middle mb-0">
+                    <table class="table table-sm table-striped align-middle mb-0 small">
                         <thead class="table-dark">
                             <tr>
                                 <th class="text-center">Línea</th>
@@ -24,17 +34,23 @@
                                 <th class="text-center">Unidad</th>
                                 <th class="text-center">Bodega</th>
                                 <th class="text-end">Cantidad</th>
-                                <th class="text-end">Precio Unit.</th>
+                                <th class="text-end">Precio s/Desc.</th>
                                 <th class="text-end">% Desc.</th>
+                                <th class="text-end">Precio Unit.</th>
+                                <th class="text-end">Total Neto</th>
                                 <th class="text-end">% IVA</th>
-                                <th class="text-end">Total Línea</th>
+                                <th class="text-end">IVA ($)</th>
+                                <th class="text-end">Total Bruto</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-lineas-consulta-sap"></tbody>
                         <tfoot class="table-light fw-bold">
                             <tr>
                                 <td colspan="9" class="text-end">Total líneas</td>
-                                <td class="text-end" id="lineas-total-suma"></td>
+                                <td class="text-end" id="lineas-total-neto"></td>
+                                <td></td>
+                                <td class="text-end" id="lineas-total-iva"></td>
+                                <td class="text-end" id="lineas-total-bruto"></td>
                             </tr>
                         </tfoot>
                     </table>
