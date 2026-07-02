@@ -310,4 +310,97 @@
 
             return $stmt->fetchAll();
         }
+
+        /**
+         * Consulta v2: TODAS las líneas de facturas (INV1) y notas de crédito (RIN1)
+         * en un solo listado plano, con datos del documento para identificar cada línea.
+         * Mismo filtro opcional por fecha del documento (DocDate) que la consulta de cabeceras.
+         * Los montos van tal cual (positivos); las sumas del pie son aditivas, no neteadas.
+         *
+         * @param  string $desde Fecha documento desde (inclusive), '' = sin límite.
+         * @param  string $hasta Fecha documento hasta (inclusive), '' = sin límite.
+         * @return array Lista de filas (arreglos asociativos).
+         */
+        public function lineasFacturasNotasCredito($desde = '', $hasta = '')
+        {
+            $desde = preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde) ? $desde : '';
+            $hasta = preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta) ? $hasta : '';
+
+            $filtroFecha = '';
+            $params      = [];
+
+            if ($desde !== '') {
+                $filtroFecha .= " AND T0.DocDate >= ?";
+                $params[]     = $desde;
+            }
+            if ($hasta !== '') {
+                $filtroFecha .= " AND T0.DocDate <= ?";
+                $params[]     = $hasta;
+            }
+
+            $sql = "
+                SELECT
+                    T0.DocEntry     AS DocEntry,
+                    'Factura'       AS TipoDoc,
+                    T0.DocNum       AS NumDoc,
+                    T0.DocDate      AS FechaDocumento,
+                    T0.CardName     AS Cliente,
+                    T1.LineNum      AS Linea,
+                    T1.ItemCode     AS CodArticulo,
+                    T1.Dscription   AS Articulo,
+                    UF.Descr        AS Familia,
+                    US.Descr        AS SubFamilia,
+                    T1.unitMsr      AS Unidad,
+                    T1.Quantity     AS Cantidad,
+                    T1.PriceBefDi   AS PrecioSinDesc,
+                    T1.DiscPrcnt    AS PctDescuento,
+                    T1.Price        AS PrecioUnitario,
+                    T1.LineTotal    AS TotalNeto,
+                    T1.VatPrcnt     AS PctIVA,
+                    T1.VatSum       AS IvaMonto,
+                    T1.GTotal       AS TotalBruto
+                FROM OINV T0
+                INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                WHERE T0.CANCELED = 'N' $filtroFecha
+
+                UNION ALL
+
+                SELECT
+                    T0.DocEntry,
+                    'Nota de Crédito',
+                    T0.DocNum,
+                    T0.DocDate,
+                    T0.CardName,
+                    T1.LineNum,
+                    T1.ItemCode,
+                    T1.Dscription,
+                    UF.Descr,
+                    US.Descr,
+                    T1.unitMsr,
+                    T1.Quantity,
+                    T1.PriceBefDi,
+                    T1.DiscPrcnt,
+                    T1.Price,
+                    T1.LineTotal,
+                    T1.VatPrcnt,
+                    T1.VatSum,
+                    T1.GTotal
+                FROM ORIN T0
+                INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                WHERE T0.CANCELED = 'N' $filtroFecha
+
+                ORDER BY FechaDocumento, TipoDoc, NumDoc, Linea
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(array_merge($params, $params));
+
+            return $stmt->fetchAll();
+        }
     }

@@ -18,17 +18,20 @@
 
 <?php include 'includes/navbar.php'; ?>
 
-<div class="container">
+<div class="container-fluid">
     <div id="alert-container"></div>
 </div>
 
-<div class="container">
+<div class="container-fluid">
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Consultas SAP'); ?></h5>
             <div class="d-flex gap-2">
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs">
                     <i class="bi bi-search"></i> Consulta Facs. y NCs
+                </button>
+                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v2">
+                    <i class="bi bi-search"></i> Consulta Facs. y NCs v2
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-oc">
                     <i class="bi bi-search"></i> Consulta OC
@@ -65,6 +68,33 @@
                     <div class="col-md-2 filtro-fecha-facs d-none">
                         <label class="form-label fw-bold small mb-1" for="facs-fecha-hasta">Fecha Doc. hasta (mes/año)</label>
                         <input type="text" class="form-control form-control-sm bg-white" id="facs-fecha-hasta" placeholder="Sin límite" readonly>
+                    </div>
+
+                    <!-- Filtros de la consulta v2 (líneas); el JS los muestra solo en esa consulta. -->
+                    <div class="col-md-2 filtro-facs-v2 d-none">
+                        <label class="form-label fw-bold small mb-1" for="filtro-v2-tipo">Tipo Doc.</label>
+                        <select class="form-select form-select-sm" id="filtro-v2-tipo">
+                            <option value="">Todos</option>
+                            <option value="Factura">Factura</option>
+                            <option value="Nota de Crédito">Nota de Crédito</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 filtro-facs-v2 d-none">
+                        <label class="form-label fw-bold small mb-1" for="filtro-v2-familia">Familia</label>
+                        <select class="form-select form-select-sm" id="filtro-v2-familia">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 filtro-facs-v2 d-none">
+                        <label class="form-label fw-bold small mb-1" for="filtro-v2-subfamilia">Sub-Familia</label>
+                        <select class="form-select form-select-sm" id="filtro-v2-subfamilia">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-auto d-flex align-items-end filtro-facs-v2 d-none">
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros-sap">
+                            <i class="bi bi-eraser me-1"></i> Limpiar
+                        </button>
                     </div>
                 </div>
 

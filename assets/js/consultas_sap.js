@@ -114,6 +114,34 @@ $(document).ready(function() {
                 { data: 'Estado',           title: 'Estado',         className: 'text-center', render: renderTexto }
             ]
         },
+        facs_ncs_v2: {
+            url: 'controllers/consultas_sap_controller.php?action=facs_ncs_v2',
+            titulo: '<i class="bi bi-receipt-cutoff me-2"></i>Consulta Facturas y Notas de Crédito v2 — Líneas',
+            filtroFecha: true,
+            filtrosV2: true,
+            totales: ['TotalNeto', 'IvaMonto', 'TotalBruto'],
+            columnas: [
+                { data: 'DocEntry',       title: 'DocEntry (SAP)', className: 'text-center', render: renderNumero },
+                { data: 'TipoDoc',        title: 'Tipo Doc.',      className: 'text-center', render: renderTexto },
+                { data: 'NumDoc',         title: 'N° Doc.',        className: 'text-center', render: renderNumero },
+                { data: 'FechaDocumento', title: 'Fecha Documento',className: 'text-center', render: renderFecha },
+                { data: 'Cliente',        title: 'Cliente',        render: renderTexto },
+                { data: 'Linea',          title: 'Línea',          className: 'text-center', render: renderNumero },
+                { data: 'CodArticulo',    title: 'Cód. Artículo',  render: renderTexto },
+                { data: 'Articulo',       title: 'Artículo',       render: renderTexto },
+                { data: 'Familia',        title: 'Familia',        render: renderTexto },
+                { data: 'SubFamilia',     title: 'Sub-Familia',    render: renderTexto },
+                { data: 'Unidad',         title: 'Unidad',         className: 'text-center', render: renderTexto },
+                { data: 'Cantidad',       title: 'Cantidad',       className: 'text-end', render: renderCantidad },
+                { data: 'PrecioSinDesc',  title: 'Precio s/Desc.', className: 'text-end', render: renderMonto },
+                { data: 'PctDescuento',   title: '% Desc.',        className: 'text-end', render: renderPorcentaje },
+                { data: 'PrecioUnitario', title: 'Precio Unit.',   className: 'text-end', render: renderMonto },
+                { data: 'TotalNeto',      title: 'Total Neto',     className: 'text-end', render: renderMonto },
+                { data: 'PctIVA',         title: '% IVA',          className: 'text-end', render: renderPorcentaje },
+                { data: 'IvaMonto',       title: 'IVA ($)',        className: 'text-end', render: renderMonto },
+                { data: 'TotalBruto',     title: 'Total Bruto',    className: 'text-end', render: renderMonto }
+            ]
+        },
         stock: {
             url: 'controllers/consultas_sap_controller.php?action=stock',
             titulo: '<i class="bi bi-boxes me-2"></i>Consulta Stock — Existencias por Bodega',
@@ -137,6 +165,7 @@ $(document).ready(function() {
     let filasAct    = [];     // datos crudos de la consulta cargada (para el detalle)
     let claveActual = null;   // clave de la consulta cargada (para recargar al filtrar)
     let botonActual = null;   // botón que disparó la consulta actual
+    let filtrosV2Activos = false;   // true cuando la consulta activa usa los filtros de la v2
 
     // Rango de Fecha Documento (mes/año) como límites 'YYYY-MM-DD'; los setea Flatpickr.
     const anioActual = new Date().getFullYear();
@@ -223,8 +252,10 @@ $(document).ready(function() {
         claveActual = clave;
         botonActual = $boton;
 
-        // Muestra el filtro de fecha solo en las consultas que lo soportan.
+        // Muestra el filtro de fecha y los filtros v2 solo en las consultas que los soportan.
         $('.filtro-fecha-facs').toggleClass('d-none', !cfg.filtroFecha);
+        $('.filtro-facs-v2').toggleClass('d-none', !cfg.filtrosV2);
+        filtrosV2Activos = !!cfg.filtrosV2;
 
         setBtnLoading($boton, 'Cargando...');
 
@@ -292,6 +323,11 @@ $(document).ready(function() {
 
                 // El buscador propio aplica sobre la tabla recién cargada.
                 $('#consulta').val('');
+
+                // Llena los filtros de la v2 con los valores recién cargados.
+                if (cfg.filtrosV2) {
+                    poblarFiltrosV2();
+                }
             },
             error: function(jqXHR, textStatus) {
                 manejarErrorAjax(jqXHR, textStatus, '#alert-container');
@@ -322,6 +358,10 @@ $(document).ready(function() {
         cargarConsulta('facs_ncs', $(this));
     });
 
+    $('#btn-consulta-facs-ncs-v2').on('click', function() {
+        cargarConsulta('facs_ncs_v2', $(this));
+    });
+
     // Recarga la consulta activa (si soporta filtro por fecha) tras cambiar el rango mes/año.
     function recargarPorFiltroFecha() {
         const cfg = claveActual ? CONSULTAS[claveActual] : null;
@@ -341,7 +381,7 @@ $(document).ready(function() {
     }
 
     // Filtro Fecha Documento por mes/año (Flatpickr + plugin monthSelect).
-    flatpickr('#facs-fecha-desde', {
+    const fpFacsDesde = flatpickr('#facs-fecha-desde', {
         locale: 'es',
         plugins: [ new monthSelectPlugin({ shorthand: false, dateFormat: 'm/Y' }) ],
         defaultDate: new Date(anioActual, 0, 1),   // enero del año actual
@@ -352,7 +392,7 @@ $(document).ready(function() {
         onReady: agregarQuitarFiltro
     });
 
-    flatpickr('#facs-fecha-hasta', {
+    const fpFacsHasta = flatpickr('#facs-fecha-hasta', {
         locale: 'es',
         plugins: [ new monthSelectPlugin({ shorthand: false, dateFormat: 'm/Y' }) ],
         onChange: function(fechas) {
@@ -360,6 +400,87 @@ $(document).ready(function() {
             recargarPorFiltroFecha();
         },
         onReady: agregarQuitarFiltro
+    });
+
+    // ============================================================
+    //  Filtros de la consulta v2 (Tipo Doc., Familia, Sub-Familia) + Limpiar
+    // ============================================================
+
+    // Valores distintos de un campo en las filas cargadas; si se pasa 'familia',
+    // solo considera las filas de esa familia (para la cascada Familia -> Sub-Familia).
+    function distintosV2(campo, familia) {
+        const set = {};
+        filasAct.forEach(function(r) {
+            if (familia && (r.Familia || '') !== familia) { return; }
+            const v = r[campo];
+            if (v !== null && v !== undefined && v !== '') { set[v] = true; }
+        });
+        return Object.keys(set).sort();
+    }
+
+    // Rellena un select conservando la selección SOLO si sigue disponible.
+    function llenarSelectV2(selector, valores) {
+        const $sel   = $(selector);
+        const actual = $sel.val();
+        $sel.empty().append('<option value="">Todas</option>');
+        valores.forEach(function(v) { $sel.append($('<option>').val(v).text(v)); });
+        $sel.val(valores.indexOf(actual) !== -1 ? actual : '');
+    }
+
+    // Repuebla Sub-Familia según la Familia elegida (cascada).
+    function poblarSubFamiliasV2() {
+        llenarSelectV2('#filtro-v2-subfamilia', distintosV2('SubFamilia', $('#filtro-v2-familia').val()));
+    }
+
+    // Llena los selects de Familia y Sub-Familia con los valores ya cargados. Tipo Doc. es fijo.
+    function poblarFiltrosV2() {
+        llenarSelectV2('#filtro-v2-familia', distintosV2('Familia', ''));
+        poblarSubFamiliasV2();
+    }
+
+    // Filtro client-side por Tipo Doc. / Familia / Sub-Familia (solo cuando la v2 está activa).
+    $.fn.dataTable.ext.search.push(function(settings, searchData, dataIndex) {
+        if (!filtrosV2Activos || settings.nTable.id !== 'tabla-consulta') {
+            return true;
+        }
+        const fila = new $.fn.dataTable.Api(settings).row(dataIndex).data();
+        if (!fila) { return true; }
+
+        const tipo = $('#filtro-v2-tipo').val();
+        const fam  = $('#filtro-v2-familia').val();
+        const sub  = $('#filtro-v2-subfamilia').val();
+
+        if (tipo && fila.TipoDoc !== tipo)          { return false; }
+        if (fam  && (fila.Familia || '') !== fam)   { return false; }
+        if (sub  && (fila.SubFamilia || '') !== sub) { return false; }
+        return true;
+    });
+
+    // Al cambiar la Familia: acota las Sub-Familias disponibles (cascada) y re-dibuja.
+    $('#filtro-v2-familia').on('change', function() {
+        poblarSubFamiliasV2();
+        if (tabla) { tabla.draw(); }
+    });
+
+    // Tipo Doc. y Sub-Familia solo re-dibujan (client-side).
+    $('#filtro-v2-tipo, #filtro-v2-subfamilia').on('change', function() {
+        if (tabla) { tabla.draw(); }
+    });
+
+    // Botón "Limpiar": deja todos los filtros por defecto y recarga la consulta activa.
+    $('#btn-limpiar-filtros-sap').on('click', function() {
+        $('#filtro-v2-tipo, #filtro-v2-familia, #filtro-v2-subfamilia').val('');
+        $('#consulta').val('');
+
+        // Fecha vuelve al rango por defecto: desde enero del año actual, hasta sin límite.
+        filtroDesde = anioActual + '-01-01';
+        filtroHasta = '';
+        fpFacsDesde.setDate(new Date(anioActual, 0, 1), false);   // sin disparar onChange
+        fpFacsHasta.clear(false);
+
+        if (claveActual) {
+            cargarConsulta(claveActual, botonActual || $('#btn-consulta-facs-ncs-v2'));
+        }
     });
 
     // Buscador propio con debounce → busca en toda la tabla (client-side).

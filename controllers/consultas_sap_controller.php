@@ -75,6 +75,23 @@ switch ($action) {
         }
         exit;
 
+    case 'facs_ncs_v2':
+
+        // Consulta v2: líneas de facturas + notas de crédito en un listado plano (lectura SAP).
+        try {
+            $desde = $_GET['desde'] ?? '';
+            $hasta = $_GET['hasta'] ?? '';
+
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->lineasFacturasNotasCredito($desde, $hasta);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta de líneas de Facturas y Notas de Crédito.']);
+        }
+        exit;
+
     case 'lineas':
 
         // Líneas de una factura (INV1) o nota de crédito (RIN1), por DocEntry (lectura desde SAP).
