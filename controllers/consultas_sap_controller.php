@@ -92,6 +92,40 @@ switch ($action) {
         }
         exit;
 
+    case 'facs_ncs_v3':
+
+        // Consulta v3: líneas de Facturas + NC agrupadas por fecha del documento y código de artículo.
+        try {
+            $desde = $_GET['desde'] ?? '';
+            $hasta = $_GET['hasta'] ?? '';
+
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->facturasNotasCreditoPorArticulo($desde, $hasta);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta v3 de Facturas y Notas de Crédito.']);
+        }
+        exit;
+
+    case 'docs_articulo_mes':
+
+        // Detalle v3: documentos (facturas/NC) de un artículo en un año-mes.
+        try {
+            $anioMes  = $_GET['aniomes'] ?? '';
+            $itemCode = $_GET['itemcode'] ?? '';
+
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->documentosPorArticuloMes($anioMes, $itemCode);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener los documentos del artículo.']);
+        }
+        exit;
+
     case 'lineas':
 
         // Líneas de una factura (INV1) o nota de crédito (RIN1), por DocEntry (lectura desde SAP).

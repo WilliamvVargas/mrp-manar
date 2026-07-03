@@ -380,14 +380,14 @@
                     UF.Descr,
                     US.Descr,
                     T1.unitMsr,
-                    T1.Quantity,
+                    -T1.Quantity,
                     T1.PriceBefDi,
                     T1.DiscPrcnt,
                     T1.Price,
-                    T1.LineTotal,
+                    -T1.LineTotal,
                     T1.VatPrcnt,
-                    T1.VatSum,
-                    T1.GTotal
+                    -T1.VatSum,
+                    -T1.GTotal
                 FROM ORIN T0
                 INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
                 LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
@@ -400,6 +400,156 @@
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute(array_merge($params, $params));
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Consulta v3: líneas de facturas (INV1) + NC (RIN1) AGRUPADAS por fecha del documento
+         * y código de artículo. Suma cantidad, precio s/desc, neto, IVA y bruto de cada grupo.
+         * Familia/Sub-Familia viajan en el resultado (para los filtros) aunque no se muestren
+         * como columnas. Mismo filtro por fecha del documento que la v2.
+         *
+         * @param  string $desde Fecha documento desde (inclusive), '' = sin límite.
+         * @param  string $hasta Fecha documento hasta (inclusive), '' = sin límite.
+         * @return array Lista de filas (arreglos asociativos).
+         */
+        public function facturasNotasCreditoPorArticulo($desde = '', $hasta = '')
+        {
+            $desde = preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde) ? $desde : '';
+            $hasta = preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta) ? $hasta : '';
+
+            $filtroFecha = '';
+            $params      = [];
+
+            if ($desde !== '') {
+                $filtroFecha .= " AND T0.DocDate >= ?";
+                $params[]     = $desde;
+            }
+            if ($hasta !== '') {
+                $filtroFecha .= " AND T0.DocDate <= ?";
+                $params[]     = $hasta;
+            }
+
+            // Se aplana INV1 + RIN1 (subconsulta) y luego se agrupa por fecha + artículo.
+            $sql = "
+                SELECT
+                    X.FechaDocumento,
+                    X.CodArticulo,
+                    X.Articulo,
+                    X.Familia,
+                    X.SubFamilia,
+                    SUM(X.Cantidad)      AS Cantidad,
+                    SUM(X.PrecioSinDesc) AS PrecioSinDesc,
+                    SUM(X.TotalNeto)     AS TotalNeto,
+                    SUM(X.IvaMonto)      AS IvaMonto,
+                    SUM(X.TotalBruto)    AS TotalBruto
+                FROM (
+                    SELECT
+                        CONVERT(char(7), T0.DocDate, 126) AS FechaDocumento,
+                        T1.ItemCode   AS CodArticulo,
+                        IT.ItemName   AS Articulo,
+                        UF.Descr      AS Familia,
+                        US.Descr      AS SubFamilia,
+                        T1.Quantity   AS Cantidad,
+                        T1.PriceBefDi AS PrecioSinDesc,
+                        T1.LineTotal  AS TotalNeto,
+                        T1.VatSum     AS IvaMonto,
+                        T1.GTotal     AS TotalBruto
+                    FROM OINV T0
+                    INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                    LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    WHERE T0.CANCELED = 'N' $filtroFecha
+
+                    UNION ALL
+
+                    SELECT
+                        CONVERT(char(7), T0.DocDate, 126),
+                        T1.ItemCode,
+                        IT.ItemName,
+                        UF.Descr,
+                        US.Descr,
+                        -T1.Quantity,
+                        T1.PriceBefDi,
+                        -T1.LineTotal,
+                        -T1.VatSum,
+                        -T1.GTotal
+                    FROM ORIN T0
+                    INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                    LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    WHERE T0.CANCELED = 'N' $filtroFecha
+                ) X
+                GROUP BY X.FechaDocumento, X.CodArticulo, X.Articulo, X.Familia, X.SubFamilia
+                ORDER BY X.FechaDocumento, X.CodArticulo
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(array_merge($params, $params));
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Detalle de la v3: facturas (INV1) y NC (RIN1) donde aparece un artículo dentro de
+         * un año-mes ('yyyy-MM'). Devuelve una fila por línea de ese artículo en cada documento.
+         *
+         * @param  string $anioMes  Año-mes en formato 'yyyy-MM'.
+         * @param  string $itemCode Código de artículo (ItemCode).
+         * @return array Lista de filas (arreglos asociativos).
+         */
+        public function documentosPorArticuloMes($anioMes, $itemCode)
+        {
+            // El año-mes debe venir como 'yyyy-MM'; si no, no se consulta nada.
+            if (!preg_match('/^\d{4}-\d{2}$/', $anioMes)) {
+                return [];
+            }
+
+            $sql = "
+                SELECT
+                    T0.DocEntry   AS DocEntry,
+                    'Factura'     AS TipoDoc,
+                    T0.DocNum     AS NumDoc,
+                    T0.DocDate    AS FechaDocumento,
+                    T0.CardName   AS Cliente,
+                    T1.LineNum    AS Linea,
+                    T1.Quantity   AS Cantidad,
+                    T1.LineTotal  AS TotalNeto,
+                    T1.VatSum     AS IvaMonto,
+                    T1.GTotal     AS TotalBruto
+                FROM OINV T0
+                INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                WHERE T0.CANCELED = 'N'
+                  AND T1.ItemCode = ?
+                  AND CONVERT(char(7), T0.DocDate, 126) = ?
+
+                UNION ALL
+
+                SELECT
+                    T0.DocEntry,
+                    'Nota de Crédito',
+                    T0.DocNum,
+                    T0.DocDate,
+                    T0.CardName,
+                    T1.LineNum,
+                    -T1.Quantity,
+                    -T1.LineTotal,
+                    -T1.VatSum,
+                    -T1.GTotal
+                FROM ORIN T0
+                INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                WHERE T0.CANCELED = 'N'
+                  AND T1.ItemCode = ?
+                  AND CONVERT(char(7), T0.DocDate, 126) = ?
+
+                ORDER BY FechaDocumento, TipoDoc, NumDoc
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$itemCode, $anioMes, $itemCode, $anioMes]);
 
             return $stmt->fetchAll();
         }

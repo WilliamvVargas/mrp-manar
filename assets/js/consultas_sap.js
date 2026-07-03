@@ -118,7 +118,7 @@ $(document).ready(function() {
             url: 'controllers/consultas_sap_controller.php?action=facs_ncs_v2',
             titulo: '<i class="bi bi-receipt-cutoff me-2"></i>Consulta Facturas y Notas de Crédito v2 — Líneas',
             filtroFecha: true,
-            filtrosV2: true,
+            filtros: ['tipo', 'familia', 'subfamilia'],
             totales: ['TotalNeto', 'IvaMonto', 'TotalBruto'],
             columnas: [
                 { data: 'DocEntry',       title: 'DocEntry (SAP)', className: 'text-center', render: renderNumero },
@@ -138,6 +138,27 @@ $(document).ready(function() {
                 { data: 'PrecioUnitario', title: 'Precio Unit.',   className: 'text-end', render: renderMonto },
                 { data: 'TotalNeto',      title: 'Total Neto',     className: 'text-end', render: renderMonto },
                 { data: 'PctIVA',         title: '% IVA',          className: 'text-end', render: renderPorcentaje },
+                { data: 'IvaMonto',       title: 'IVA ($)',        className: 'text-end', render: renderMonto },
+                { data: 'TotalBruto',     title: 'Total Bruto',    className: 'text-end', render: renderMonto }
+            ]
+        },
+        facs_ncs_v3: {
+            url: 'controllers/consultas_sap_controller.php?action=facs_ncs_v3',
+            titulo: '<i class="bi bi-collection me-2"></i>Consulta Facturas y Notas de Crédito v3 — Agrupado por artículo',
+            filtroFecha: true,
+            etiquetaFecha: 'Año-Mes',
+            filtros: ['familia', 'subfamilia'],
+            verDocumentos: true,
+            totales: ['TotalNeto', 'IvaMonto', 'TotalBruto'],
+            columnas: [
+                { data: 'FechaDocumento', title: 'Año-Mes',        className: 'text-center', render: renderTexto },
+                { data: 'CodArticulo',    title: 'Cód. Artículo',  render: renderTexto },
+                { data: 'Articulo',       title: 'Artículo',       render: renderTexto },
+                { data: 'Familia',        title: 'Familia',        render: renderTexto },
+                { data: 'SubFamilia',     title: 'Sub-Familia',    render: renderTexto },
+                { data: 'Cantidad',       title: 'Cantidad',       className: 'text-end', render: renderCantidad },
+                { data: 'PrecioSinDesc',  title: 'Precio s/Desc.', className: 'text-end', render: renderMonto },
+                { data: 'TotalNeto',      title: 'Total Neto',     className: 'text-end', render: renderMonto },
                 { data: 'IvaMonto',       title: 'IVA ($)',        className: 'text-end', render: renderMonto },
                 { data: 'TotalBruto',     title: 'Total Bruto',    className: 'text-end', render: renderMonto }
             ]
@@ -165,7 +186,8 @@ $(document).ready(function() {
     let filasAct    = [];     // datos crudos de la consulta cargada (para el detalle)
     let claveActual = null;   // clave de la consulta cargada (para recargar al filtrar)
     let botonActual = null;   // botón que disparó la consulta actual
-    let filtrosV2Activos = false;   // true cuando la consulta activa usa los filtros de la v2
+    let filtrosActivos   = [];      // lista de filtros client-side activos (tipo/familia/subfamilia)
+    let filtrosV2Activos = false;   // true cuando hay algún filtro client-side activo
 
     // Rango de Fecha Documento (mes/año) como límites 'YYYY-MM-DD'; los setea Flatpickr.
     const anioActual = new Date().getFullYear();
@@ -237,6 +259,11 @@ $(document).ready(function() {
                              + 'data-fila="' + meta.row + '" title="Ver líneas"><i class="bi bi-list-ul"></i></button>';
                 }
 
+                if (cfg.verDocumentos) {
+                    botones += ' <button type="button" class="btn btn-sm btn-outline-primary btn-ver-documentos" '
+                             + 'data-fila="' + meta.row + '" title="Ver documentos"><i class="bi bi-files"></i></button>';
+                }
+
                 return botones;
             }
         };
@@ -252,10 +279,20 @@ $(document).ready(function() {
         claveActual = clave;
         botonActual = $boton;
 
-        // Muestra el filtro de fecha y los filtros v2 solo en las consultas que los soportan.
+        // Muestra el filtro de fecha y cada filtro client-side según lo que declare la consulta.
+        filtrosActivos   = cfg.filtros || [];
+        filtrosV2Activos = filtrosActivos.length > 0;
         $('.filtro-fecha-facs').toggleClass('d-none', !cfg.filtroFecha);
-        $('.filtro-facs-v2').toggleClass('d-none', !cfg.filtrosV2);
-        filtrosV2Activos = !!cfg.filtrosV2;
+
+        // Etiqueta del filtro de fecha según la consulta (por defecto "Fecha Doc.").
+        const etFecha = cfg.etiquetaFecha;
+        $('label[for="facs-fecha-desde"]').text(etFecha ? etFecha + ' desde' : 'Fecha Doc. desde (mes/año)');
+        $('label[for="facs-fecha-hasta"]').text(etFecha ? etFecha + ' hasta' : 'Fecha Doc. hasta (mes/año)');
+
+        $('.filtro-item-tipo').toggleClass('d-none', filtrosActivos.indexOf('tipo') < 0);
+        $('.filtro-item-familia').toggleClass('d-none', filtrosActivos.indexOf('familia') < 0);
+        $('.filtro-item-subfamilia').toggleClass('d-none', filtrosActivos.indexOf('subfamilia') < 0);
+        $('.filtro-item-limpiar').toggleClass('d-none', filtrosActivos.length === 0);
 
         setBtnLoading($boton, 'Cargando...');
 
@@ -324,8 +361,8 @@ $(document).ready(function() {
                 // El buscador propio aplica sobre la tabla recién cargada.
                 $('#consulta').val('');
 
-                // Llena los filtros de la v2 con los valores recién cargados.
-                if (cfg.filtrosV2) {
+                // Llena los selects de Familia/Sub-Familia con los valores recién cargados.
+                if ((cfg.filtros || []).length) {
                     poblarFiltrosV2();
                 }
             },
@@ -360,6 +397,10 @@ $(document).ready(function() {
 
     $('#btn-consulta-facs-ncs-v2').on('click', function() {
         cargarConsulta('facs_ncs_v2', $(this));
+    });
+
+    $('#btn-consulta-facs-ncs-v3').on('click', function() {
+        cargarConsulta('facs_ncs_v3', $(this));
     });
 
     // Recarga la consulta activa (si soporta filtro por fecha) tras cambiar el rango mes/año.
@@ -446,13 +487,18 @@ $(document).ready(function() {
         const fila = new $.fn.dataTable.Api(settings).row(dataIndex).data();
         if (!fila) { return true; }
 
-        const tipo = $('#filtro-v2-tipo').val();
-        const fam  = $('#filtro-v2-familia').val();
-        const sub  = $('#filtro-v2-subfamilia').val();
-
-        if (tipo && fila.TipoDoc !== tipo)          { return false; }
-        if (fam  && (fila.Familia || '') !== fam)   { return false; }
-        if (sub  && (fila.SubFamilia || '') !== sub) { return false; }
+        if (filtrosActivos.indexOf('tipo') >= 0) {
+            const tipo = $('#filtro-v2-tipo').val();
+            if (tipo && fila.TipoDoc !== tipo) { return false; }
+        }
+        if (filtrosActivos.indexOf('familia') >= 0) {
+            const fam = $('#filtro-v2-familia').val();
+            if (fam && (fila.Familia || '') !== fam) { return false; }
+        }
+        if (filtrosActivos.indexOf('subfamilia') >= 0) {
+            const sub = $('#filtro-v2-subfamilia').val();
+            if (sub && (fila.SubFamilia || '') !== sub) { return false; }
+        }
         return true;
     });
 
@@ -536,7 +582,7 @@ $(document).ready(function() {
 
     // Dibuja la cabecera del documento en el modal usando las MISMAS columnas y renders
     // del DataTable activo (así coincide exactamente con lo que se ve en la tabla principal).
-    function renderCabeceraDoc(registro) {
+    function renderCabeceraDoc(registro, tablaSelector) {
         const cols = (claveActual && CONSULTAS[claveActual]) ? CONSULTAS[claveActual].columnas : [];
 
         const ths = cols.map(function(c) {
@@ -549,8 +595,8 @@ $(document).ready(function() {
             return '<td class="' + (c.className || '') + '">' + contenido + '</td>';
         }).join('');
 
-        $('#tabla-cabecera-consulta-sap thead').html('<tr>' + ths + '</tr>');
-        $('#tabla-cabecera-consulta-sap tbody').html('<tr>' + tds + '</tr>');
+        $(tablaSelector + ' thead').html('<tr>' + ths + '</tr>');
+        $(tablaSelector + ' tbody').html('<tr>' + tds + '</tr>');
     }
 
     // Arma las filas del detalle de líneas; colspan 10 = nº de columnas del <thead>.
@@ -588,7 +634,7 @@ $(document).ready(function() {
         }
 
         $('#lineas-doc-titulo').text('— ' + registro.TipoDoc + ' N° ' + registro.NumDoc);
-        renderCabeceraDoc(registro);
+        renderCabeceraDoc(registro, '#tabla-cabecera-consulta-sap');
         $tbody.html('<tr><td colspan="13" class="text-center text-muted py-3">Cargando...</td></tr>');
         $('#lineas-total-neto').text('');
         $('#lineas-total-iva').text('');
@@ -624,6 +670,75 @@ $(document).ready(function() {
             },
             error: function() {
                 $tbody.html('<tr><td colspan="13" class="text-danger small py-3">Error al cargar las líneas.</td></tr>');
+            }
+        });
+    });
+
+    // ============================================================
+    //  Ver documentos (v3): facturas/NC de un artículo en un año-mes
+    // ============================================================
+
+    // Arma las filas del listado de documentos; colspan 9 = nº de columnas del <thead>.
+    function filasDocs(docs) {
+        if (!docs.length) {
+            return '<tr><td colspan="9" class="text-center text-muted py-3">Sin documentos.</td></tr>';
+        }
+        return docs.map(function(d) {
+            return '<tr>'
+                 + '<td class="text-center">' + renderNumero(d.DocEntry) + '</td>'
+                 + '<td class="text-center">' + renderTexto(d.TipoDoc) + '</td>'
+                 + '<td class="text-center">' + renderNumero(d.NumDoc) + '</td>'
+                 + '<td class="text-center">' + renderFecha(d.FechaDocumento) + '</td>'
+                 + '<td>' + renderTexto(d.Cliente) + '</td>'
+                 + '<td class="text-end">' + renderCantidad(d.Cantidad) + '</td>'
+                 + '<td class="text-end">' + renderMonto(d.TotalNeto) + '</td>'
+                 + '<td class="text-end">' + renderMonto(d.IvaMonto) + '</td>'
+                 + '<td class="text-end">' + renderMonto(d.TotalBruto) + '</td>'
+                 + '</tr>';
+        }).join('');
+    }
+
+    // Botón "Ver documentos": abre el modal y pide los documentos del artículo en ese año-mes.
+    $('#tabla-consulta tbody').on('click', '.btn-ver-documentos', function() {
+        const idx      = $(this).data('fila');
+        const registro = filasAct[idx];
+        const $tbody   = $('#tabla-docs-consulta-sap');
+
+        if (!registro) {
+            return;
+        }
+
+        $('#docs-titulo').text('— ' + registro.CodArticulo + ' · ' + registro.FechaDocumento);
+        renderCabeceraDoc(registro, '#tabla-resumen-docs-sap');
+        $tbody.html('<tr><td colspan="9" class="text-center text-muted py-3">Cargando...</td></tr>');
+        $('#docs-total-cant, #docs-total-neto, #docs-total-iva, #docs-total-bruto').text('');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConsultaSapDocs')).show();
+
+        $.ajax({
+            url: 'controllers/consultas_sap_controller.php?action=docs_articulo_mes',
+            type: 'GET',
+            data: { aniomes: registro.FechaDocumento, itemcode: registro.CodArticulo },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $tbody.html('<tr><td colspan="9" class="text-danger small py-3">' + (res.message || 'No se pudieron cargar los documentos.') + '</td></tr>');
+                    return;
+                }
+                const docs = res.data || [];
+                $tbody.html(filasDocs(docs));
+
+                if (docs.length) {
+                    const suma = function(campo) {
+                        return docs.reduce(function(acc, d) { return acc + (parseFloat(d[campo]) || 0); }, 0);
+                    };
+                    $('#docs-total-cant').text(renderCantidad(suma('Cantidad')));
+                    $('#docs-total-neto').text(renderMonto(suma('TotalNeto')));
+                    $('#docs-total-iva').text(renderMonto(suma('IvaMonto')));
+                    $('#docs-total-bruto').text(renderMonto(suma('TotalBruto')));
+                }
+            },
+            error: function() {
+                $tbody.html('<tr><td colspan="9" class="text-danger small py-3">Error al cargar los documentos.</td></tr>');
             }
         });
     });

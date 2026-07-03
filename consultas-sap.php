@@ -33,6 +33,9 @@
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v2">
                     <i class="bi bi-search"></i> Consulta Facs. y NCs v2
                 </button>
+                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v3">
+                    <i class="bi bi-search"></i> Consulta Facs. y NCs v3
+                </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-oc">
                     <i class="bi bi-search"></i> Consulta OC
                 </button>
@@ -70,8 +73,8 @@
                         <input type="text" class="form-control form-control-sm bg-white" id="facs-fecha-hasta" placeholder="Sin límite" readonly>
                     </div>
 
-                    <!-- Filtros de la consulta v2 (líneas); el JS los muestra solo en esa consulta. -->
-                    <div class="col-md-2 filtro-facs-v2 d-none">
+                    <!-- Filtros client-side (líneas); el JS muestra cada uno según la consulta activa. -->
+                    <div class="col-md-2 filtro-item-tipo d-none">
                         <label class="form-label fw-bold small mb-1" for="filtro-v2-tipo">Tipo Doc.</label>
                         <select class="form-select form-select-sm" id="filtro-v2-tipo">
                             <option value="">Todos</option>
@@ -79,19 +82,19 @@
                             <option value="Nota de Crédito">Nota de Crédito</option>
                         </select>
                     </div>
-                    <div class="col-md-2 filtro-facs-v2 d-none">
+                    <div class="col-md-2 filtro-item-familia d-none">
                         <label class="form-label fw-bold small mb-1" for="filtro-v2-familia">Familia</label>
                         <select class="form-select form-select-sm" id="filtro-v2-familia">
                             <option value="">Todas</option>
                         </select>
                     </div>
-                    <div class="col-md-2 filtro-facs-v2 d-none">
+                    <div class="col-md-2 filtro-item-subfamilia d-none">
                         <label class="form-label fw-bold small mb-1" for="filtro-v2-subfamilia">Sub-Familia</label>
                         <select class="form-select form-select-sm" id="filtro-v2-subfamilia">
                             <option value="">Todas</option>
                         </select>
                     </div>
-                    <div class="col-md-auto d-flex align-items-end filtro-facs-v2 d-none">
+                    <div class="col-md-auto d-flex align-items-end filtro-item-limpiar d-none">
                         <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros-sap">
                             <i class="bi bi-eraser me-1"></i> Limpiar
                         </button>
@@ -120,6 +123,7 @@
 <?php
     include 'modals/modal_consultas_sap_detalle.php';
     include 'modals/modal_consultas_sap_lineas.php';
+    include 'modals/modal_consultas_sap_docs.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
