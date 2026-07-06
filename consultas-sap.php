@@ -36,6 +36,9 @@
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v3">
                     <i class="bi bi-search"></i> Consulta Facs. y NCs v3
                 </button>
+                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v4">
+                    <i class="bi bi-search"></i> Consulta Facs. y NCs v4
+                </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-oc">
                     <i class="bi bi-search"></i> Consulta OC
                 </button>

@@ -461,7 +461,9 @@
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
                     LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
                     LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
-                    WHERE T0.CANCELED = 'N' $filtroFecha
+                    WHERE T0.CANCELED = 'N'
+                      AND UF.Descr IS NOT NULL
+                      AND US.Descr IS NOT NULL $filtroFecha
 
                     UNION ALL
 
@@ -481,7 +483,9 @@
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
                     LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
                     LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
-                    WHERE T0.CANCELED = 'N' $filtroFecha
+                    WHERE T0.CANCELED = 'N'
+                      AND UF.Descr IS NOT NULL
+                      AND US.Descr IS NOT NULL $filtroFecha
                 ) X
                 GROUP BY X.FechaDocumento, X.CodArticulo, X.Articulo, X.Familia, X.SubFamilia
                 ORDER BY X.FechaDocumento, X.CodArticulo
@@ -550,6 +554,85 @@
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([$itemCode, $anioMes, $itemCode, $anioMes]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Consulta v4: líneas de facturas (INV1) + NC (RIN1) AGRUPADAS por año-mes y FAMILIA.
+         * Suma cantidad, neto, IVA y bruto por familia. Solo líneas de artículos con familia y
+         * sub-familia identificadas (mismas exclusiones que la v3). Las NC quedan neteadas.
+         *
+         * @param  string $desde Fecha documento desde (inclusive), '' = sin límite.
+         * @param  string $hasta Fecha documento hasta (inclusive), '' = sin límite.
+         * @return array Lista de filas (arreglos asociativos).
+         */
+        public function facturasNotasCreditoPorFamilia($desde = '', $hasta = '')
+        {
+            $desde = preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde) ? $desde : '';
+            $hasta = preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta) ? $hasta : '';
+
+            $filtroFecha = '';
+            $params      = [];
+
+            if ($desde !== '') {
+                $filtroFecha .= " AND T0.DocDate >= ?";
+                $params[]     = $desde;
+            }
+            if ($hasta !== '') {
+                $filtroFecha .= " AND T0.DocDate <= ?";
+                $params[]     = $hasta;
+            }
+
+            $sql = "
+                SELECT
+                    X.FechaDocumento,
+                    X.Familia,
+                    SUM(X.Cantidad)   AS Cantidad,
+                    SUM(X.TotalNeto)  AS TotalNeto,
+                    SUM(X.IvaMonto)   AS IvaMonto,
+                    SUM(X.TotalBruto) AS TotalBruto
+                FROM (
+                    SELECT
+                        CONVERT(char(7), T0.DocDate, 126) AS FechaDocumento,
+                        UF.Descr     AS Familia,
+                        T1.Quantity  AS Cantidad,
+                        T1.LineTotal AS TotalNeto,
+                        T1.VatSum    AS IvaMonto,
+                        T1.GTotal    AS TotalBruto
+                    FROM OINV T0
+                    INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                    LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    WHERE T0.CANCELED = 'N'
+                      AND UF.Descr IS NOT NULL
+                      AND US.Descr IS NOT NULL $filtroFecha
+
+                    UNION ALL
+
+                    SELECT
+                        CONVERT(char(7), T0.DocDate, 126),
+                        UF.Descr,
+                        -T1.Quantity,
+                        -T1.LineTotal,
+                        -T1.VatSum,
+                        -T1.GTotal
+                    FROM ORIN T0
+                    INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                    LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    WHERE T0.CANCELED = 'N'
+                      AND UF.Descr IS NOT NULL
+                      AND US.Descr IS NOT NULL $filtroFecha
+                ) X
+                GROUP BY X.FechaDocumento, X.Familia
+                ORDER BY X.FechaDocumento, X.Familia
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(array_merge($params, $params));
 
             return $stmt->fetchAll();
         }

@@ -149,7 +149,7 @@ $(document).ready(function() {
             etiquetaFecha: 'Año-Mes',
             filtros: ['familia', 'subfamilia'],
             verDocumentos: true,
-            totales: ['TotalNeto', 'IvaMonto', 'TotalBruto'],
+            totales: ['Cantidad', 'TotalNeto', 'IvaMonto', 'TotalBruto'],
             columnas: [
                 { data: 'FechaDocumento', title: 'Año-Mes',        className: 'text-center', render: renderTexto },
                 { data: 'CodArticulo',    title: 'Cód. Artículo',  render: renderTexto },
@@ -161,6 +161,22 @@ $(document).ready(function() {
                 { data: 'TotalNeto',      title: 'Total Neto',     className: 'text-end', render: renderMonto },
                 { data: 'IvaMonto',       title: 'IVA ($)',        className: 'text-end', render: renderMonto },
                 { data: 'TotalBruto',     title: 'Total Bruto',    className: 'text-end', render: renderMonto }
+            ]
+        },
+        facs_ncs_v4: {
+            url: 'controllers/consultas_sap_controller.php?action=facs_ncs_v4',
+            titulo: '<i class="bi bi-diagram-3 me-2"></i>Consulta Facturas y Notas de Crédito v4 — Agrupado por familia',
+            filtroFecha: true,
+            etiquetaFecha: 'Año-Mes',
+            filtros: ['familia'],
+            totales: ['Cantidad', 'TotalNeto', 'IvaMonto', 'TotalBruto'],
+            columnas: [
+                { data: 'FechaDocumento', title: 'Año-Mes',     className: 'text-center', render: renderTexto },
+                { data: 'Familia',        title: 'Familia',     render: renderTexto },
+                { data: 'Cantidad',       title: 'Cantidad',    className: 'text-end', render: renderCantidad },
+                { data: 'TotalNeto',      title: 'Total Neto',  className: 'text-end', render: renderMonto },
+                { data: 'IvaMonto',       title: 'IVA ($)',     className: 'text-end', render: renderMonto },
+                { data: 'TotalBruto',     title: 'Total Bruto', className: 'text-end', render: renderMonto }
             ]
         },
         stock: {
@@ -350,7 +366,9 @@ $(document).ready(function() {
                                 api.column(idx, { search: 'applied', page: 'all' }).data().each(function(v) {
                                     suma += toNum(v);
                                 });
-                                $(api.column(idx).footer()).html(renderMonto(suma));
+                                // Cada total usa el formato de su propia columna (cantidad, monto, etc.).
+                                const formato = col.render || renderMonto;
+                                $(api.column(idx).footer()).html(formato(suma));
                             }
                         });
 
@@ -401,6 +419,10 @@ $(document).ready(function() {
 
     $('#btn-consulta-facs-ncs-v3').on('click', function() {
         cargarConsulta('facs_ncs_v3', $(this));
+    });
+
+    $('#btn-consulta-facs-ncs-v4').on('click', function() {
+        cargarConsulta('facs_ncs_v4', $(this));
     });
 
     // Recarga la consulta activa (si soporta filtro por fecha) tras cambiar el rango mes/año.

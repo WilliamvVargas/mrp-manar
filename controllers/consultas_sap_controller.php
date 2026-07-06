@@ -109,6 +109,23 @@ switch ($action) {
         }
         exit;
 
+    case 'facs_ncs_v4':
+
+        // Consulta v4: líneas de Facturas + NC agrupadas por año-mes y familia.
+        try {
+            $desde = $_GET['desde'] ?? '';
+            $hasta = $_GET['hasta'] ?? '';
+
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->facturasNotasCreditoPorFamilia($desde, $hasta);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta v4 (por familia).']);
+        }
+        exit;
+
     case 'docs_articulo_mes':
 
         // Detalle v3: documentos (facturas/NC) de un artículo en un año-mes.
