@@ -16,3 +16,11 @@ assets/img/uploads/*
 assets/icons/personalizados/*
 !assets/icons/personalizados/.gitkeep
 assets/icons/sprite.svg
+
+# Ejemplo de pronóstico en Python (carpeta python/): se versionan los fuentes
+# (.py, requirements.txt, .bat) y los datos (datos_historicos.txt); se ignora lo
+# generado/pesado (entorno virtual, caché de bytecode y los gráficos PNG).
+python/venv/
+python/__pycache__/
+python/*.pyc
+python/*.png
