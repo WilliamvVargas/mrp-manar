@@ -1,25 +1,34 @@
 """
-Genera datos sintéticos de DEMANDA MENSUAL y los guarda en 'datos_historicos.txt'.
+Genera datos sintéticos con DOS variables:
+  - demanda     -> lo que se quiere pronosticar (columna 'y' de Prophet)
+  - presupuesto -> variable externa (regresor) que INFLUYE en la demanda
 
-Usa SOLO la librería estándar de Python (math, random, datetime): no requiere
-numpy ni pandas, así que corre con cualquier instalación de Python.
+El presupuesto se planifica "conociendo" las campañas del mes, así que incluye
+parte de la desviación (shock) que NO se explica por el calendario. Gracias a eso
+Prophet le puede sacar provecho como regresor (add_regressor).
 
-La fórmula por mes es:  base + tendencia + estacionalidad_anual + ruido
-Con semilla fija (42) para que el resultado sea siempre el mismo (reproducible).
+Usa SOLO la librería estándar (math, random, datetime). Semilla fija (42) para que
+el resultado sea siempre el mismo (reproducible).
 
-Formato del archivo (CSV dentro de un .txt, fácil de leer con pandas):
-    fecha,demanda
-    2021-01-01,512
-    2021-02-01,...
+Escribe DOS archivos:
+  - datos_historicos.txt  : fecha,demanda,presupuesto   (48 meses de historia)
+  - presupuesto_futuro.txt: fecha,presupuesto           (12 meses futuros)
+
+Ojo: del futuro NO se conoce la demanda (es lo que se pronostica), pero el
+presupuesto SÍ se conoce por adelantado (está planificado). Por eso el regresor
+es utilizable a futuro.
 """
 
 import math
 import random
 from datetime import date
 
-ARCHIVO = "datos_historicos.txt"
-MESES   = 48                    # 4 años de historia
-INICIO  = date(2021, 1, 1)      # primer mes
+ARCH_HIST  = "datos_historicos.txt"
+ARCH_FUT   = "presupuesto_futuro.txt"
+MESES_HIST = 48                    # 4 años de historia (2021-2024)
+MESES_FUT  = 12                    # 12 meses a pronosticar (2025)
+INICIO     = date(2021, 1, 1)
+PRECIO     = 1000                  # $ por unidad, para expresar el presupuesto en pesos
 
 
 def sumar_meses(d, n):
@@ -29,38 +38,57 @@ def sumar_meses(d, n):
     return date(anio, mes + 1, 1)
 
 
-def generar():
-    """Crea la lista de (fecha_iso, demanda) para los MESES meses."""
-    random.seed(42)             # reproducible: siempre los mismos números
-    filas = []
-    for t in range(MESES):
-        base       = 500
-        tendencia  = 6 * t                                   # ~6 unidades más por mes
-        estacional = 120 * math.sin(2 * math.pi * (t % 12) / 12)  # pico anual
-        ruido      = random.gauss(0, 25)                     # variabilidad aleatoria
+def demanda_y_presupuesto(t):
+    """
+    Para el mes t devuelve (demanda, presupuesto).
+      demanda      = señal_calendario + shock + ruido_pequeño
+      presupuesto  = (señal_calendario + shock) * PRECIO
+    El 'shock' es una desviación NO explicable por tendencia/estacionalidad
+    (p. ej. una campaña). Como el presupuesto lo incluye, aporta información
+    que el calendario por sí solo no tiene.
+    """
+    base       = 500
+    tendencia  = 6 * t                                       # ~6 unidades más por mes
+    estacional = 120 * math.sin(2 * math.pi * (t % 12) / 12) # pico anual
+    senal      = base + tendencia + estacional
 
-        demanda = base + tendencia + estacional + ruido
-        demanda = max(0, round(demanda))                     # sin negativos, entero
+    shock = random.gauss(0, 60)     # desviación por campañas (conocida al presupuestar)
 
-        fecha = sumar_meses(INICIO, t)
-        filas.append((fecha.isoformat(), demanda))
-    return filas
+    demanda     = max(0, round(senal + shock + random.gauss(0, 15)))
+    presupuesto = max(0, round((senal + shock) * PRECIO))
+    return demanda, presupuesto
 
 
 def main():
-    filas = generar()
+    random.seed(42)                 # reproducible
 
-    with open(ARCHIVO, "w", encoding="utf-8") as f:
-        f.write("fecha,demanda\n")
-        for fecha, demanda in filas:
-            f.write(f"{fecha},{demanda}\n")
+    historico = []
+    for t in range(MESES_HIST):
+        dem, pres = demanda_y_presupuesto(t)
+        historico.append((sumar_meses(INICIO, t).isoformat(), dem, pres))
 
-    print(f"Guardado: {ARCHIVO}  ({len(filas)} filas)")
-    for fecha, demanda in filas[:3]:
-        print(f"  {fecha}  {demanda}")
-    print("  ...")
-    for fecha, demanda in filas[-3:]:
-        print(f"  {fecha}  {demanda}")
+    futuro = []
+    for t in range(MESES_HIST, MESES_HIST + MESES_FUT):
+        _dem, pres = demanda_y_presupuesto(t)   # la demanda futura se descarta (no se conoce)
+        futuro.append((sumar_meses(INICIO, t).isoformat(), pres))
+
+    with open(ARCH_HIST, "w", encoding="utf-8") as f:
+        f.write("fecha,demanda,presupuesto\n")
+        for fecha, dem, pres in historico:
+            f.write(f"{fecha},{dem},{pres}\n")
+
+    with open(ARCH_FUT, "w", encoding="utf-8") as f:
+        f.write("fecha,presupuesto\n")
+        for fecha, pres in futuro:
+            f.write(f"{fecha},{pres}\n")
+
+    print(f"Guardado: {ARCH_HIST}  ({len(historico)} meses)  y  {ARCH_FUT}  ({len(futuro)} meses)")
+    print("\nHistórico (primeros 3):  fecha  demanda  presupuesto")
+    for fecha, dem, pres in historico[:3]:
+        print(f"  {fecha}  {dem:>5}  {pres:>8}")
+    print("Futuro (primeros 3):     fecha  presupuesto (la demanda se pronostica)")
+    for fecha, pres in futuro[:3]:
+        print(f"  {fecha}         {pres:>8}")
 
 
 if __name__ == "__main__":
