@@ -24,3 +24,10 @@ python/venv/
 python/__pycache__/
 python/*.pyc
 python/*.png
+
+# CSVs generados por el pipeline de forecast/backtest: los crea el sistema al correr
+# los scripts, no se versionan. Se conservan las carpetas con .gitkeep.
+python/forecast/*
+!python/forecast/.gitkeep
+python/backtest/*
+!python/backtest/.gitkeep
