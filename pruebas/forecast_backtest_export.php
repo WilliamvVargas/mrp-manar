@@ -4,7 +4,7 @@
  *  BACKTEST 1/3 — Exporta series de ENTRENAMIENTO (ocultando los últimos 12 meses)
  *  y la demanda real de esos meses ocultos, para validar el forecast.
  * ----------------------------------------------------------------------------
- *  Escribe en python/backtest/:
+ *  Escribe en assets/librerias/python/backtest/:
  *    - grupos.csv             (grupo_id -> familia, sub_familia)
  *    - grupos_demanda.csv     (demanda de ENTRENAMIENTO: hasta el mes de corte)
  *    - grupos_presupuesto.csv (regresor, historia hasta el último mes real)
@@ -33,7 +33,7 @@ function ymAIdx($ym)  { return ((int) substr($ym, 0, 4)) * 12 + ((int) substr($y
 function idxAYm($idx) { return sprintf('%04d-%02d', intdiv($idx, 12), ($idx % 12) + 1); }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../python/backtest';
+$DIR = __DIR__ . '/../assets/librerias/python/backtest';
 if (!is_dir($DIR)) { mkdir($DIR, 0777, true); }
 
 // ---- Ventana: últimos 12 meses reales como "ocultos" ----------------------
@@ -110,5 +110,5 @@ fputcsv($fM, ['ultimo_actual', $corteYm]);
 foreach ($ocultos as $k => $m) { fputcsv($fM, ["forecast_$k", $m]); }
 fclose($fM);
 
-echo "Grupos exportados: $nGrupos -> python/backtest/\n";
-echo "Siguiente: python/venv/Scripts/python.exe python/forecast_prophet.py backtest\n";
+echo "Grupos exportados: $nGrupos -> assets/librerias/python/backtest/\n";
+echo "Siguiente: python/venv/Scripts/python.exe assets/librerias/python/forecast_prophet.py backtest\n";

@@ -17,17 +17,17 @@ assets/icons/personalizados/*
 !assets/icons/personalizados/.gitkeep
 assets/icons/sprite.svg
 
-# Ejemplo de pronóstico en Python (carpeta python/): se versionan los fuentes
-# (.py, requirements.txt, .bat) y los datos (datos_historicos.txt); se ignora lo
-# generado/pesado (entorno virtual, caché de bytecode y los gráficos PNG).
-python/venv/
-python/__pycache__/
-python/*.pyc
-python/*.png
+# Pipeline de forecast en Python (assets/librerias/python/): se versiona el fuente
+# (forecast_prophet.py, requirements.txt); se ignora lo generado/pesado (entorno
+# virtual, caché de bytecode y PNG).
+assets/librerias/python/venv/
+assets/librerias/python/__pycache__/
+assets/librerias/python/*.pyc
+assets/librerias/python/*.png
 
 # CSVs generados por el pipeline de forecast/backtest: los crea el sistema al correr
 # los scripts, no se versionan. Se conservan las carpetas con .gitkeep.
-python/forecast/*
-!python/forecast/.gitkeep
-python/backtest/*
-!python/backtest/.gitkeep
+assets/librerias/python/forecast/*
+!assets/librerias/python/forecast/.gitkeep
+assets/librerias/python/backtest/*
+!assets/librerias/python/backtest/.gitkeep

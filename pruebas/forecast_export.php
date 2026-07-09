@@ -3,7 +3,7 @@
  * ============================================================================
  *  PASO 1/3 — Exporta las series por grupo para el forecast (Solución 1).
  * ----------------------------------------------------------------------------
- *  Genera CSVs en python/forecast/ que consume Prophet:
+ *  Genera CSVs en assets/librerias/python/forecast/ que consume Prophet:
  *    - grupos.csv              : grupo_id, familia, sub_familia
  *    - grupos_demanda.csv      : grupo_id, ym, demanda   (unidades, historia real V3)
  *    - grupos_presupuesto.csv  : grupo_id, ym, presupuesto ($, historia + 12 meses futuros;
@@ -39,7 +39,7 @@ function idxAYm($idx) { return sprintf('%04d-%02d', intdiv($idx, 12), ($idx % 12
 
 header('Content-Type: text/plain; charset=utf-8');
 
-$DIR = __DIR__ . '/../python/forecast';
+$DIR = __DIR__ . '/../assets/librerias/python/forecast';
 if (!is_dir($DIR)) { mkdir($DIR, 0777, true); }
 
 // ---- Ventana temporal -----------------------------------------------------
@@ -141,5 +141,5 @@ fputcsv($fM, ['ultimo_actual', $ultimoYm]);
 foreach ($forecast as $k => $m) { fputcsv($fM, ["forecast_$k", $m]); }
 fclose($fM);
 
-echo "CSVs escritos en python/forecast/\n";
-echo "Listo. Siguiente paso: python/forecast_prophet.py\n";
+echo "CSVs escritos en assets/librerias/python/forecast/\n";
+echo "Listo. Siguiente paso: assets/librerias/python/forecast_prophet.py\n";

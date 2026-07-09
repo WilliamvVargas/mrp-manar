@@ -4,7 +4,7 @@
  *  BACKTEST 3/3 — Calcula error + FACTOR por grupo y los guarda en forecast_backtest.
  *  Además aplica el factor a forecast_x_producto (columnas factor + demanda_forecast_corr).
  * ----------------------------------------------------------------------------
- *  Lee de python/backtest/:  grupos.csv, grupos_forecast.csv, grupos_real.csv, meta.csv
+ *  Lee de assets/librerias/python/backtest/:  grupos.csv, grupos_forecast.csv, grupos_real.csv, meta.csv
  *
  *    factor(g)  = suma_real / suma_forecast   (acotado a [0.25, 4])
  *    bias_pct   = (suma_forecast / suma_real - 1) * 100   (negativo = subestima)
@@ -40,7 +40,7 @@ function leerCsv($ruta) {
 }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../python/backtest';
+$DIR = __DIR__ . '/../assets/librerias/python/backtest';
 
 try {
     $grupos = [];

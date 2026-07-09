@@ -3,7 +3,7 @@
  * ============================================================================
  *  PASO 3/3 — Desagrega el forecast del grupo a PRODUCTOS e inserta en la tabla.
  * ----------------------------------------------------------------------------
- *  Lee de python/forecast/:
+ *  Lee de assets/librerias/python/forecast/:
  *    - grupos.csv            (grupo_id -> familia, sub_familia)
  *    - productos_demanda.csv (demanda real por producto/mes, para la participación)
  *    - grupos_forecast.csv   (pronóstico Prophet por grupo/mes)
@@ -49,7 +49,7 @@ function leerCsv($ruta) {
 }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../python/forecast';
+$DIR = __DIR__ . '/../assets/librerias/python/forecast';
 
 try {
     // ---- Cargar CSVs -----------------------------------------------------

@@ -3,7 +3,7 @@
  * ============================================================================
  *  EXPERIMENTO — Compara el backtest CON vs SIN el presupuesto-regresor.
  * ----------------------------------------------------------------------------
- *  Lee de python/backtest/:
+ *  Lee de assets/librerias/python/backtest/:
  *    grupos.csv, grupos_real.csv, grupos_forecast_reg.csv, grupos_forecast_noreg.csv
  *  (correr antes:  python forecast_prophet.py backtest reg
  *                  python forecast_prophet.py backtest noreg)
@@ -48,7 +48,7 @@ function metricas($realG, $fcG) {
 }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../python/backtest';
+$DIR = __DIR__ . '/../assets/librerias/python/backtest';
 
 $grupos = [];
 foreach (leerCsv("$DIR/grupos.csv") as $r) { $grupos[(int) $r['grupo_id']] = [$r['familia'], $r['sub_familia']]; }
