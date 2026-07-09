@@ -823,7 +823,7 @@ $(document).ready(function() {
 
     // Dibuja, sobre una línea de tiempo continua (historia + futuro):
     //   - Demanda real (barras azul) + Demanda forecast (barras morado)   -> eje de unidades
-    //   - Venta neta real (línea roja) + Presupuesto futuro (línea amarilla) -> eje de $
+    //   - Venta neta real (línea roja)                                     -> eje de $
     // El mes abierto (mesResaltado, histórico) se remarca en la serie real. "Mostrar" decide
     // si se ven ambas dimensiones (dos ejes) o solo una (un eje).
     function dibujarGraficoDemanda(datos) {
@@ -856,10 +856,7 @@ $(document).ready(function() {
             if (modo === 'venta') { data.addColumn({ type: 'string', role: 'annotation' }); annVen = true; }
             series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#dc3545', lineWidth: 2, pointSize: 4 }; // venta real (roja)
 
-            data.addColumn('number', 'Presupuesto futuro');
-            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#e0a800', lineWidth: 2, pointSize: 4 }; // presupuesto (amarillo)
-
-            vAxes[ejeVen] = { title: 'Venta / Presupuesto ($)', minValue: 0, format: 'short' };
+            vAxes[ejeVen] = { title: 'Venta Neta ($)', minValue: 0, format: 'short' };
         }
 
         datos.forEach(function(d) {
@@ -878,7 +875,6 @@ $(document).ready(function() {
                 const ven = numOrNull(d.Neto);
                 fila.push(ven);
                 if (annVen) { fila.push((esR && ven !== null) ? formatearNumero(ven, 0) : null); }
-                fila.push(numOrNull(d.PresupuestoFuturo));
             }
             data.addRow(fila);
         });

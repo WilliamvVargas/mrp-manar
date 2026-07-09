@@ -1,0 +1,29 @@
+ESTACIONALIDAD por familia/subfamilia — índice por mes (1,00 = promedio; >1 sobre, <1 bajo)
+Detrendado por año. Fuerza = desv.est. de los índices (mayor = más estacional).
+====================================================================================================================================
+Familia / Subfamilia                      Fuer  Mes Añs |   Ene   Feb   Mar   Abr   May   Jun   Jul   Ago   Sep   Oct   Nov   Dic | pico/valle
+------------------------------------------------------------------------------------------------------------------------------------
+Fruta Confitada / Fruta Confitada         0.95   50    5 |  0.18  0.18  0.22  0.45  0.34  0.49  0.46  1.77  2.31  2.47  2.76  0.66 | Nov↑ Feb↓
+Moldes / Pan de Pascua                    0.87    3    1 |   -     -     -     -     -     -     -     -    0.41  2.23  0.37   -   | Oct↑ Nov↓
+Chocolatería / Fantasy                   0.77   29    3 |  0.23  0.40  1.16  3.26  1.14  0.49  0.97  0.98  1.46  0.41  0.73  0.75 | Abr↑ Ene↓
+Cobro Despacho / Cobro Despacho           0.69   10    2 |   -    0.67   -    0.67  2.00  0.67  0.54  0.45  0.45  1.82  2.27  0.45 | Nov↑ Ago↓
+Heladería / Conos                        0.69   50    5 |  2.36  1.27  0.81  0.35  0.22  0.09  0.34  0.93  1.29  1.24  2.01  1.52 | Ene↑ Jun↓
+Pastelería / Donuts                      0.57   19    3 |  0.53  0.84  1.47  0.68  1.42  2.30  1.14  1.70  0.71  0.36  1.53  0.45 | Jun↑ Oct↓
+Pastelería / Mermeladas                  0.53   50    5 |  0.54  0.67  0.71  0.86  0.69  0.66  0.55  1.25  1.82  2.29  1.37  0.74 | Oct↑ Ene↓
+Moldes / Especiales                       0.52   26    4 |  0.46  0.66  0.26  1.61  2.04  1.02  1.62  0.87  0.65  1.26  0.54  1.11 | May↑ Mar↓
+Deshidratados / Especias                  0.48   24    3 |  0.89  0.59  0.84  1.88  0.77  1.14  2.03  0.51  1.01  0.56  1.21  0.58 | Jul↑ Ago↓
+Pastelería / Otros                       0.47    8    3 |   -     -    1.62  0.38  0.89  1.56  0.56  0.87   -     -     -     -   | Mar↑ Abr↓
+Chocolatería / Decoraciones Chocolatería  0.46   15    3 |  0.44  0.87   -     -    2.00  1.01  0.90  1.20  0.79  1.02  0.88  0.13 | May↑ Dic↓
+Pastelería / Pasta Americana             0.40   30    3 |  1.35  1.53  1.31  1.88  1.24  0.94  0.84  0.76  0.48  0.73  0.90  0.56 | Abr↑ Sep↓
+Moldes / Tartaleta                        0.36   43    5 |  1.71  1.07  0.90  0.75  0.85  0.83  1.24  1.60  1.07  0.98  0.70  0.34 | Ene↑ Dic↓
+Chocolatería / Prática                  0.33   49    5 |  0.61  0.51  1.10  0.87  1.03  1.21  1.59  1.53  0.73  1.01  1.03  0.63 | Jul↑ Feb↓
+Moldes / Queque                           0.26   49    5 |  0.74  0.92  1.32  0.78  1.06  0.97  1.45  1.43  0.75  0.87  1.02  0.62 | Jul↑ Dic↓
+Otros / Otros                             0.24    2    1 |   -     -     -     -     -     -     -     -    0.76   -     -    1.24 | Dic↑ Sep↓
+Chocolatería / Premium                   0.21   50    5 |  0.96  0.66  1.18  1.38  0.77  0.79  1.05  1.04  1.18  1.30  0.91  0.90 | Abr↑ Feb↓
+Pastelería / Decoración                 0.18   50    5 |  0.77  0.72  0.86  1.07  0.96  0.95  1.18  1.32  0.99  1.25  1.12  0.83 | Ago↑ Feb↓
+Pastelería / Saborizantes y Postres      0.18   50    5 |  0.96  0.76  0.83  1.18  1.07  1.19  0.96  0.65  1.21  1.09  1.19  0.86 | Sep↑ Ago↓
+Pastelería / Premezclas                  0.17   50    5 |  0.55  1.05  0.84  1.11  1.17  1.08  1.03  1.09  0.85  1.02  0.99  1.17 | Dic↑ Ene↓
+Pastelería / Rellenos                    0.16   50    5 |  0.66  0.92  1.02  0.98  0.94  1.13  1.12  1.29  1.04  1.09  1.07  0.74 | Ago↑ Ene↓
+Moldes / Cápsulas                        0.16   50    5 |  1.06  0.83  1.05  0.76  0.81  1.04  1.09  1.17  0.94  1.34  1.07  0.88 | Oct↑ Abr↓
+Pastelería / Brillos y Glaseados         0.15   50    5 |  0.70  0.79  0.98  1.00  1.12  1.10  1.08  0.86  0.88  1.10  1.19  1.15 | Nov↑ Ene↓
+Pastelería / Dulce de Leche              0.11   50    5 |  0.73  0.81  1.01  1.09  1.04  1.03  1.03  1.05  1.04  1.12  1.04  1.01 | Oct↑ Ene↓

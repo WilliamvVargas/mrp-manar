@@ -27,9 +27,6 @@
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Consultas SAP'); ?></h5>
             <div class="d-flex gap-2">
-                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs">
-                    <i class="bi bi-search"></i> Consulta Facs. y NCs
-                </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v2">
                     <i class="bi bi-search"></i> Consulta Facs. y NCs v2
                 </button>
@@ -42,7 +39,7 @@
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-oc">
                     <i class="bi bi-search"></i> Consulta OC
                 </button>
-                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-stock">
+                <button class="btn btn-danger btn-sm" type="button" id="btn-consulta-stock">
                     <i class="bi bi-search"></i> Consulta Stock
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-odv">

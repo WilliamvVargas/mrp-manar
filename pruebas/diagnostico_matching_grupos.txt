@@ -1,0 +1,84 @@
+=====================================================================================
+ DIAGNÓSTICO DE MATCHING (familia, sub-familia): PRESUPUESTO (MySQL) vs SAP/ventas (v3)
+=====================================================================================
+Match por NOMBRE normalizado (MAYÚSCULAS + trim), igual criterio que el loader.
+
+RESUMEN:
+  Grupos en presupuesto : 26   (total $ 25.176.067.828)
+  Grupos en SAP/ventas  : 24   (total $ 20.612.884.570)
+  COINCIDEN             : 13
+  SOLO presupuesto      : 13   ($ 262.404.881 sin repartir)
+  SOLO ventas (SAP)     : 11   ($ 2.645.755.234 sin presupuesto)
+
+-------------------------------------------------------------------------------------
+1) COINCIDEN  (familia | sub-familia | presupuesto | venta_real)
+-------------------------------------------------------------------------------------
+  Pastelería      | Decoración                | pres=11.036.338.072 | real= 6.415.534.383
+  Pastelería      | Dulce de Leche             | pres= 5.646.018.496 | real= 3.330.480.368
+  Pastelería      | Premezclas                 | pres= 2.715.436.139 | real= 1.190.017.443
+  Fruta Confitada  | Fruta Confitada            | pres= 2.638.920.893 | real= 5.676.242.309
+  Pastelería      | Mermeladas                 | pres= 1.036.419.909 | real=   586.091.864
+  Pastelería      | Otros                      | pres=   718.963.246 | real=     1.319.635
+  Pastelería      | Pasta Americana            | pres=   457.419.756 | real=    90.321.265
+  Chocolatería    | Premium                    | pres=   284.253.610 | real=   238.042.235
+  Chocolatería    | Prática                   | pres=   193.823.880 | real=   226.599.496
+  Heladería       | Conos                      | pres=   144.006.339 | real=   204.464.253
+  Chocolatería    | Fantasy                    | pres=    23.778.204 | real=     4.404.091
+  Chocolatería    | Decoraciones Chocolatería | pres=    11.457.189 | real=     2.159.993
+  Otros            | Otros                      | pres=     6.827.215 | real=     1.452.000
+
+-------------------------------------------------------------------------------------
+2) SOLO EN PRESUPUESTO  (no cruza con ventas) — [sub-familias de SAP en esa familia]
+-------------------------------------------------------------------------------------
+  Chocolatería    | Chocolatería              | pres=   110.122.945
+        SAP tiene en 'Chocolatería': Decoraciones Chocolatería, Fantasy, Premium, Prática
+  Heladería       | Heladería                 | pres=    62.832.828
+        SAP tiene en 'Heladería': Conos
+  Otros            | Pastas                     | pres=    41.511.250
+        SAP tiene en 'Otros': Otros
+  Otros            | Limón                     | pres=    37.117.362
+        SAP tiene en 'Otros': Otros
+  Otros            | Arandano                   | pres=     5.756.344
+        SAP tiene en 'Otros': Otros
+  Otros            | Glaseados                  | pres=     2.249.703
+        SAP tiene en 'Otros': Otros
+  Otros            | 4 kg                       | pres=     1.224.050
+        SAP tiene en 'Otros': Otros
+  Otros            | Maple                      | pres=       682.915
+        SAP tiene en 'Otros': Otros
+  Otros            | Manzana                    | pres=       277.609
+        SAP tiene en 'Otros': Otros
+  Otros            | 4.3 kg                     | pres=       277.405
+        SAP tiene en 'Otros': Otros
+  Otros            | Frutilla                   | pres=       165.720
+        SAP tiene en 'Otros': Otros
+  Otros            | Pie de Limón              | pres=       165.520
+        SAP tiene en 'Otros': Otros
+  Otros            | 2.2 kg                     | pres=        21.230
+        SAP tiene en 'Otros': Otros
+
+-------------------------------------------------------------------------------------
+3) SOLO EN VENTAS/SAP  (sin presupuesto) — [sub-familias del presupuesto en esa familia]
+-------------------------------------------------------------------------------------
+  Moldes           | Cápsulas                  | real= 1.695.639.375
+        Presupuesto tiene en 'Moldes': (ninguna)
+  Pastelería      | Brillos y Glaseados        | real=   335.694.251
+        Presupuesto tiene en 'Pastelería': Decoración, Dulce de Leche, Mermeladas, Otros, Pasta Americana, Premezclas
+  Pastelería      | Rellenos                   | real=   202.390.475
+        Presupuesto tiene en 'Pastelería': Decoración, Dulce de Leche, Mermeladas, Otros, Pasta Americana, Premezclas
+  Moldes           | Tartaleta                  | real=   201.750.840
+        Presupuesto tiene en 'Moldes': (ninguna)
+  Moldes           | Queque                     | real=   117.687.180
+        Presupuesto tiene en 'Moldes': (ninguna)
+  Moldes           | Especiales                 | real=    45.806.080
+        Presupuesto tiene en 'Moldes': (ninguna)
+  Deshidratados    | Especias                   | real=    17.151.893
+        Presupuesto tiene en 'Deshidratados': (ninguna)
+  Pastelería      | Saborizantes y Postres     | real=    13.172.918
+        Presupuesto tiene en 'Pastelería': Decoración, Dulce de Leche, Mermeladas, Otros, Pasta Americana, Premezclas
+  Pastelería      | Donuts                     | real=    11.536.359
+        Presupuesto tiene en 'Pastelería': Decoración, Dulce de Leche, Mermeladas, Otros, Pasta Americana, Premezclas
+  Moldes           | Pan de Pascua              | real=     4.861.519
+        Presupuesto tiene en 'Moldes': (ninguna)
+  Cobro Despacho   | Cobro Despacho             | real=        64.344
+        Presupuesto tiene en 'Cobro Despacho': (ninguna)

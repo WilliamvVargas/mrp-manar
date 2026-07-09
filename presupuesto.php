@@ -24,11 +24,17 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Presupuesto'); ?></h5>
-            <button class="btn btn-primary btn-sm"
-                    data-bs-toggle="modal"
-                    data-bs-target="#modalCargaMasivaPresupuesto">
-                <i class="bi bi-file-arrow-up"></i> Carga Masiva Presupuesto
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalCargaMasivaPresupuesto">
+                    <i class="bi bi-file-arrow-up"></i> Carga Masiva Presupuesto
+                </button>
+                <button class="btn btn-primary btn-sm" type="button" id="btn-explosion-forecast"
+                        data-bs-toggle="modal" data-bs-target="#modalExplosionForecast">
+                    <i class="bi bi-diagram-3"></i> Explosión de Forecast
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -113,6 +119,7 @@
 <?php
     include 'modals/modal_presupuesto_carga_masiva.php';
     include 'modals/modal_presupuesto_productos.php';
+    include 'modals/modal_presupuesto_explosion_forecast.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -121,5 +128,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/presupuesto.js?v=<?php echo filemtime(__DIR__ . '/assets/js/presupuesto.js'); ?>"></script>
+<script src="assets/js/explosion_forecast.js?v=<?php echo filemtime(__DIR__ . '/assets/js/explosion_forecast.js'); ?>"></script>
 </body>
 </html>
