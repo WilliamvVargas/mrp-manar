@@ -6,6 +6,18 @@ $(document).ready(function() {
     //  el motor reconstruye la tabla con la consulta seleccionada.
     // ============================================================
 
+    // Google Charts: carga diferida. Se encola el dibujo hasta que esté listo.
+    let chartsListo    = false;
+    let chartPendiente = null;
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(function() {
+        chartsListo = true;
+        if (chartPendiente) { chartPendiente(); chartPendiente = null; }
+    });
+    function cuandoChartsListo(fn) {
+        if (chartsListo) { fn(); } else { chartPendiente = fn; }
+    }
+
     // Número estilo chileno: miles con punto y decimales con coma.
     function formatearNumero(valor, decimales) {
         if (valor === null || valor === undefined || valor === '') {
@@ -149,6 +161,7 @@ $(document).ready(function() {
             etiquetaFecha: 'Año-Mes',
             filtros: ['familia', 'subfamilia'],
             verDocumentos: true,
+            verGrafico: true,
             totales: ['Cantidad', 'TotalNeto', 'IvaMonto', 'TotalBruto'],
             columnas: [
                 { data: 'FechaDocumento', title: 'Año-Mes',        className: 'text-center', render: renderTexto },
@@ -267,17 +280,22 @@ $(document).ready(function() {
             searchable: false,
             className: 'text-center text-nowrap',
             render: function(data, type, row, meta) {
-                let botones = '<button type="button" class="btn btn-sm btn-outline-secondary btn-ver-consulta" '
+                let botones = '<button type="button" class="btn btn-sm btn-outline-dark btn-ver-consulta" '
                             + 'data-fila="' + meta.row + '" title="Ver detalle"><i class="bi bi-eye"></i></button>';
 
                 if (cfg.verLineas) {
-                    botones += ' <button type="button" class="btn btn-sm btn-outline-primary btn-ver-lineas" '
+                    botones += ' <button type="button" class="btn btn-sm btn-outline-dark btn-ver-lineas" '
                              + 'data-fila="' + meta.row + '" title="Ver líneas"><i class="bi bi-list-ul"></i></button>';
                 }
 
                 if (cfg.verDocumentos) {
-                    botones += ' <button type="button" class="btn btn-sm btn-outline-primary btn-ver-documentos" '
+                    botones += ' <button type="button" class="btn btn-sm btn-outline-dark btn-ver-documentos" '
                              + 'data-fila="' + meta.row + '" title="Ver documentos"><i class="bi bi-files"></i></button>';
+                }
+
+                if (cfg.verGrafico) {
+                    botones += ' <button type="button" class="btn btn-sm btn-outline-dark btn-grafico-producto" '
+                             + 'data-fila="' + meta.row + '" title="Gráfico producto"><i class="bi bi-graph-up"></i></button>';
                 }
 
                 return botones;
@@ -764,6 +782,267 @@ $(document).ready(function() {
             }
         });
     });
+
+    // ============================================================
+    //  Gráfico producto (v3): demanda mensual de un artículo (toda su historia,
+    //  independiente del filtro de fecha de la consulta).
+    // ============================================================
+
+    let serieGraficoActual = null; // última serie cargada (para redibujar al mostrar el modal)
+    let mesResaltado       = null; // año-mes del registro abierto (se remarca en el gráfico)
+    let modalGraficoShown  = false; // true cuando el modal terminó de abrirse (ancho final)
+    let graficoDibujado    = false; // true tras el primer dibujo (evita dibujar dos veces)
+
+    // Año-mes ('yyyy-MM') <-> índice de mes (año*12 + mes-1), para recorrer meses.
+    function ymAIndice(ym) {
+        return parseInt(ym.substring(0, 4), 10) * 12 + (parseInt(ym.substring(5, 7), 10) - 1);
+    }
+    function indiceAYm(idx) {
+        return Math.floor(idx / 12) + '-' + String((idx % 12) + 1).padStart(2, '0');
+    }
+
+    // Completa los año-mes faltantes entre el primero y el último con datos, para que el
+    // eje X sea continuo. Los meses sin registro quedan con valores null (se ven en blanco).
+    function rellenarMeses(datos) {
+        if (!datos || !datos.length) { return datos; }
+        const mapa = {};
+        datos.forEach(function(d) { mapa[d.FechaDocumento] = d; });
+        const claves = Object.keys(mapa).sort();
+        const desde  = ymAIndice(claves[0]);
+        const hasta  = ymAIndice(claves[claves.length - 1]);
+        const salida = [];
+        for (let i = desde; i <= hasta; i++) {
+            const ym = indiceAYm(i);
+            salida.push(mapa[ym] || { FechaDocumento: ym, Demanda: null, Neto: null, DemandaForecast: null, PresupuestoFuturo: null });
+        }
+        return salida;
+    }
+
+    // Convierte a número, o null si es null/undefined (para dejar huecos en blanco).
+    function numOrNull(v) { return (v === null || v === undefined) ? null : (parseFloat(v) || 0); }
+
+    // Dibuja, sobre una línea de tiempo continua (historia + futuro):
+    //   - Demanda real (barras azul) + Demanda forecast (barras morado)   -> eje de unidades
+    //   - Venta neta real (línea roja) + Presupuesto futuro (línea amarilla) -> eje de $
+    // El mes abierto (mesResaltado, histórico) se remarca en la serie real. "Mostrar" decide
+    // si se ven ambas dimensiones (dos ejes) o solo una (un eje).
+    function dibujarGraficoDemanda(datos) {
+        const modo       = $('#grafico-mostrar').val() || 'ambos';
+        const mostrarDem = (modo === 'demanda' || modo === 'ambos');
+        const mostrarVen = (modo === 'venta'   || modo === 'ambos');
+        datos = rellenarMeses(datos); // eje X continuo (meses sin dato en blanco)
+
+        const ejeDem = 0;
+        const ejeVen = (modo === 'ambos') ? 1 : 0;
+
+        const data = new google.visualization.DataTable();
+        data.addColumn('string', 'Año-Mes');
+
+        const series = {}; const vAxes = {}; let si = 0; let annVen = false;
+
+        if (mostrarDem) {
+            data.addColumn('number', 'Demanda');
+            data.addColumn({ type: 'string', role: 'style' });      // resaltado del mes abierto
+            data.addColumn({ type: 'string', role: 'annotation' });
+            series[si++] = { type: 'bars', targetAxisIndex: ejeDem, color: '#0d6efd' }; // demanda real (azul)
+
+            data.addColumn('number', 'Demanda (forecast)');
+            series[si++] = { type: 'bars', targetAxisIndex: ejeDem, color: '#6f42c1' }; // forecast (morado)
+
+            vAxes[ejeDem] = { title: 'Demanda (unidades)', minValue: 0 };
+        }
+        if (mostrarVen) {
+            data.addColumn('number', 'Venta Neta');
+            if (modo === 'venta') { data.addColumn({ type: 'string', role: 'annotation' }); annVen = true; }
+            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#dc3545', lineWidth: 2, pointSize: 4 }; // venta real (roja)
+
+            data.addColumn('number', 'Presupuesto futuro');
+            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#e0a800', lineWidth: 2, pointSize: 4 }; // presupuesto (amarillo)
+
+            vAxes[ejeVen] = { title: 'Venta / Presupuesto ($)', minValue: 0, format: 'short' };
+        }
+
+        datos.forEach(function(d) {
+            const esR  = (d.FechaDocumento === mesResaltado);
+            const fila = [ d.FechaDocumento ];
+            if (mostrarDem) {
+                const dem = numOrNull(d.Demanda);
+                fila.push(
+                    dem,
+                    (esR && dem !== null) ? 'color: #fd7e14; stroke-color: #b45309; stroke-width: 2' : null,
+                    (esR && dem !== null) ? formatearNumero(dem, dem % 1 === 0 ? 0 : 2) : null,
+                    numOrNull(d.DemandaForecast)
+                );
+            }
+            if (mostrarVen) {
+                const ven = numOrNull(d.Neto);
+                fila.push(ven);
+                if (annVen) { fila.push((esR && ven !== null) ? formatearNumero(ven, 0) : null); }
+                fila.push(numOrNull(d.PresupuestoFuturo));
+            }
+            data.addRow(fila);
+        });
+
+        const opciones = {
+            seriesType: 'bars',
+            series:     series,
+            annotations: {
+                textStyle:     { bold: true, fontSize: 12, color: '#b45309' },
+                alwaysOutside: true,
+                stem:          { color: 'transparent' }
+            },
+            legend:    { position: 'top' },
+            height:    460,
+            chartArea: { left: 80, right: (modo === 'ambos' ? 120 : 80), top: 50, bottom: 90 },
+            hAxis:     { title: 'Año-Mes', slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 11 } },
+            vAxes:     vAxes,
+            tooltip:   { trigger: 'focus' }
+        };
+
+        new google.visualization.ComboChart(document.getElementById('grafico-producto-canvas')).draw(data, opciones);
+    }
+
+    // Llena los selects Año desde / Año hasta con los años presentes en la serie.
+    // Por defecto muestra el AÑO ACTUAL y el AÑO ANTERIOR, acotado a los años que
+    // el producto realmente tenga (si no existen, cae al año disponible más cercano).
+    function poblarFiltrosAnios(datos) {
+        const set = {};
+        datos.forEach(function(d) { set[String(d.FechaDocumento).substring(0, 4)] = true; });
+        const lista = Object.keys(set).sort();
+        const opts  = lista.map(function(a) { return '<option value="' + a + '">' + a + '</option>'; }).join('');
+        $('#grafico-anio-desde').html(opts);
+        $('#grafico-anio-hasta').html(opts);
+
+        // Mayor año disponible que no supere el límite (o el más antiguo si no hay ninguno).
+        const aniosNum = lista.map(Number);
+        function mayorHasta(limite) {
+            const c = aniosNum.filter(function(y) { return y <= limite; });
+            return c.length ? c[c.length - 1] : aniosNum[0];
+        }
+        $('#grafico-anio-hasta').val(String(mayorHasta(anioActual)));       // año actual
+        $('#grafico-anio-desde').val(String(mayorHasta(anioActual - 1)));   // año anterior
+    }
+
+    // Filtra la serie por el rango de años elegido y (re)dibuja; muestra aviso si queda vacío.
+    function redibujarConFiltro() {
+        if (!serieGraficoActual) { return; }
+
+        const desde = parseInt($('#grafico-anio-desde').val(), 10);
+        const hasta = parseInt($('#grafico-anio-hasta').val(), 10);
+        const datos = serieGraficoActual.filter(function(d) {
+            const anio = parseInt(String(d.FechaDocumento).substring(0, 4), 10);
+            return anio >= desde && anio <= hasta;
+        });
+
+        const $estado = $('#grafico-producto-estado');
+        const $canvas = $('#grafico-producto-canvas');
+
+        if (!datos.length) {
+            $canvas.hide().empty();
+            $estado.text('No hay datos de demanda en el rango de años seleccionado.').show();
+            return;
+        }
+        $estado.hide();
+        $canvas.show();
+        dibujarGraficoDemanda(datos);
+    }
+
+    // Primer dibujo: solo cuando el modal YA terminó de abrirse (ancho final) y hay datos.
+    // Así se dibuja una sola vez, a tamaño correcto, sin el "salto" de redimensionar.
+    function intentarDibujarGrafico() {
+        if (graficoDibujado || !modalGraficoShown) { return; }
+        if (!serieGraficoActual || !serieGraficoActual.length) { return; }
+        graficoDibujado = true;
+        $('#grafico-producto-estado').hide();
+        $('#grafico-producto-filtros').css('display', 'flex');
+        $('#grafico-producto-canvas').show();
+        cuandoChartsListo(redibujarConFiltro);
+    }
+
+    // Botón "Gráfico producto": abre el modal y pide la demanda mensual del artículo.
+    $('#tabla-consulta tbody').on('click', '.btn-grafico-producto', function() {
+        const idx      = $(this).data('fila');
+        const registro = filasAct[idx];
+        if (!registro) { return; }
+
+        const $estado = $('#grafico-producto-estado');
+        const $canvas = $('#grafico-producto-canvas');
+
+        serieGraficoActual = null;
+        mesResaltado       = registro.FechaDocumento; // año-mes del registro abierto
+        graficoDibujado    = false;
+        modalGraficoShown  = false;
+        $('#grafico-producto-titulo').text('— ' + registro.CodArticulo + ' · ' + (registro.Articulo || ''));
+        renderCabeceraDoc(registro, '#tabla-resumen-grafico-sap'); // info del registro (mismas columnas de la V3)
+        $('#grafico-producto-filtros').hide();
+        $estado.text('Cargando...').show();
+        $canvas.hide().empty();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConsultaSapGrafico')).show();
+
+        $.ajax({
+            url: 'controllers/consultas_sap_controller.php?action=grafico_producto',
+            type: 'GET',
+            data: { itemcode: registro.CodArticulo },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $estado.text(res.message || 'No se pudo cargar el gráfico.').show();
+                    return;
+                }
+                const historia = res.data || [];
+                const forecast = res.forecast || [];
+                if (!historia.length && !forecast.length) {
+                    $estado.text('Sin datos de demanda para este producto.').show();
+                    return;
+                }
+                // Combina historia (demanda/venta reales) + forecast (demanda pronosticada / presupuesto futuro).
+                const mapa = {};
+                historia.forEach(function(h) {
+                    mapa[h.FechaDocumento] = {
+                        FechaDocumento: h.FechaDocumento,
+                        Demanda: h.Demanda, Neto: h.Neto,
+                        DemandaForecast: null, PresupuestoFuturo: null
+                    };
+                });
+                forecast.forEach(function(f) {
+                    if (!mapa[f.ym]) {
+                        mapa[f.ym] = { FechaDocumento: f.ym, Demanda: null, Neto: null, DemandaForecast: null, PresupuestoFuturo: null };
+                    }
+                    mapa[f.ym].DemandaForecast   = f.DemandaForecast;
+                    mapa[f.ym].PresupuestoFuturo = f.PresupuestoFuturo;
+                });
+                const combinado = Object.keys(mapa).sort().map(function(k) { return mapa[k]; });
+
+                serieGraficoActual = combinado;
+                poblarFiltrosAnios(combinado);
+                intentarDibujarGrafico(); // dibuja solo si el modal ya terminó de abrirse
+            },
+            error: function() {
+                $estado.text('Error al cargar el gráfico.').show();
+            }
+        });
+    });
+
+    // Cambio de "Mostrar" o del rango de años: refiltra/redibuja (client-side).
+    $('#grafico-mostrar, #grafico-anio-desde, #grafico-anio-hasta').on('change', function() {
+        cuandoChartsListo(redibujarConFiltro);
+    });
+
+    // Redibuja al terminar de mostrarse el modal (evita ancho 0 si el gráfico se dibujó
+    // antes de completarse la transición).
+    document.getElementById('modalConsultaSapGrafico')
+        .addEventListener('shown.bs.modal', function() {
+            modalGraficoShown = true;
+            intentarDibujarGrafico(); // ancho final ya disponible: dibuja una sola vez
+        });
+
+    // Responsivo: Google Charts no se reajusta solo, así que se redibuja al cambiar el
+    // tamaño de la ventana mientras el modal está abierto (con debounce para no saturar).
+    $(window).on('resize', debounce(function() {
+        if (serieGraficoActual && $('#modalConsultaSapGrafico').hasClass('show')) {
+            cuandoChartsListo(redibujarConFiltro);
+        }
+    }, 200));
 
     // Carga inicial: al entrar al mantenedor se muestra la consulta ODV por defecto.
     cargarConsulta('odv', $('#btn-consulta-odv'));

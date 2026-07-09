@@ -160,6 +160,62 @@ switch ($action) {
         }
         exit;
 
+    case 'grafico_producto':
+
+        // Serie de demanda mensual (cantidad) de un artículo, toda su historia (sin filtro de fecha),
+        // más el FORECAST por producto (MySQL) y su presupuesto futuro (presupuesto del grupo ×
+        // participación del producto).
+        try {
+            $itemCode = $_GET['itemcode'] ?? '';
+
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->demandaMensualProducto($itemCode);
+
+            // Forecast + presupuesto futuro (MySQL). Si la tabla no existe, queda vacío.
+            $forecast = [];
+            try {
+                require_once __DIR__ . '/../config/conexion.php'; // $pdo (MySQL)
+
+                $st = $pdo->prepare("
+                    SELECT anio, mes, familia, sub_familia, demanda_forecast_corr AS df, participacion AS part
+                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY anio, mes
+                ");
+                $st->execute([$itemCode]);
+                $fr = $st->fetchAll();
+
+                if ($fr) {
+                    // Presupuesto del grupo por año-mes (para repartir por la participación).
+                    $bp = $pdo->prepare("
+                        SELECT anio, mes, SUM(venta) AS v FROM presupuestos
+                        WHERE TRIM(familia) = ? AND TRIM(sub_familia) = ? AND venta IS NOT NULL
+                        GROUP BY anio, mes
+                    ");
+                    $bp->execute([$fr[0]['familia'], $fr[0]['sub_familia']]);
+                    $bud = [];
+                    foreach ($bp->fetchAll() as $b) { $bud[sprintf('%04d-%02d', $b['anio'], $b['mes'])] = (float) $b['v']; }
+
+                    foreach ($fr as $r) {
+                        $ym = sprintf('%04d-%02d', $r['anio'], $r['mes']);
+                        $gb = $bud[$ym] ?? null;
+                        $forecast[] = [
+                            'ym'                => $ym,
+                            'DemandaForecast'   => (float) $r['df'],
+                            'PresupuestoFuturo' => ($gb !== null) ? $gb * (float) $r['part'] : null,
+                        ];
+                    }
+                }
+            } catch (Throwable $e) {
+                error_log('[CONSULTAS_SAP forecast] ' . $e->getMessage());
+                $forecast = [];
+            }
+
+            echo json_encode(['status' => 'success', 'data' => $datos, 'forecast' => $forecast]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener la demanda del artículo.']);
+        }
+        exit;
+
     default:
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida.']);

@@ -636,4 +636,60 @@
 
             return $stmt->fetchAll();
         }
+
+        /**
+         * Demanda mensual (cantidad) de un artículo a lo largo de TODA su historia,
+         * SIN filtro de fecha. Facturas (INV1) en positivo y NC (RIN1) en negativo (netas).
+         * Una fila por año-mes ('yyyy-MM'), en orden ascendente. Pensada para graficar.
+         *
+         * @param  string $itemCode Código de artículo (ItemCode).
+         * @return array Filas: ['FechaDocumento' => 'yyyy-MM', 'Demanda' => float, 'Neto' => float].
+         */
+        public function demandaMensualProducto($itemCode)
+        {
+            $sql = "
+                SELECT
+                    X.FechaDocumento,
+                    SUM(X.Cantidad)  AS Demanda,
+                    SUM(X.TotalNeto) AS Neto
+                FROM (
+                    SELECT
+                        CONVERT(char(7), T0.DocDate, 126) AS FechaDocumento,
+                        T1.Quantity  AS Cantidad,
+                        T1.LineTotal AS TotalNeto
+                    FROM OINV T0
+                    INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                    WHERE T0.CANCELED = 'N' AND T1.ItemCode = ?
+
+                    UNION ALL
+
+                    SELECT
+                        CONVERT(char(7), T0.DocDate, 126),
+                        -T1.Quantity,
+                        -T1.LineTotal
+                    FROM ORIN T0
+                    INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                    WHERE T0.CANCELED = 'N' AND T1.ItemCode = ?
+                ) X
+                GROUP BY X.FechaDocumento
+                ORDER BY X.FechaDocumento
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$itemCode, $itemCode]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Estado de actividad de los artículos (maestro OITM). En SAP B1:
+         *   validFor = 'Y'  -> artículo activo
+         *   frozenFor = 'Y' -> artículo congelado/inactivo
+         *
+         * @return array Filas: ['ItemCode' => ..., 'validFor' => 'Y'/'N', 'frozenFor' => 'Y'/'N'].
+         */
+        public function estadoActividadProductos()
+        {
+            return $this->pdo->query("SELECT ItemCode, validFor, frozenFor FROM OITM")->fetchAll();
+        }
     }

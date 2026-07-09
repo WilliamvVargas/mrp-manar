@@ -127,6 +127,7 @@
     include 'modals/modal_consultas_sap_detalle.php';
     include 'modals/modal_consultas_sap_lineas.php';
     include 'modals/modal_consultas_sap_docs.php';
+    include 'modals/modal_consultas_sap_grafico.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -136,6 +137,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/consultas_sap.js"></script>
 </body>
