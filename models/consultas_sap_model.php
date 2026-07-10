@@ -682,6 +682,84 @@
         }
 
         /**
+         * Parámetros para MRP de un producto en la bodega 010: maestro de ítem (OITM),
+         * stock por bodega (OITW), nombre de bodega (OWHS) y proveedor predeterminado (OCRD).
+         * Devuelve una fila por bodega (con WhsCode fijo en '010', típicamente una).
+         *
+         * @return array
+         */
+        public function parametrosMrpProducto($itemCode)
+        {
+            $sql = "
+                SELECT
+                    T0.ItemCode,
+                    T0.ItemName,
+                    UF.Descr AS Familia,
+                    US.Descr AS SubFamilia,
+                    T0.LeadTime,
+                    T0.MinOrdrQty,
+                    T0.OrdrMulti,
+                    T1.MinStock,
+                    T1.MaxStock,
+                    T1.MinOrder,
+                    T1.OnHand,
+                    T1.IsCommited,
+                    T1.OnOrder,
+                    T0.CardCode,
+                    T3.CardName
+                FROM OITM T0
+                INNER JOIN OITW T1 ON T0.ItemCode = T1.ItemCode
+                LEFT  JOIN OCRD T3 ON T0.CardCode = T3.CardCode
+                LEFT  JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = T0.U_Familia
+                LEFT  JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = T0.U_SubFamilia
+                WHERE T1.WhsCode = '010' AND T0.ItemCode = ?
+                ORDER BY T0.ItemCode, T1.WhsCode
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$itemCode]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Parámetros para MRP de TODOS los productos en la bodega 010 (misma consulta que
+         * parametrosMrpProducto, sin el filtro por producto). Para el listado del mantenedor.
+         *
+         * @return array
+         */
+        public function parametrosMrp()
+        {
+            $sql = "
+                SELECT
+                    T0.ItemCode,
+                    T0.ItemName,
+                    UF.Descr AS Familia,
+                    US.Descr AS SubFamilia,
+                    T0.LeadTime,
+                    T0.MinOrdrQty,
+                    T0.OrdrMulti,
+                    T1.MinStock,
+                    T1.MaxStock,
+                    T1.MinOrder,
+                    T1.OnHand,
+                    T1.IsCommited,
+                    T1.OnOrder,
+                    T0.CardCode,
+                    T3.CardName
+                FROM OITM T0
+                INNER JOIN OITW T1 ON T0.ItemCode = T1.ItemCode
+                LEFT  JOIN OCRD T3 ON T0.CardCode = T3.CardCode
+                LEFT  JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = T0.U_Familia
+                LEFT  JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = T0.U_SubFamilia
+                WHERE T1.WhsCode = '010'
+                ORDER BY T0.ItemCode, T1.WhsCode
+            ";
+
+            return $this->pdo->query($sql)->fetchAll();
+        }
+
+        /**
          * Estado de actividad de los artículos (maestro OITM). En SAP B1:
          *   validFor = 'Y'  -> artículo activo
          *   frozenFor = 'Y' -> artículo congelado/inactivo

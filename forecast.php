@@ -24,43 +24,82 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Forecast'); ?></h5>
-            <div class="d-flex gap-2">
-                <button class="btn btn-primary btn-sm"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalCargaMasiva">
-                    <i class="bi bi-file-arrow-up"></i> Carga Masiva Forecast
-                </button>
-            </div>
+            <button class="btn btn-danger btn-sm" type="button" id="btn-parametros-mrp-lista"
+                    data-bs-toggle="modal" data-bs-target="#modalForecastParametrosMrpLista">
+                <i class="bi bi-sliders"></i> Parámetros MRP
+            </button>
         </div>
         <div class="card-body">
             <div class="table-responsive">
 
-                <div class="mb-2">
-                    <label class="form-label fw-bold small mb-1" for="consulta-forecast">Consulta</label>
-                    <div class="col-md-4 px-0">
+                <div class="row g-2 mb-2 mx-0">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small mb-1" for="consulta-forecast">Consulta</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                             <input type="text"
                                    class="form-control form-control-sm"
                                    id="consulta-forecast"
                                    name="consulta-forecast"
-                                   placeholder="Nombre de cliente o de producto">
+                                   placeholder="Nombre o código de producto">
                         </div>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label fw-bold small mb-1" for="filtro-anio">Año</label>
+                        <select class="form-select form-select-sm" id="filtro-anio">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="filtro-mes">Mes</label>
+                        <select class="form-select form-select-sm" id="filtro-mes">
+                            <option value="">Todos</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="filtro-familia">Familia</label>
+                        <select class="form-select form-select-sm" id="filtro-familia">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="filtro-sub-familia">Sub-Familia</label>
+                        <select class="form-select form-select-sm" id="filtro-sub-familia">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros">
+                            <i class="bi bi-eraser me-1"></i> Limpiar
+                        </button>
                     </div>
                 </div>
 
                 <table class="table table-hover align-middle" id="tabla-consulta-forecast" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 5%">ID</th>
-                            <th style="width: 10%">Empresa</th>
-                            <th style="width: 10%">Versión</th>
-                            <th style="width: 15%">Código Cliente</th>
-                            <th style="width: 15%">Nombre Cliente</th>
-                            <th style="width: 15%">Código Producto</th>
-                            <th style="width: 15%">Nombre Producto</th>
-                            <th style="width: 5%">Cantidad</th>
-                            <th style="width: 10%" class="text-center">Acciones</th>
+                            <th style="width: 6%">Año</th>
+                            <th style="width: 5%">Mes</th>
+                            <th style="width: 11%">Código Producto</th>
+                            <th style="width: 16%">Nombre Producto</th>
+                            <th style="width: 14%">Familia</th>
+                            <th style="width: 14%">Sub-Familia</th>
+                            <th style="width: 9%" class="text-end">Cantidad Forecast</th>
+                            <th style="width: 9%" class="text-end">Cantidad Ajustada</th>
+                            <th style="width: 8%">Fecha Creación</th>
+                            <th style="width: 8%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -71,17 +110,19 @@
     </div>
 </div>
 
-<?php 
-
-    include 'modals/modal_forecast_carga_masiva.php';
-
+<?php
+    include 'modals/modal_forecast_grafico.php';
+    include 'modals/modal_forecast_parametros_mrp.php';
+    include 'modals/modal_forecast_parametros_mrp_lista.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="assets/js/utils.js"></script>
-<script src="assets/js/forecast.js"></script>
+<script src="assets/js/forecast.js?v=<?php echo filemtime(__DIR__ . '/assets/js/forecast.js'); ?>"></script>
+<script src="assets/js/forecast_grafico.js?v=<?php echo filemtime(__DIR__ . '/assets/js/forecast_grafico.js'); ?>"></script>
 </body>
 </html>

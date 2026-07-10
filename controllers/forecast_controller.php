@@ -1,96 +1,10 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/conexion.php';
-require_once __DIR__ . '/../includes/funciones_validacion.php';
-require_once __DIR__ . '/../assets/librerias/lector_xlsx/lector_xlsx.php';
 require_once __DIR__ . '/../models/forecast_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
-
-// Mapeo de columnas del Excel -> campos del forecast.
-$COLUMNAS_FORECAST = [
-    'A' => 'empresa',
-    'B' => 'version',
-    'C' => 'codigo_cliente',
-    'D' => 'nombre_cliente',
-    'E' => 'fecha',
-    'F' => 'codigo_producto',
-    'G' => 'nombre_producto',
-    'H' => 'cantidad',
-];
-
-// Cabeceras esperadas en la fila 1 (para validar que el archivo tenga el formato correcto).
-$CABECERAS_ESPERADAS = [
-    'A' => 'EMPRESA',
-    'B' => 'VERSION',
-    'C' => 'COD CLIENTE',
-    'D' => 'NOMBRE CLIENTE',
-    'E' => 'FECHA',
-    'F' => 'CODIGO PRODUCTO',
-    'G' => 'NOMBRE PRODUCTO',
-    'H' => 'CANTIDAD',
-];
-
-// Longitud máxima de cada campo de texto (debe coincidir con la tabla).
-$LONGITUDES = [
-    'empresa'         => 50,
-    'version'         => 20,
-    'codigo_cliente'  => 20,
-    'nombre_cliente'  => 256,
-    'codigo_producto' => 20,
-    'nombre_producto' => 256,
-];
-
-/**
- * Convierte un número de serie de fecha de Excel a 'Y-m-d'.
- * Excel cuenta los días desde 1900; el desfase 25569 lo lleva a la época Unix.
- * Devuelve null si el valor está vacío o no es numérico.
- */
-function serialExcelAFecha($serial)
-{
-    if ($serial === '' || !is_numeric($serial)) {
-        return null;
-    }
-    return gmdate('Y-m-d', (int) round(((float) $serial - 25569) * 86400));
-}
-
-/**
- * Responde un error en JSON y termina la ejecución.
- */
-function errorForecast($mensaje)
-{
-    echo json_encode(['status' => 'error', 'message' => $mensaje]);
-    exit;
-}
-
-/**
- * Valida un registro de forecast ya mapeado. Devuelve el mensaje de error
- * (string) si algo falla, o null si el registro es válido.
- */
-function validarRegistroForecast(array $r, array $longitudes)
-{
-    $obligatorios = ['empresa', 'version', 'codigo_cliente', 'nombre_cliente', 'codigo_producto', 'nombre_producto'];
-
-    foreach ($obligatorios as $campo) {
-        if ($r[$campo] === '') {
-            return "el campo {$campo} está vacío.";
-        }
-        if (isset($longitudes[$campo]) && mb_strlen($r[$campo]) > $longitudes[$campo]) {
-            return "el campo {$campo} supera los {$longitudes[$campo]} caracteres.";
-        }
-    }
-
-    if ($r['fecha'] === null) {
-        return "la fecha está vacía o no es válida.";
-    }
-
-    if ($r['cantidad'] === null) {
-        return "la cantidad está vacía o no es numérica.";
-    }
-
-    return null;
-}
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -100,151 +14,39 @@ exigirAccesoControlador('forecast', $action);
 
 switch ($action) {
 
-    case 'procesar':
-
-        retrasar();
-
-        // 1. Validar que llegó un archivo y que la subida no tuvo errores.
-        if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
-            errorForecast('No se recibió el archivo o hubo un error en la subida.');
-        }
-
-        $archivo = $_FILES['archivo'];
-
-        // 2. Validación server-side de la extensión (.xlsx).
-        $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-        if ($extension !== 'xlsx') {
-            errorForecast('El archivo debe ser un Excel .xlsx.');
-        }
-
-        // 2b. Tope de peso del archivo (protege la memoria ANTES de leerlo).
-        if ($archivo['size'] > FORECAST_MAX_PESO_MB * 1024 * 1024) {
-            errorForecast('El archivo supera el tamaño máximo permitido (' . FORECAST_MAX_PESO_MB . ' MB).');
-        }
-
-        // 3. Leer el archivo con la librería nativa.
-        try {
-            $lector = new LectorXlsx($archivo['tmp_name']);
-            $filas  = $lector->leerFilas();
-        } catch (Throwable $e) {
-            error_log('[FORECAST] ' . $e->getMessage());
-            errorForecast('No se pudo leer el archivo. ¿Está dañado o no es un .xlsx válido?');
-        }
-
-        if (count($filas) < 2) {
-            errorForecast('El archivo no contiene registros (solo cabecera o está vacío).');
-        }
-
-        // 3b. Límite de filas a procesar (sin contar la cabecera).
-        $totalDatos = count($filas) - 1;
-        if ($totalDatos > FORECAST_MAX_FILAS) {
-            errorForecast('El archivo tiene ' . $totalDatos . ' filas. El máximo permitido es ' . FORECAST_MAX_FILAS . '.');
-        }
-
-        // 4. Validar que la cabecera (fila 1) coincida con el formato esperado.
-        $cabecera = $filas[0];
-        foreach ($CABECERAS_ESPERADAS as $col => $titulo) {
-            $valor = trim($cabecera[$col] ?? '');
-            if (strcasecmp($valor, $titulo) !== 0) {
-                errorForecast("El archivo no tiene el formato esperado: falta o no coincide la columna \"{$titulo}\".");
-            }
-        }
-
-        // 5. Extraer y validar los datos (desde la fila 2).
-        $registros  = [];
-        $errores    = [];
-        $totalFilas = count($filas);
-
-        for ($i = 1; $i < $totalFilas; $i++) {
-            $fila      = $filas[$i];
-            $filaExcel = $i + 1;   // número de fila real en el Excel (la 1 es la cabecera)
-
-            // Omite filas completamente vacías.
-            $tieneDatos = false;
-            foreach ($fila as $celda) {
-                if (trim($celda) !== '') {
-                    $tieneDatos = true;
-                    break;
-                }
-            }
-            if (!$tieneDatos) {
-                continue;
-            }
-
-            // Mapea las columnas a campos y convierte fecha/cantidad.
-            $registro = [];
-            foreach ($COLUMNAS_FORECAST as $col => $campo) {
-                $valor = trim($fila[$col] ?? '');
-
-                if ($campo === 'fecha') {
-                    $valor = serialExcelAFecha($valor);
-                } elseif ($campo === 'cantidad') {
-                    $valor = is_numeric($valor) ? (int) $valor : null;
-                }
-
-                $registro[$campo] = $valor;
-            }
-
-            // Valida el registro; si falla, se acumula el error con su fila.
-            $error = validarRegistroForecast($registro, $LONGITUDES);
-            if ($error !== null) {
-                $errores[] = "Fila {$filaExcel}: {$error}";
-                continue;
-            }
-
-            $registros[] = $registro;
-        }
-
-        // 6. Si hubo filas con errores, no se inserta nada (todo o nada).
-        if (!empty($errores)) {
-            echo json_encode([
-                'status'  => 'error',
-                'message' => 'El archivo tiene ' . count($errores) . ' fila(s) con errores. Corrígelo y vuelve a subirlo.',
-                'errores' => array_slice($errores, 0, 10)
-            ]);
-            exit;
-        }
-
-        if (empty($registros)) {
-            errorForecast('El archivo no contiene registros válidos para procesar.');
-        }
-
-        // 7. Insertar en la base de datos dentro de una transacción (todo o nada).
-        try {
-            $forecastModel = new Forecast($pdo);
-            $insertados    = $forecastModel->insertarMasivo($registros, $_SESSION['usuario_id']);
-        } catch (Throwable $e) {
-            error_log('[FORECAST] ' . $e->getMessage());
-            errorForecast('Ocurrió un error al guardar los registros. Intente nuevamente.');
-        }
-
-        echo json_encode([
-            'status'  => 'success',
-            'total'   => $insertados,
-            'message' => "Se cargaron {$insertados} registro(s) correctamente."
-        ]);
-        exit;
-
     case 'listar':
 
         $draw     = (int) ($_GET['draw'] ?? 0);
         $inicio   = (int) ($_GET['start'] ?? 0);
         $longitud = (int) ($_GET['length'] ?? 10);
 
-        // Filtro del buscador (#consulta): por nombre de cliente o de producto.
+        // Filtro del buscador (#consulta): por nombre o código de producto.
         $consulta = trim($_GET['consulta'] ?? '');
 
-        // Columna y dirección de ordenamiento (índice -> nombre lógico).
-        $columnas     = ['id', 'empresa', 'version', 'codigo_cliente', 'nombre_cliente', 'codigo_producto', 'nombre_producto', 'cantidad'];
-        $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
-        $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'id';
-        $dirOrden     = $_GET['order'][0]['dir'] ?? 'desc';
+        // Filtros de la tabla.
+        $familia    = trim($_GET['familia'] ?? '');       // '' = todas
+        $subFamilia = trim($_GET['sub_familia'] ?? '');   // '' = todas
+        $anio       = $_GET['anio'] ?? '';                // '' = todos
+        $mes        = $_GET['mes'] ?? '';                 // '' = todos
+
+        // Ordenamiento multi-columna (índice de DataTables -> nombre lógico). Los índices 7
+        // ("Cantidad Ajustada") y 9 ("Acciones") son placeholders sin orden: van como null.
+        $columnas = ['anio', 'mes', 'producto_codigo', 'producto_nombre', 'familia', 'sub_familia', 'demanda_forecast', null, 'created_at', null];
+        $ordenes  = [];
+        if (isset($_GET['order']) && is_array($_GET['order'])) {
+            foreach ($_GET['order'] as $o) {
+                $idx = isset($o['column']) ? (int) $o['column'] : -1;
+                if (isset($columnas[$idx]) && $columnas[$idx] !== null) {
+                    $ordenes[] = ['col' => $columnas[$idx], 'dir' => $o['dir'] ?? 'asc'];
+                }
+            }
+        }
 
         try {
             $forecastModel  = new Forecast($pdo);
             $totalRegistros = $forecastModel->contarTodos();
-            $totalFiltrados = $forecastModel->contarFiltrados($consulta);
-            $datos          = $forecastModel->listarPagina($consulta, $columnaOrden, $dirOrden, $inicio, $longitud);
+            $totalFiltrados = $forecastModel->contarFiltrados($consulta, $familia, $subFamilia, $anio, $mes);
+            $datos          = $forecastModel->listarPagina($consulta, $familia, $subFamilia, $anio, $mes, $ordenes, $inicio, $longitud);
 
             echo json_encode([
                 'draw'            => $draw,
@@ -264,7 +66,125 @@ switch ($action) {
         }
         exit;
 
+    case 'filtros':
+
+        // Valores para los filtros de Año, Familia y Sub-Familia (los meses son estáticos 1-12 en el front).
+        try {
+            $forecastModel = new Forecast($pdo);
+            echo json_encode([
+                'status'       => 'success',
+                'anios'        => $forecastModel->aniosDisponibles(),
+                'familias'     => $forecastModel->familiasDisponibles(),
+                'sub_familias' => $forecastModel->subFamiliasDisponibles()
+            ]);
+        } catch (PDOException $e) {
+            error_log('[FORECAST][filtros] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'anios' => []]);
+        }
+        exit;
+
+    case 'grafico_producto':
+
+        // Serie mensual del producto para el gráfico: demanda/venta reales (SAP / SQL Server) +
+        // Cantidad Forecast por producto y presupuesto futuro del grupo (MySQL). Mismo formato
+        // que la V3 de Consultas SAP, pero se plotea la Cantidad Forecast (demanda_forecast).
+        require_once __DIR__ . '/../config/conexion_sqlserver.php';
+        require_once __DIR__ . '/../models/consultas_sap_model.php';
+
+        $itemCode = trim($_GET['itemcode'] ?? '');
+        if ($itemCode === '') {
+            echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+            exit;
+        }
+
+        try {
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->demandaMensualProducto($itemCode);
+
+            // Forecast (MySQL): Cantidad Forecast del producto + presupuesto futuro (venta del grupo
+            // × participación del producto). Si falla, el gráfico muestra solo la historia real.
+            $forecast = [];
+            try {
+                $st = $pdo->prepare("
+                    SELECT anio, mes, familia, sub_familia, demanda_forecast AS df, participacion AS part
+                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY anio, mes
+                ");
+                $st->execute([$itemCode]);
+                $fr = $st->fetchAll();
+
+                if ($fr) {
+                    $bp = $pdo->prepare("
+                        SELECT anio, mes, SUM(venta) AS v FROM presupuestos
+                        WHERE TRIM(familia) = ? AND TRIM(sub_familia) = ? AND venta IS NOT NULL
+                        GROUP BY anio, mes
+                    ");
+                    $bp->execute([$fr[0]['familia'], $fr[0]['sub_familia']]);
+                    $bud = [];
+                    foreach ($bp->fetchAll() as $b) { $bud[sprintf('%04d-%02d', $b['anio'], $b['mes'])] = (float) $b['v']; }
+
+                    foreach ($fr as $r) {
+                        $ym = sprintf('%04d-%02d', $r['anio'], $r['mes']);
+                        $gb = $bud[$ym] ?? null;
+                        $forecast[] = [
+                            'ym'                => $ym,
+                            'DemandaForecast'   => (float) $r['df'],
+                            'PresupuestoFuturo' => ($gb !== null) ? $gb * (float) $r['part'] : null,
+                        ];
+                    }
+                }
+            } catch (Throwable $e) {
+                error_log('[FORECAST][grafico] ' . $e->getMessage());
+                $forecast = [];
+            }
+
+            echo json_encode(['status' => 'success', 'data' => $datos, 'forecast' => $forecast]);
+        } catch (PDOException $e) {
+            error_log('[FORECAST] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener la demanda del producto.']);
+        }
+        exit;
+
+    case 'parametros_mrp':
+
+        // Parámetros para MRP del producto (bodega 010) desde SAP / SQL Server (CLPRDMANAR).
+        require_once __DIR__ . '/../config/conexion_sqlserver.php';
+        require_once __DIR__ . '/../models/consultas_sap_model.php';
+
+        $itemCode = trim($_GET['itemcode'] ?? '');
+        if ($itemCode === '') {
+            echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+            exit;
+        }
+
+        try {
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->parametrosMrpProducto($itemCode);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[FORECAST][parametros_mrp] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener los parámetros MRP del producto.']);
+        }
+        exit;
+
+    case 'parametros_mrp_todos':
+
+        // Parámetros para MRP de TODOS los productos (bodega 010) desde SAP / SQL Server (CLPRDMANAR).
+        require_once __DIR__ . '/../config/conexion_sqlserver.php';
+        require_once __DIR__ . '/../models/consultas_sap_model.php';
+
+        try {
+            $model = new ConsultaSap($pdoSqlsrv);
+            $datos = $model->parametrosMrp();
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[FORECAST][parametros_mrp_todos] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener los parámetros MRP.']);
+        }
+        exit;
+
     default:
         http_response_code(400);
-        errorForecast('Acción no válida.');
+        echo json_encode(['status' => 'error', 'message' => 'Acción no válida.']);
 }

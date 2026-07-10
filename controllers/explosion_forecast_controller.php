@@ -37,8 +37,8 @@ $pru = $rootF . '/pruebas/';
 // Pasos del pipeline (mismo orden que la lista del modal).
 $pasos = [
     ['label' => 'Exportar series por grupo (SAP + presupuesto)', 'cmd' => $php . ' ' . $pru . 'forecast_export.php 2>&1'],
-    ['label' => 'Pronóstico Prophet por grupo',                  'cmd' => $py . ' ' . $fp . ' 2>&1'],
-    ['label' => 'Repartir el forecast del grupo a productos',    'cmd' => $php . ' ' . $pru . 'forecast_cargar.php 2>&1'],
+    ['label' => 'Entrenar Prophet',                              'cmd' => $py . ' ' . $fp . ' 2>&1'],
+    ['label' => 'Fabricar forecast por producto',    'cmd' => $php . ' ' . $pru . 'forecast_cargar.php 2>&1'],
     ['label' => 'Exportar datos del backtest',                   'cmd' => $php . ' ' . $pru . 'forecast_backtest_export.php 2>&1'],
     ['label' => 'Prophet backtest (validación)',                 'cmd' => $py . ' ' . $fp . ' backtest 2>&1'],
     ['label' => 'Calcular factor y demanda corregida',           'cmd' => $php . ' ' . $pru . 'forecast_backtest_cargar.php 2>&1'],

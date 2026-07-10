@@ -24,11 +24,11 @@
                         <span class="paso-estado"><i class="bi bi-dash-circle text-muted"></i></span>
                     </li>
                     <li class="list-group-item d-flex align-items-center justify-content-between" data-paso="1">
-                        <span><span class="badge bg-secondary me-2">2</span>Pronóstico Prophet por grupo</span>
+                        <span><span class="badge bg-secondary me-2">2</span>Entrenar Prophet</span>
                         <span class="paso-estado"><i class="bi bi-dash-circle text-muted"></i></span>
                     </li>
                     <li class="list-group-item d-flex align-items-center justify-content-between" data-paso="2">
-                        <span><span class="badge bg-secondary me-2">3</span>Repartir el forecast del grupo a productos</span>
+                        <span><span class="badge bg-secondary me-2">3</span>Fabricar forecast por producto</span>
                         <span class="paso-estado"><i class="bi bi-dash-circle text-muted"></i></span>
                     </li>
                     <li class="list-group-item d-flex align-items-center justify-content-between" data-paso="3">
@@ -47,9 +47,6 @@
             </div>
 
             <div class="modal-footer bg-light py-2">
-                <button type="button" class="btn btn-sm btn-primary" id="btn-explosion-ejecutar">
-                    <i class="bi bi-play-fill"></i> Ejecutar
-                </button>
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>

@@ -28,13 +28,13 @@
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Consultas SAP'); ?></h5>
             <div class="d-flex gap-2">
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v2">
-                    <i class="bi bi-search"></i> Consulta Facs. y NCs v2
+                    <i class="bi bi-search"></i> Consulta Líneas Facs. y NCs
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v3">
-                    <i class="bi bi-search"></i> Consulta Facs. y NCs v3
+                    <i class="bi bi-search"></i> Consulta Productos Facs. y NCs
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v4">
-                    <i class="bi bi-search"></i> Consulta Facs. y NCs v4
+                    <i class="bi bi-search"></i> Consulta Familias Facs. y NCs
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-oc">
                     <i class="bi bi-search"></i> Consulta OC
