@@ -8,6 +8,13 @@ $(document).ready(function() {
         return String(Math.round(num)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
+    // Monto en pesos: entero con separador de miles y prefijo "$". Vacío cuando no hay dato
+    // (grupo sin presupuesto ese mes -> venta_presupuestada NULL).
+    function formatearPesos(valor) {
+        const texto = formatearEntero(valor);
+        return texto === '' ? '' : '$' + texto;
+    }
+
     // Tabla principal de forecast por producto (server-side, helper reutilizable de utils.js)
     const tablaConsulta = inicializarTablaConsulta({
         tabla: '#tabla-consulta-forecast',
@@ -30,6 +37,7 @@ $(document).ready(function() {
             { data: 'sub_familia',      render: $.fn.dataTable.render.text() },
             { data: 'demanda_forecast', className: 'text-end', render: formatearEntero },
             { data: null, orderable: false, searchable: false, className: 'text-end', render: function() { return ''; } },
+            { data: 'venta_presupuestada', className: 'text-end', render: formatearPesos },
             { data: 'created_at', className: 'text-center', render: $.fn.dataTable.render.text() },
             {
                 // Acciones: botón "Gráfico producto" (historia real + Cantidad Forecast del producto).

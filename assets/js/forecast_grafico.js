@@ -2,7 +2,7 @@ $(document).ready(function() {
 
     // ============================================================
     //  Gráfico producto (mantenedor de Forecast): historia real de demanda/venta (SAP)
-    //  + Cantidad Forecast por producto y presupuesto futuro (MySQL). Se remarca el mes
+    //  + Cantidad Forecast por producto y su demanda valorizada en $ (MySQL). Se remarca el mes
     //  seleccionado sobre la serie de Cantidad Forecast.
     // ============================================================
 
@@ -57,7 +57,7 @@ $(document).ready(function() {
         const salida = [];
         for (let i = desde; i <= hasta; i++) {
             const ym = indiceAYm(i);
-            salida.push(mapa[ym] || { FechaDocumento: ym, Demanda: null, Neto: null, DemandaForecast: null, PresupuestoFuturo: null });
+            salida.push(mapa[ym] || { FechaDocumento: ym, Demanda: null, Neto: null, DemandaForecast: null, DemandaValorizada: null });
         }
         return salida;
     }
@@ -66,8 +66,9 @@ $(document).ready(function() {
     function numOrNull(v) { return (v === null || v === undefined) ? null : (parseFloat(v) || 0); }
 
     // Dibuja, sobre una línea de tiempo continua (historia + futuro):
-    //   - Demanda real (barras azul) + Cantidad Forecast (barras morado)  -> eje de unidades
-    //   - Venta neta real (línea roja)                                     -> eje de $
+    //   - Demanda real (barras azul) + Cantidad Forecast (barras morado)         -> eje de unidades
+    //   - Venta neta real (línea roja)
+    //     + Demanda valorizada en $ (línea verde = demanda forecast × precio)    -> eje de $
     // El mes seleccionado (mesResaltado) se remarca en la serie de Cantidad Forecast.
     function dibujarGrafico(datos) {
         const modo       = $('#fc-grafico-mostrar').val() || 'ambos';
@@ -82,6 +83,7 @@ $(document).ready(function() {
         data.addColumn('string', 'Año-Mes');
 
         const series = {}; const vAxes = {}; let si = 0;
+        const colsPesos = []; // índices de las columnas en $ (Venta Neta, Demanda Valorizada) para formatear su tooltip
 
         if (mostrarDem) {
             data.addColumn('number', 'Demanda');
@@ -95,8 +97,13 @@ $(document).ready(function() {
             vAxes[ejeDem] = { title: 'Demanda (unidades)', minValue: 0 };
         }
         if (mostrarVen) {
+            colsPesos.push(data.getNumberOfColumns());
             data.addColumn('number', 'Venta Neta');
             series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#dc3545', lineWidth: 2, pointSize: 4 }; // venta real (roja)
+
+            colsPesos.push(data.getNumberOfColumns());
+            data.addColumn('number', 'Demanda Valorizada');
+            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#198754', lineWidth: 2, pointSize: 4, lineDashStyle: [3, 3] }; // demanda forecast × precio (verde)
 
             vAxes[ejeVen] = { title: 'Venta Neta ($)', minValue: 0, format: 'short' };
         }
@@ -114,10 +121,14 @@ $(document).ready(function() {
                 );
             }
             if (mostrarVen) {
-                fila.push(numOrNull(d.Neto));
+                fila.push(numOrNull(d.Neto), numOrNull(d.DemandaValorizada));
             }
             data.addRow(fila);
         });
+
+        // Tooltip de las series en $ (Venta Neta, Demanda Valorizada): entero, miles con punto y "$".
+        const fmtPesos = new google.visualization.NumberFormat({ prefix: '$', fractionDigits: 0, groupingSymbol: '.' });
+        colsPesos.forEach(function(c) { fmtPesos.format(data, c); });
 
         const opciones = {
             seriesType: 'bars',
@@ -252,21 +263,21 @@ $(document).ready(function() {
                     $estado.text('Sin datos para este producto.').show();
                     return;
                 }
-                // Combina historia (demanda/venta reales) + forecast (Cantidad Forecast / presupuesto futuro).
+                // Combina historia (demanda/venta reales) + forecast (Cantidad Forecast / demanda valorizada en $).
                 const mapa = {};
                 historia.forEach(function(h) {
                     mapa[h.FechaDocumento] = {
                         FechaDocumento: h.FechaDocumento,
                         Demanda: h.Demanda, Neto: h.Neto,
-                        DemandaForecast: null, PresupuestoFuturo: null
+                        DemandaForecast: null, DemandaValorizada: null
                     };
                 });
                 forecast.forEach(function(f) {
                     if (!mapa[f.ym]) {
-                        mapa[f.ym] = { FechaDocumento: f.ym, Demanda: null, Neto: null, DemandaForecast: null, PresupuestoFuturo: null };
+                        mapa[f.ym] = { FechaDocumento: f.ym, Demanda: null, Neto: null, DemandaForecast: null, DemandaValorizada: null };
                     }
                     mapa[f.ym].DemandaForecast   = f.DemandaForecast;
-                    mapa[f.ym].PresupuestoFuturo = f.PresupuestoFuturo;
+                    mapa[f.ym].DemandaValorizada = f.DemandaValorizada;
                 });
                 const combinado = Object.keys(mapa).sort().map(function(k) { return mapa[k]; });
 

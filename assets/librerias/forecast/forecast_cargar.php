@@ -82,8 +82,23 @@ try {
     $activo = [];
     foreach (leerCsv("$DIR/productos_estado.csv") as $r) { $activo[$r['producto_codigo']] = ((int) $r['activo'] === 1); }
 
+    // Presupuesto $ del grupo por (familia, sub-familia, año-mes). Sirve para guardar la venta
+    // presupuestada de cada producto = participacion × presupuesto del grupo. El cruce es por
+    // NOMBRE normalizado (MAYÚSCULAS + trim), mismo criterio que el resto del pipeline.
+    $presGrupoMes = [];
+    foreach ($pdo->query("
+        SELECT anio, mes, TRIM(familia) fam, TRIM(sub_familia) sub, SUM(venta) v
+        FROM presupuestos
+        WHERE familia IS NOT NULL AND sub_familia IS NOT NULL AND venta IS NOT NULL
+        GROUP BY anio, mes, TRIM(familia), TRIM(sub_familia)
+    ")->fetchAll() as $r) {
+        $k = mb_strtoupper($r['fam']) . '||' . mb_strtoupper($r['sub']) . '||' . sprintf('%04d-%02d', $r['anio'], $r['mes']);
+        $presGrupoMes[$k] = (float) $r['v'];
+    }
+
     echo "Grupos: " . count($grupos) . " | con forecast: " . count($fc)
-       . " | último mes real: $ultimoYm | estado productos: " . count($activo) . "\n";
+       . " | último mes real: $ultimoYm | estado productos: " . count($activo)
+       . " | grupos-mes con presupuesto: " . count($presGrupoMes) . "\n";
 
     // ---- Insertar --------------------------------------------------------
     $pdo->exec("TRUNCATE TABLE forecast_x_producto");
@@ -91,8 +106,8 @@ try {
         INSERT INTO forecast_x_producto
             (anio, mes, familia, sub_familia, producto_codigo, producto_nombre,
              demanda_forecast, forecast_grupo, forecast_grupo_min, forecast_grupo_max,
-             participacion, metodo)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+             participacion, metodo, presupuesto_grupo, venta_presupuestada)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ");
 
     $pdo->beginTransaction();
@@ -124,9 +139,15 @@ try {
         foreach ($fc[$id] as $ym => $f) {
             $anio = (int) substr($ym, 0, 4);
             $mes  = (int) substr($ym, 5, 2);
+            // Presupuesto $ del grupo en este mes (mismo para todos sus productos).
+            $claveBud  = mb_strtoupper(trim((string) $g[0])) . '||' . mb_strtoupper(trim((string) $g[1])) . '||' . $ym;
+            $presGrupo = $presGrupoMes[$claveBud] ?? null;
+
             foreach ($rates as $cod => $rate) {
                 $part = $rate / $suma;
                 $demF = $f['yhat'] * $part;
+                // Venta presupuestada del producto = participacion × presupuesto del grupo ($).
+                $ventaPres = ($presGrupo !== null) ? $presGrupo * $part : null;
                 $ins->execute([
                     $anio, $mes, $g[0], $g[1], $cod, $nombres[$cod],
                     round($demF), // unidades enteras (>= 0.5 sube)
@@ -135,6 +156,8 @@ try {
                     round($f['hi'], 4),
                     round($part, 8),
                     $f['metodo'],
+                    ($presGrupo  !== null) ? round($presGrupo, 2)  : null,
+                    ($ventaPres  !== null) ? round($ventaPres, 2)  : null,
                 ]);
                 $filas++;
             }

@@ -90,16 +90,17 @@
                 <table class="table table-hover align-middle" id="tabla-consulta-forecast" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 6%">Año</th>
-                            <th style="width: 5%">Mes</th>
-                            <th style="width: 11%">Código Producto</th>
-                            <th style="width: 16%">Nombre Producto</th>
-                            <th style="width: 14%">Familia</th>
-                            <th style="width: 14%">Sub-Familia</th>
+                            <th style="width: 5%">Año</th>
+                            <th style="width: 4%">Mes</th>
+                            <th style="width: 10%">Código Producto</th>
+                            <th style="width: 14%">Nombre Producto</th>
+                            <th style="width: 12%">Familia</th>
+                            <th style="width: 12%">Sub-Familia</th>
                             <th style="width: 9%" class="text-end">Cantidad Forecast</th>
                             <th style="width: 9%" class="text-end">Cantidad Ajustada</th>
-                            <th style="width: 8%">Fecha Creación</th>
-                            <th style="width: 8%" class="text-center">Acciones</th>
+                            <th style="width: 11%" class="text-end">Venta Presupuestada</th>
+                            <th style="width: 7%">Fecha Creación</th>
+                            <th style="width: 7%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

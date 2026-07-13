@@ -30,8 +30,8 @@ switch ($action) {
         $mes        = $_GET['mes'] ?? '';                 // '' = todos
 
         // Ordenamiento multi-columna (índice de DataTables -> nombre lógico). Los índices 7
-        // ("Cantidad Ajustada") y 9 ("Acciones") son placeholders sin orden: van como null.
-        $columnas = ['anio', 'mes', 'producto_codigo', 'producto_nombre', 'familia', 'sub_familia', 'demanda_forecast', null, 'created_at', null];
+        // ("Cantidad Ajustada") y 10 ("Acciones") son placeholders sin orden: van como null.
+        $columnas = ['anio', 'mes', 'producto_codigo', 'producto_nombre', 'familia', 'sub_familia', 'demanda_forecast', null, 'venta_presupuestada', 'created_at', null];
         $ordenes  = [];
         if (isset($_GET['order']) && is_array($_GET['order'])) {
             foreach ($_GET['order'] as $o) {
@@ -86,7 +86,7 @@ switch ($action) {
     case 'grafico_producto':
 
         // Serie mensual del producto para el gráfico: demanda/venta reales (SAP / SQL Server) +
-        // Cantidad Forecast por producto y presupuesto futuro del grupo (MySQL). Mismo formato
+        // Cantidad Forecast por producto y su demanda valorizada en $ (MySQL). Mismo formato
         // que la V3 de Consultas SAP, pero se plotea la Cantidad Forecast (demanda_forecast).
         require_once __DIR__ . '/../config/conexion_sqlserver.php';
         require_once __DIR__ . '/../models/consultas_sap_model.php';
@@ -101,36 +101,44 @@ switch ($action) {
             $model = new ConsultaSap($pdoSqlsrv);
             $datos = $model->demandaMensualProducto($itemCode);
 
-            // Forecast (MySQL): Cantidad Forecast del producto + presupuesto futuro (venta del grupo
-            // × participación del producto). Si falla, el gráfico muestra solo la historia real.
+            // Precio unitario realizado (neto/cantidad) ponderado a los últimos 12 meses de venta
+            // real (α=0.85, más peso a lo reciente). Sale de SAP -> es independiente del presupuesto,
+            // por lo que valorizar la demanda con él NO es circular. Sirve para llevar la demanda
+            // futura (unidades) a $ y compararla contra la venta presupuestada en el mismo eje.
+            $precio = null;
+            if (!empty($datos)) {
+                $idxMes = function ($ym) { return ((int) substr($ym, 0, 4)) * 12 + ((int) substr($ym, 5, 2) - 1); };
+                $ultimo = 0;
+                foreach ($datos as $d) { $ultimo = max($ultimo, $idxMes($d['FechaDocumento'])); }
+                $sumNeto = 0.0; $sumCant = 0.0;
+                foreach ($datos as $d) {
+                    $k = $ultimo - $idxMes($d['FechaDocumento']);
+                    if ($k < 0 || $k >= 12) { continue; }   // solo la ventana de 12 meses
+                    $w = pow(0.85, $k);
+                    $sumNeto += $w * (float) $d['Neto'];
+                    $sumCant += $w * (float) $d['Demanda'];
+                }
+                if ($sumCant > 0) { $precio = $sumNeto / $sumCant; }
+            }
+
+            // Forecast (MySQL): Cantidad Forecast del producto, valorizada en $ (demanda × precio
+            // realizado) para compararla contra la venta neta real en el mismo eje. Si falla, el
+            // gráfico muestra solo la historia real.
             $forecast = [];
             try {
                 $st = $pdo->prepare("
-                    SELECT anio, mes, familia, sub_familia, demanda_forecast AS df, participacion AS part
+                    SELECT anio, mes, demanda_forecast AS df
                     FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY anio, mes
                 ");
                 $st->execute([$itemCode]);
-                $fr = $st->fetchAll();
 
-                if ($fr) {
-                    $bp = $pdo->prepare("
-                        SELECT anio, mes, SUM(venta) AS v FROM presupuestos
-                        WHERE TRIM(familia) = ? AND TRIM(sub_familia) = ? AND venta IS NOT NULL
-                        GROUP BY anio, mes
-                    ");
-                    $bp->execute([$fr[0]['familia'], $fr[0]['sub_familia']]);
-                    $bud = [];
-                    foreach ($bp->fetchAll() as $b) { $bud[sprintf('%04d-%02d', $b['anio'], $b['mes'])] = (float) $b['v']; }
-
-                    foreach ($fr as $r) {
-                        $ym = sprintf('%04d-%02d', $r['anio'], $r['mes']);
-                        $gb = $bud[$ym] ?? null;
-                        $forecast[] = [
-                            'ym'                => $ym,
-                            'DemandaForecast'   => (float) $r['df'],
-                            'PresupuestoFuturo' => ($gb !== null) ? $gb * (float) $r['part'] : null,
-                        ];
-                    }
+                foreach ($st->fetchAll() as $r) {
+                    $df = (float) $r['df'];
+                    $forecast[] = [
+                        'ym'                => sprintf('%04d-%02d', $r['anio'], $r['mes']),
+                        'DemandaForecast'   => $df,
+                        'DemandaValorizada' => ($precio !== null) ? $df * $precio : null,
+                    ];
                 }
             } catch (Throwable $e) {
                 error_log('[FORECAST][grafico] ' . $e->getMessage());

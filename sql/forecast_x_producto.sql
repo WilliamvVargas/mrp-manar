@@ -35,6 +35,12 @@ CREATE TABLE `forecast_x_producto` (
   `participacion`      decimal(9,8)  DEFAULT NULL, -- participación del producto en el grupo (0..1)
   `metodo`             varchar(20)   DEFAULT NULL, -- 'prophet' o 'fallback'
 
+  -- Presupuesto ($). El presupuesto se define a nivel de grupo (familia, sub-familia);
+  -- la venta presupuestada del producto se deriva repartiéndolo por la participación.
+  -- NULL cuando el grupo no tiene presupuesto cargado ese mes.
+  `presupuesto_grupo`   decimal(15,2) DEFAULT NULL, -- presupuesto $ del grupo en el mes (trazabilidad)
+  `venta_presupuestada` decimal(15,2) DEFAULT NULL, -- $ del producto = participacion × presupuesto_grupo
+
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
 
   PRIMARY KEY (`id`),

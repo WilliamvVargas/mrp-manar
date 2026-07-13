@@ -148,8 +148,9 @@
                 'producto_nombre'  => 'producto_nombre',
                 'familia'          => 'familia',
                 'sub_familia'      => 'sub_familia',
-                'demanda_forecast' => 'demanda_forecast',
-                'created_at'       => 'created_at',
+                'demanda_forecast'    => 'demanda_forecast',
+                'venta_presupuestada' => 'venta_presupuestada',
+                'created_at'          => 'created_at',
             ];
 
             // Compone el ORDER BY a partir de las columnas válidas recibidas.
@@ -179,6 +180,7 @@
                            familia,
                            sub_familia,
                            demanda_forecast,
+                           venta_presupuestada,
                            created_at
                     FROM forecast_x_producto
                     $where
