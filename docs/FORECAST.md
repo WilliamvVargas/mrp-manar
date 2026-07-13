@@ -79,7 +79,7 @@ mysql -u root -P 3307 mrp_manar < sql\manar.sql
 (o importar `sql/manar.sql` por phpMyAdmin). Asegurarse de que la tabla `presupuestos` tenga datos.
 
 ### 3.4 Entorno Python (Prophet)
-Desde `C:\xampp\htdocs\manar\python`:
+Desde `C:\xampp\htdocs\manar\assets\librerias\python`:
 
 ```
 py -3.12 -m venv venv
@@ -109,22 +109,22 @@ mysql -u root -P 3307 mrp_manar < sql\forecast_backtest.sql
 
 ## 5. Correr el pipeline
 
-Los `.php` se abren en el **navegador** (`http://localhost/manar/pruebas/<archivo>.php`) o por
-**CLI** (`C:\xampp\php\php.exe pruebas\<archivo>.php`). Solo funcionan desde `localhost`.
-`PY` = `python\venv\Scripts\python.exe`.
+Los `.php` se abren en el **navegador** (`http://localhost/manar/assets/librerias/forecast/<archivo>.php`) o por
+**CLI** (`C:\xampp\php\php.exe assets\librerias\forecast\<archivo>.php`). Solo funcionan desde `localhost`.
+`PY` = `assets\librerias\python\venv\Scripts\python.exe`.
 
 ### 5.1 Forecast (12 meses futuros)
 ```
-1) pruebas/forecast_export.php          -> escribe python/forecast/*.csv
-2) PY python/forecast_prophet.py        -> pronostica por grupo (sin regresor) -> grupos_forecast.csv
-3) pruebas/forecast_cargar.php          -> desagrega a productos -> llena forecast_x_producto
+1) assets/librerias/forecast/forecast_export.php   -> escribe python/forecast/*.csv
+2) PY python/forecast_prophet.py                   -> pronostica por grupo (sin regresor) -> grupos_forecast.csv
+3) assets/librerias/forecast/forecast_cargar.php   -> desagrega a productos -> llena forecast_x_producto
 ```
 
 ### 5.2 Backtesting (error + factor de corrección)
 ```
-4) pruebas/forecast_backtest_export.php -> escribe python/backtest/*.csv (oculta últimos 12 meses)
+4) assets/librerias/forecast/forecast_backtest_export.php -> escribe python/backtest/*.csv (oculta últimos 12 meses)
 5) PY python/forecast_prophet.py backtest
-6) pruebas/forecast_backtest_cargar.php -> llena forecast_backtest y aplica el factor a forecast_x_producto
+6) assets/librerias/forecast/forecast_backtest_cargar.php -> llena forecast_backtest y aplica el factor a forecast_x_producto
 ```
 
 > El **orden importa**: primero 5.1 (crea el forecast), luego 5.2 (calcula el factor y lo aplica).
@@ -133,7 +133,7 @@ Los `.php` se abren en el **navegador** (`http://localhost/manar/pruebas/<archiv
 ```
 PY python/forecast_prophet.py backtest reg
 PY python/forecast_prophet.py backtest noreg
-pruebas/forecast_backtest_comparar.php
+assets/librerias/forecast/forecast_backtest_comparar.php
 ```
 
 ---

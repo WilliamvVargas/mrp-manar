@@ -11,7 +11,7 @@
  *    - grupos_real.csv        (demanda REAL de los 12 meses ocultos, para comparar)
  *    - meta.csv               (mes de corte + los 12 meses evaluados)
  *
- *  Ejecutar:  http://localhost/manar/pruebas/forecast_backtest_export.php
+ *  Ejecutar:  http://localhost/manar/assets/librerias/forecast/forecast_backtest_export.php
  * ============================================================================
  */
 
@@ -22,9 +22,9 @@ if (PHP_SAPI !== 'cli' && !in_array($ip, ['127.0.0.1', '::1'], true)) {
 }
 set_time_limit(0);
 
-require_once __DIR__ . '/../config/conexion.php';
-require_once __DIR__ . '/../config/conexion_sqlserver.php';
-require_once __DIR__ . '/../models/consultas_sap_model.php';
+require_once __DIR__ . '/../../../config/conexion.php';
+require_once __DIR__ . '/../../../config/conexion_sqlserver.php';
+require_once __DIR__ . '/../../../models/consultas_sap_model.php';
 
 const OCULTOS = 12; // meses a ocultar y evaluar
 
@@ -33,7 +33,7 @@ function ymAIdx($ym)  { return ((int) substr($ym, 0, 4)) * 12 + ((int) substr($y
 function idxAYm($idx) { return sprintf('%04d-%02d', intdiv($idx, 12), ($idx % 12) + 1); }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../assets/librerias/python/backtest';
+$DIR = __DIR__ . '/../python/backtest';
 if (!is_dir($DIR)) { mkdir($DIR, 0777, true); }
 
 // ---- Ventana: últimos 12 meses reales como "ocultos" ----------------------

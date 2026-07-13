@@ -15,7 +15,7 @@
  *  Demanda real = Cantidad de la V3 (facturas - NC), por producto y año-mes, hasta el
  *  último mes COMPLETO (mes anterior al actual).
  *
- *  Ejecutar:  http://localhost/manar/pruebas/forecast_export.php   (o por CLI)
+ *  Ejecutar:  http://localhost/manar/assets/librerias/forecast/forecast_export.php   (o por CLI)
  *  OJO: script de pruebas, sin control de acceso.
  * ============================================================================
  */
@@ -27,9 +27,9 @@ if (PHP_SAPI !== 'cli' && !in_array($ip, ['127.0.0.1', '::1'], true)) {
 }
 set_time_limit(0);
 
-require_once __DIR__ . '/../config/conexion.php';
-require_once __DIR__ . '/../config/conexion_sqlserver.php';
-require_once __DIR__ . '/../models/consultas_sap_model.php';
+require_once __DIR__ . '/../../../config/conexion.php';
+require_once __DIR__ . '/../../../config/conexion_sqlserver.php';
+require_once __DIR__ . '/../../../models/consultas_sap_model.php';
 
 const HORIZONTE = 12;
 
@@ -39,7 +39,7 @@ function idxAYm($idx) { return sprintf('%04d-%02d', intdiv($idx, 12), ($idx % 12
 
 header('Content-Type: text/plain; charset=utf-8');
 
-$DIR = __DIR__ . '/../assets/librerias/python/forecast';
+$DIR = __DIR__ . '/../python/forecast';
 if (!is_dir($DIR)) { mkdir($DIR, 0777, true); }
 
 // ---- Ventana temporal -----------------------------------------------------

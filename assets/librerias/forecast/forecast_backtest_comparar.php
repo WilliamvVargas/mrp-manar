@@ -48,7 +48,7 @@ function metricas($realG, $fcG) {
 }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../assets/librerias/python/backtest';
+$DIR = __DIR__ . '/../python/backtest';
 
 $grupos = [];
 foreach (leerCsv("$DIR/grupos.csv") as $r) { $grupos[(int) $r['grupo_id']] = [$r['familia'], $r['sub_familia']]; }

@@ -2,7 +2,7 @@
 /**
  * Controlador de la "Explosión de Forecast" (botón del mantenedor de Presupuesto).
  * Ejecuta, PASO A PASO, el pipeline que pronostica la demanda por grupo (Prophet) y la
- * reparte a productos, invocando por CLI los scripts existentes (php pruebas/*.php y el
+ * reparte a productos, invocando por CLI los scripts existentes (php assets/librerias/forecast/*.php y el
  * venv de Python). Una llamada AJAX por paso; devuelve JSON con el resultado para que el
  * modal marque ✓ / ✗.
  */
@@ -32,7 +32,7 @@ if (!is_file($php)) {
 }
 $py = $rootB . '\\assets\\librerias\\python\\venv\\Scripts\\python.exe';
 $fp = $rootF . '/assets/librerias/python/forecast_prophet.py';
-$pru = $rootF . '/pruebas/';
+$pru = $rootF . '/assets/librerias/forecast/';
 
 // Pasos del pipeline (mismo orden que la lista del modal).
 $pasos = [

@@ -16,7 +16,7 @@
  *    demanda_forecast(producto, mes) = forecast_grupo(mes) * participacion(producto)
  *
  *  Recalcula toda la tabla forecast_x_producto.
- *  Ejecutar (después de los pasos 1 y 2):  http://localhost/manar/pruebas/forecast_cargar.php
+ *  Ejecutar (después de los pasos 1 y 2):  http://localhost/manar/assets/librerias/forecast/forecast_cargar.php
  *  Requiere antes: sql/forecast_x_producto.sql
  * ============================================================================
  */
@@ -28,7 +28,7 @@ if (PHP_SAPI !== 'cli' && !in_array($ip, ['127.0.0.1', '::1'], true)) {
 }
 set_time_limit(0);
 
-require_once __DIR__ . '/../config/conexion.php'; // $pdo (MySQL)
+require_once __DIR__ . '/../../../config/conexion.php'; // $pdo (MySQL)
 
 const ALFA    = 0.85;
 const VENTANA = 12;
@@ -49,7 +49,7 @@ function leerCsv($ruta) {
 }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../assets/librerias/python/forecast';
+$DIR = __DIR__ . '/../python/forecast';
 
 try {
     // ---- Cargar CSVs -----------------------------------------------------

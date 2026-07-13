@@ -22,7 +22,7 @@ if (PHP_SAPI !== 'cli' && !in_array($ip, ['127.0.0.1', '::1'], true)) {
 }
 set_time_limit(0);
 
-require_once __DIR__ . '/../config/conexion.php';
+require_once __DIR__ . '/../../../config/conexion.php';
 
 const FACTOR_MIN = 0.25;
 const FACTOR_MAX = 4.0;
@@ -40,7 +40,7 @@ function leerCsv($ruta) {
 }
 
 header('Content-Type: text/plain; charset=utf-8');
-$DIR = __DIR__ . '/../assets/librerias/python/backtest';
+$DIR = __DIR__ . '/../python/backtest';
 
 try {
     $grupos = [];
