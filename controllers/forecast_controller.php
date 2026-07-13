@@ -26,12 +26,9 @@ switch ($action) {
         // Filtros de la tabla.
         $familia    = trim($_GET['familia'] ?? '');       // '' = todas
         $subFamilia = trim($_GET['sub_familia'] ?? '');   // '' = todas
-        $anio       = $_GET['anio'] ?? '';                // '' = todos
-        $mes        = $_GET['mes'] ?? '';                 // '' = todos
 
-        // Ordenamiento multi-columna (índice de DataTables -> nombre lógico). Los índices 7
-        // ("Cantidad Ajustada") y 10 ("Acciones") son placeholders sin orden: van como null.
-        $columnas = ['anio', 'mes', 'producto_codigo', 'producto_nombre', 'familia', 'sub_familia', 'demanda_forecast', null, 'venta_presupuestada', 'created_at', null];
+        // Ordenamiento multi-columna (índice de DataTables -> nombre lógico de la vista agrupada).
+        $columnas = ['producto_codigo', 'producto_nombre', 'familia', 'sub_familia', 'total_forecast', 'forecast_sig_mes'];
         $ordenes  = [];
         if (isset($_GET['order']) && is_array($_GET['order'])) {
             foreach ($_GET['order'] as $o) {
@@ -45,8 +42,8 @@ switch ($action) {
         try {
             $forecastModel  = new Forecast($pdo);
             $totalRegistros = $forecastModel->contarTodos();
-            $totalFiltrados = $forecastModel->contarFiltrados($consulta, $familia, $subFamilia, $anio, $mes);
-            $datos          = $forecastModel->listarPagina($consulta, $familia, $subFamilia, $anio, $mes, $ordenes, $inicio, $longitud);
+            $totalFiltrados = $forecastModel->contarFiltrados($consulta, $familia, $subFamilia);
+            $datos          = $forecastModel->listarPagina($consulta, $familia, $subFamilia, $ordenes, $inicio, $longitud);
 
             echo json_encode([
                 'draw'            => $draw,
@@ -68,18 +65,17 @@ switch ($action) {
 
     case 'filtros':
 
-        // Valores para los filtros de Año, Familia y Sub-Familia (los meses son estáticos 1-12 en el front).
+        // Valores para los filtros de Familia y Sub-Familia.
         try {
             $forecastModel = new Forecast($pdo);
             echo json_encode([
                 'status'       => 'success',
-                'anios'        => $forecastModel->aniosDisponibles(),
                 'familias'     => $forecastModel->familiasDisponibles(),
                 'sub_familias' => $forecastModel->subFamiliasDisponibles()
             ]);
         } catch (PDOException $e) {
             error_log('[FORECAST][filtros] ' . $e->getMessage());
-            echo json_encode(['status' => 'error', 'anios' => []]);
+            echo json_encode(['status' => 'error', 'familias' => [], 'sub_familias' => []]);
         }
         exit;
 
@@ -123,11 +119,13 @@ switch ($action) {
 
             // Forecast (MySQL): Cantidad Forecast del producto, valorizada en $ (demanda × precio
             // realizado) para compararla contra la venta neta real en el mismo eje. Si falla, el
-            // gráfico muestra solo la historia real.
+            // gráfico muestra solo la historia real. En paralelo se arma el DETALLE mes a mes
+            // (año, mes, cantidad forecast, venta presupuestada) para la tabla bajo el gráfico.
             $forecast = [];
+            $detalle  = [];
             try {
                 $st = $pdo->prepare("
-                    SELECT anio, mes, demanda_forecast AS df
+                    SELECT anio, mes, demanda_forecast AS df, venta_presupuestada AS vp
                     FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY anio, mes
                 ");
                 $st->execute([$itemCode]);
@@ -139,13 +137,20 @@ switch ($action) {
                         'DemandaForecast'   => $df,
                         'DemandaValorizada' => ($precio !== null) ? $df * $precio : null,
                     ];
+                    $detalle[] = [
+                        'anio'                => (int) $r['anio'],
+                        'mes'                 => (int) $r['mes'],
+                        'demanda_forecast'    => $df,
+                        'venta_presupuestada' => ($r['vp'] !== null) ? (float) $r['vp'] : null,
+                    ];
                 }
             } catch (Throwable $e) {
                 error_log('[FORECAST][grafico] ' . $e->getMessage());
                 $forecast = [];
+                $detalle  = [];
             }
 
-            echo json_encode(['status' => 'success', 'data' => $datos, 'forecast' => $forecast]);
+            echo json_encode(['status' => 'success', 'data' => $datos, 'forecast' => $forecast, 'detalle' => $detalle]);
         } catch (PDOException $e) {
             error_log('[FORECAST] ' . $e->getMessage());
             echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener la demanda del producto.']);

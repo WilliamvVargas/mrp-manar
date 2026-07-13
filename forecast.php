@@ -44,30 +44,6 @@
                                    placeholder="Nombre o código de producto">
                         </div>
                     </div>
-                    <div class="col-md-1">
-                        <label class="form-label fw-bold small mb-1" for="filtro-anio">Año</label>
-                        <select class="form-select form-select-sm" id="filtro-anio">
-                            <option value="">Todos</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label fw-bold small mb-1" for="filtro-mes">Mes</label>
-                        <select class="form-select form-select-sm" id="filtro-mes">
-                            <option value="">Todos</option>
-                            <option value="1">Enero</option>
-                            <option value="2">Febrero</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Abril</option>
-                            <option value="5">Mayo</option>
-                            <option value="6">Junio</option>
-                            <option value="7">Julio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Septiembre</option>
-                            <option value="10">Octubre</option>
-                            <option value="11">Noviembre</option>
-                            <option value="12">Diciembre</option>
-                        </select>
-                    </div>
                     <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="filtro-familia">Familia</label>
                         <select class="form-select form-select-sm" id="filtro-familia">
@@ -90,17 +66,13 @@
                 <table class="table table-hover align-middle" id="tabla-consulta-forecast" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 5%">Año</th>
-                            <th style="width: 4%">Mes</th>
-                            <th style="width: 10%">Código Producto</th>
-                            <th style="width: 14%">Nombre Producto</th>
-                            <th style="width: 12%">Familia</th>
-                            <th style="width: 12%">Sub-Familia</th>
-                            <th style="width: 9%" class="text-end">Cantidad Forecast</th>
-                            <th style="width: 9%" class="text-end">Cantidad Ajustada</th>
-                            <th style="width: 11%" class="text-end">Venta Presupuestada</th>
-                            <th style="width: 7%">Fecha Creación</th>
-                            <th style="width: 7%" class="text-center">Acciones</th>
+                            <th style="width: 11%">Código Producto</th>
+                            <th style="width: 23%">Nombre Producto</th>
+                            <th style="width: 16%">Familia</th>
+                            <th style="width: 16%">Sub-Familia</th>
+                            <th style="width: 12%" class="text-end">Total Forecast (12 meses)</th>
+                            <th style="width: 12%" class="text-end">Forecast Mes Siguiente</th>
+                            <th style="width: 10%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

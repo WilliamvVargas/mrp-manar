@@ -46,6 +46,24 @@
                 <div id="fc-grafico-estado" class="text-center text-muted py-5">Cargando...</div>
                 <!-- Lienzo del gráfico (Google Charts). -->
                 <div id="fc-grafico-canvas" style="width:100%; min-height:420px;"></div>
+
+                <!-- Detalle mes a mes del forecast del producto (bajo el gráfico); lo llena el JS. -->
+                <div id="fc-grafico-detalle-wrap" class="mt-4" style="display:none;">
+                    <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-table me-1"></i>Detalle del forecast por mes</h6>
+                    <div class="table-responsive small">
+                        <table class="table table-sm table-striped table-hover align-middle mb-0" id="tabla-detalle-grafico-forecast" style="width:100%">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 15%">Año</th>
+                                    <th style="width: 15%">Mes</th>
+                                    <th style="width: 35%" class="text-end">Cantidad Forecast</th>
+                                    <th style="width: 35%" class="text-end">Venta Presupuestada</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer bg-light py-2">
                 <button type="button"

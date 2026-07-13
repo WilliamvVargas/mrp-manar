@@ -8,14 +8,7 @@ $(document).ready(function() {
         return String(Math.round(num)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
-    // Monto en pesos: entero con separador de miles y prefijo "$". Vacío cuando no hay dato
-    // (grupo sin presupuesto ese mes -> venta_presupuestada NULL).
-    function formatearPesos(valor) {
-        const texto = formatearEntero(valor);
-        return texto === '' ? '' : '$' + texto;
-    }
-
-    // Tabla principal de forecast por producto (server-side, helper reutilizable de utils.js)
+    // Tabla principal de forecast AGRUPADA POR PRODUCTO (server-side, helper de utils.js).
     const tablaConsulta = inicializarTablaConsulta({
         tabla: '#tabla-consulta-forecast',
         url:   'controllers/forecast_controller.php?action=listar',
@@ -23,24 +16,18 @@ $(document).ready(function() {
         extra: function(d) {
             d.familia     = $('#filtro-familia').val();       // '' = todas
             d.sub_familia = $('#filtro-sub-familia').val();   // '' = todas
-            d.anio        = $('#filtro-anio').val();          // '' = todos
-            d.mes         = $('#filtro-mes').val();           // '' = todos
         },
-        // Orden por defecto (multi-columna): Código Producto, Año y Mes ascendente.
-        orden: [[2, 'asc'], [0, 'asc'], [1, 'asc']],
+        // Orden por defecto: Código Producto ascendente.
+        orden: [[0, 'asc']],
         columnas: [
-            { data: 'anio', className: 'text-center' },
-            { data: 'mes',  className: 'text-center' },
             { data: 'producto_codigo',  render: $.fn.dataTable.render.text() },
             { data: 'producto_nombre',  render: $.fn.dataTable.render.text() },
             { data: 'familia',          render: $.fn.dataTable.render.text() },
             { data: 'sub_familia',      render: $.fn.dataTable.render.text() },
-            { data: 'demanda_forecast', className: 'text-end', render: formatearEntero },
-            { data: null, orderable: false, searchable: false, className: 'text-end', render: function() { return ''; } },
-            { data: 'venta_presupuestada', className: 'text-end', render: formatearPesos },
-            { data: 'created_at', className: 'text-center', render: $.fn.dataTable.render.text() },
+            { data: 'total_forecast',   className: 'text-end', render: formatearEntero },
+            { data: 'forecast_sig_mes', className: 'text-end', render: formatearEntero },
             {
-                // Acciones: botón "Gráfico producto" (historia real + Cantidad Forecast del producto).
+                // Acciones: botones "Gráfico producto" y "Parámetros MRP" (por producto).
                 data: null,
                 orderable: false,
                 searchable: false,
@@ -50,7 +37,6 @@ $(document).ready(function() {
                         const s = (v === null || v === undefined) ? '' : String(v);
                         return $('<div>').text(s).html().replace(/"/g, '&quot;');   // escapa <>& y comillas
                     };
-                    const ym = String(row.anio) + '-' + String(row.mes).padStart(2, '0');
 
                     const btnGrafico =
                           '<button type="button" class="btn btn-sm btn-outline-dark btn-grafico-producto"'
@@ -58,10 +44,8 @@ $(document).ready(function() {
                         + ' data-nombre="'     + attr(row.producto_nombre)  + '"'
                         + ' data-familia="'    + attr(row.familia)          + '"'
                         + ' data-subfamilia="' + attr(row.sub_familia)      + '"'
-                        + ' data-anio="'       + attr(row.anio)             + '"'
-                        + ' data-mes="'        + attr(row.mes)              + '"'
-                        + ' data-demanda="'    + attr(row.demanda_forecast) + '"'
-                        + ' data-ym="'         + ym + '"'
+                        + ' data-total="'      + attr(row.total_forecast)   + '"'
+                        + ' data-sig="'        + attr(row.forecast_sig_mes) + '"'
                         + ' title="Gráfico producto"><i class="bi bi-graph-up"></i></button>';
 
                     const btnMrp =
@@ -76,8 +60,8 @@ $(document).ready(function() {
         ]
     });
 
-    // Recargar la tabla al cambiar el filtro de Familia, Sub-Familia, Año o Mes.
-    $('#filtro-familia, #filtro-sub-familia, #filtro-anio, #filtro-mes').on('change', function() {
+    // Recargar la tabla al cambiar el filtro de Familia o Sub-Familia.
+    $('#filtro-familia, #filtro-sub-familia').on('change', function() {
         tablaConsulta.ajax.reload();
     });
 
@@ -85,11 +69,11 @@ $(document).ready(function() {
     inicializarBotonLimpiar({
         boton:  '#btn-limpiar-filtros',
         tabla:  tablaConsulta,
-        campos: ['#consulta-forecast', '#filtro-familia', '#filtro-sub-familia', '#filtro-anio', '#filtro-mes'],
+        campos: ['#consulta-forecast', '#filtro-familia', '#filtro-sub-familia'],
         delay:  250
     });
 
-    // Carga las opciones de los filtros de Año, Familia y Sub-Familia (conservan la selección actual).
+    // Carga las opciones de los filtros de Familia y Sub-Familia (conservan la selección actual).
     function cargarFiltros() {
         $.ajax({
             url: 'controllers/forecast_controller.php?action=filtros',
@@ -113,14 +97,6 @@ $(document).ready(function() {
                     $sub.append($('<option>').val(sf).text(sf));
                 });
                 $sub.val(subSel);
-
-                // Año.
-                const $anio   = $('#filtro-anio');
-                const anioSel = $anio.val();
-                const optsAnio = (res.anios || []).map(function(a) {
-                    return '<option value="' + a + '">' + a + '</option>';
-                }).join('');
-                $anio.html('<option value="">Todos</option>' + optsAnio).val(anioSel);
             }
         });
     }

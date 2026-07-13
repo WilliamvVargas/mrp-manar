@@ -3,8 +3,9 @@
     /*
      * Modelo de acceso a datos de la tabla `forecast_x_producto`.
      *
-     * Centraliza las consultas SQL del forecast por producto. Se instancia
-     * pasándole una conexión PDO, igual que el modelo de usuarios.
+     * La vista del mantenedor está AGRUPADA POR PRODUCTO: una fila por
+     * producto_codigo, con el total de demanda de los próximos 12 meses y la
+     * demanda del primer mes de forecast. Se instancia pasándole una conexión PDO.
      */
     class Forecast
     {
@@ -17,39 +18,38 @@
         }
 
         /**
-         * Cantidad total de registros de forecast (sin filtro).
+         * Cantidad total de PRODUCTOS distintos con forecast (sin filtro).
          */
         public function contarTodos()
         {
-            return (int) $this->pdo->query("SELECT COUNT(*) FROM forecast_x_producto")->fetchColumn();
+            return (int) $this->pdo->query("SELECT COUNT(DISTINCT producto_codigo) FROM forecast_x_producto")->fetchColumn();
         }
 
         /**
-         * Cantidad de registros que coinciden con los filtros (buscador de producto,
-         * familia, sub-familia, año y mes). Si no hay ningún filtro, equivale al total.
+         * Cantidad de PRODUCTOS distintos que coinciden con los filtros (buscador de
+         * producto, familia y sub-familia). Si no hay filtro, equivale al total.
          */
-        public function contarFiltrados($busqueda, $familia = '', $subFamilia = '', $anio = '', $mes = '')
+        public function contarFiltrados($busqueda, $familia = '', $subFamilia = '')
         {
-            list($where, $params) = $this->construirFiltro($busqueda, $familia, $subFamilia, $anio, $mes);
+            list($where, $params) = $this->construirFiltro($busqueda, $familia, $subFamilia);
 
             if ($where === '') {
                 return $this->contarTodos();
             }
 
-            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM forecast_x_producto $where");
+            $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT producto_codigo) FROM forecast_x_producto $where");
             $stmt->execute($params);
 
             return (int) $stmt->fetchColumn();
         }
 
         /**
-         * Construye el WHERE de los filtros de la tabla: buscador de producto (nombre o
-         * código, LIKE), familia y sub-familia exactas, año y mes.
-         * Compartido por contarFiltrados y listarPagina.
+         * Construye el WHERE de los filtros: buscador de producto (nombre o código, LIKE),
+         * familia y sub-familia exactas. Compartido por contarFiltrados y listarPagina.
          *
          * @return array [string $where, array $params]
          */
-        private function construirFiltro($busqueda, $familia, $subFamilia, $anio, $mes)
+        private function construirFiltro($busqueda, $familia, $subFamilia)
         {
             $condiciones = [];
             $params      = [];
@@ -71,33 +71,9 @@
                 $params[]      = $subFamilia;
             }
 
-            if ($anio !== '' && ctype_digit((string) $anio)) {
-                $condiciones[] = "anio = ?";
-                $params[]      = (int) $anio;
-            }
-
-            if ($mes !== '' && ctype_digit((string) $mes)) {
-                $condiciones[] = "mes = ?";
-                $params[]      = (int) $mes;
-            }
-
             $where = $condiciones ? ('WHERE ' . implode(' AND ', $condiciones)) : '';
 
             return [$where, $params];
-        }
-
-        /**
-         * Años distintos presentes en el forecast (descendente), para el filtro de Año.
-         *
-         * @return int[]
-         */
-        public function aniosDisponibles()
-        {
-            return array_map(
-                'intval',
-                $this->pdo->query("SELECT DISTINCT anio FROM forecast_x_producto ORDER BY anio DESC")
-                          ->fetchAll(PDO::FETCH_COLUMN)
-            );
         }
 
         /**
@@ -125,35 +101,31 @@
         }
 
         /**
-         * Devuelve una página de registros para DataTables (server-side).
+         * Devuelve una página de PRODUCTOS para DataTables (server-side), agrupando
+         * forecast_x_producto por producto:
+         *   - total_forecast   = SUM(demanda_forecast) de todos los meses (horizonte 12m).
+         *   - forecast_sig_mes = demanda_forecast del primer mes de forecast del producto.
          *
          * @param string $busqueda   Texto a buscar en producto_nombre o producto_codigo.
          * @param string $familia    Familia exacta a filtrar ('' = todas).
          * @param string $subFamilia Sub-familia exacta a filtrar ('' = todas).
-         * @param string $anio       Año a filtrar ('' = todos).
-         * @param string $mes        Mes (1-12) a filtrar ('' = todos).
-         * @param array  $ordenes    Lista de ['col' => nombre lógico, 'dir' => 'asc'|'desc']
-         *                           para el ORDER BY (multi-columna). Si viene vacía, se usa
-         *                           el orden de negocio por defecto: producto, año y mes ASC.
+         * @param array  $ordenes    Lista de ['col' => nombre lógico, 'dir' => 'asc'|'desc'].
+         *                           Si viene vacía, ordena por código de producto ASC.
          * @param int    $inicio     Offset (registro inicial).
          * @param int    $longitud   Cantidad de registros (-1 = todos).
          */
-        public function listarPagina($busqueda, $familia, $subFamilia, $anio, $mes, array $ordenes, $inicio, $longitud)
+        public function listarPagina($busqueda, $familia, $subFamilia, array $ordenes, $inicio, $longitud)
         {
-            // Lista blanca de columnas ordenables: evita inyección en el ORDER BY.
+            // Lista blanca de columnas ordenables (aliases de la consulta): evita inyección.
             $columnasValidas = [
-                'anio'             => 'anio',
-                'mes'              => 'mes',
                 'producto_codigo'  => 'producto_codigo',
                 'producto_nombre'  => 'producto_nombre',
                 'familia'          => 'familia',
                 'sub_familia'      => 'sub_familia',
-                'demanda_forecast'    => 'demanda_forecast',
-                'venta_presupuestada' => 'venta_presupuestada',
-                'created_at'          => 'created_at',
+                'total_forecast'   => 'total_forecast',
+                'forecast_sig_mes' => 'forecast_sig_mes',
             ];
 
-            // Compone el ORDER BY a partir de las columnas válidas recibidas.
             $piezas = [];
             foreach ($ordenes as $o) {
                 $col = $columnasValidas[$o['col'] ?? ''] ?? null;
@@ -163,27 +135,32 @@
                 $dir      = (strtolower($o['dir'] ?? 'asc') === 'desc') ? 'DESC' : 'ASC';
                 $piezas[] = "$col $dir";
             }
-            // Orden de negocio por defecto: Código Producto, Año y Mes (ascendente).
-            $orderBy = $piezas ? implode(', ', $piezas) : 'producto_codigo ASC, anio ASC, mes ASC';
+            $orderBy = $piezas ? implode(', ', $piezas) : 'producto_codigo ASC';
 
             $inicio   = max(0, (int) $inicio);
             $longitud = (int) $longitud;
 
-            list($where, $params) = $this->construirFiltro($busqueda, $familia, $subFamilia, $anio, $mes);
+            list($where, $params) = $this->construirFiltro($busqueda, $familia, $subFamilia);
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
-            $sql = "SELECT anio,
-                           mes,
-                           producto_codigo,
-                           producto_nombre,
-                           familia,
-                           sub_familia,
-                           demanda_forecast,
-                           venta_presupuestada,
-                           created_at
-                    FROM forecast_x_producto
+            // pm: primer mes de forecast de cada producto (índice año*12+mes), para tomar
+            // la demanda del "mes siguiente" (el más próximo del horizonte).
+            $sql = "SELECT f.producto_codigo,
+                           MAX(f.producto_nombre) AS producto_nombre,
+                           MAX(f.familia)         AS familia,
+                           MAX(f.sub_familia)     AS sub_familia,
+                           SUM(f.demanda_forecast) AS total_forecast,
+                           SUM(CASE WHEN (f.anio * 12 + f.mes) = pm.min_periodo
+                                    THEN f.demanda_forecast ELSE 0 END) AS forecast_sig_mes
+                    FROM forecast_x_producto f
+                    JOIN (
+                        SELECT producto_codigo, MIN(anio * 12 + mes) AS min_periodo
+                        FROM forecast_x_producto
+                        GROUP BY producto_codigo
+                    ) pm ON pm.producto_codigo = f.producto_codigo
                     $where
+                    GROUP BY f.producto_codigo
                     ORDER BY $orderBy
                     $limit";
 

@@ -204,18 +204,48 @@ $(document).ready(function() {
         cuandoChartsListo(redibujarConFiltro);
     }
 
-    // Resumen "Registro seleccionado": mismas columnas que la tabla del mantenedor.
+    // Resumen "Producto seleccionado": datos del producto (la vista es agregada, sin mes puntual).
     function renderResumen(d) {
-        const ths = ['Año', 'Mes', 'Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Cantidad Forecast'];
+        const ths = ['Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Total Forecast (12 meses)', 'Forecast Mes Siguiente'];
         const tds = [
-            esc(d.anio), esc(d.mes), esc(d.codigo), esc(d.nombre),
-            esc(d.familia), esc(d.subfamilia),
-            '<span class="fw-bold">' + esc(formatearNumero(d.demanda, (parseFloat(d.demanda) % 1 === 0) ? 0 : 2)) + '</span>'
+            esc(d.codigo), esc(d.nombre), esc(d.familia), esc(d.subfamilia),
+            '<span class="fw-bold">' + esc(formatearNumero(d.total, 0)) + '</span>',
+            '<span class="fw-bold">' + esc(formatearNumero(d.sig, 0)) + '</span>'
         ];
         $('#tabla-resumen-grafico-forecast thead').html('<tr>' + ths.map(function(t) { return '<th>' + t + '</th>'; }).join('') + '</tr>');
         $('#tabla-resumen-grafico-forecast tbody').html('<tr>' + tds.map(function(t, i) {
-            return '<td class="' + (i === 6 ? 'text-end' : '') + '">' + t + '</td>';
+            return '<td class="' + (i >= 4 ? 'text-end' : '') + '">' + t + '</td>';
         }).join('') + '</tr>');
+    }
+
+    // Nombres de mes (índice 1-12) para el detalle bajo el gráfico.
+    const MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    // Detalle mes a mes del forecast del producto (tabla bajo el gráfico).
+    function renderDetalle(detalle) {
+        const $wrap = $('#fc-grafico-detalle-wrap');
+        const $tb   = $('#tabla-detalle-grafico-forecast tbody');
+
+        if (!detalle || !detalle.length) {
+            $tb.html('<tr><td colspan="4" class="text-center text-muted py-3">Sin filas de forecast para este producto.</td></tr>');
+            $wrap.show();
+            return;
+        }
+
+        $tb.html(detalle.map(function(d) {
+            const mesNom = MESES[d.mes] || d.mes;
+            const vp = (d.venta_presupuestada === null || d.venta_presupuestada === undefined)
+                ? '<span class="text-muted">—</span>'
+                : '$' + formatearNumero(d.venta_presupuestada, 0);
+            return '<tr>'
+                 + '<td>' + esc(d.anio) + '</td>'
+                 + '<td>' + esc(mesNom) + '</td>'
+                 + '<td class="text-end">' + formatearNumero(d.demanda_forecast, 0) + '</td>'
+                 + '<td class="text-end">' + vp + '</td>'
+                 + '</tr>';
+        }).join(''));
+        $wrap.show();
     }
 
     // Botón "Gráfico producto" (columna Acciones): abre el modal y pide la serie del producto.
@@ -226,10 +256,8 @@ $(document).ready(function() {
             nombre:     b.data('nombre'),
             familia:    b.data('familia'),
             subfamilia: b.data('subfamilia'),
-            anio:       b.data('anio'),
-            mes:        b.data('mes'),
-            demanda:    b.data('demanda'),
-            ym:         b.data('ym')
+            total:      b.data('total'),
+            sig:        b.data('sig')
         };
         if (reg.codigo === undefined || reg.codigo === '') { return; }
 
@@ -237,12 +265,14 @@ $(document).ready(function() {
         const $canvas = $('#fc-grafico-canvas');
 
         serieGraficoActual = null;
-        mesResaltado       = String(reg.ym);   // año-mes del registro abierto (se remarca)
+        mesResaltado       = null;   // vista por producto: no se remarca un mes puntual
         graficoDibujado    = false;
         modalGraficoShown  = false;
         $('#fc-grafico-titulo').text('');
         renderResumen(reg);
         $('#fc-grafico-filtros').hide();
+        $('#fc-grafico-detalle-wrap').hide();
+        $('#tabla-detalle-grafico-forecast tbody').empty();
         $estado.text('Cargando...').show();
         $canvas.hide().empty();
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalForecastGrafico')).show();
@@ -259,6 +289,10 @@ $(document).ready(function() {
                 }
                 const historia = res.data || [];
                 const forecast = res.forecast || [];
+
+                // Detalle mes a mes del forecast (tabla bajo el gráfico), independiente de la historia.
+                renderDetalle(res.detalle || []);
+
                 if (!historia.length && !forecast.length) {
                     $estado.text('Sin datos para este producto.').show();
                     return;
