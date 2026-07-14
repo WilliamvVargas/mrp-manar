@@ -1,5 +1,5 @@
 <div class="modal fade" id="modalForecastGrafico" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-sm">
             <div class="modal-header bg-dark text-white py-2">
                 <h6 class="modal-title">
@@ -12,25 +12,30 @@
                         aria-label="Close">
                 </button>
             </div>
-            <div class="modal-body py-3">
-                <!-- Resumen: el registro seleccionado en el mantenedor de Forecast; lo llena el JS. -->
-                <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-collection me-1"></i>Registro seleccionado</h6>
-                <div class="table-responsive mb-3">
-                    <table class="table table-sm table-striped align-middle mb-0 small" id="tabla-resumen-grafico-forecast">
-                        <thead class="table-dark"></thead>
-                        <tbody></tbody>
-                    </table>
+            <div class="modal-body d-flex flex-column p-0" style="overflow:hidden;">
+                <!-- Región FIJA (no hace scroll): tabla del producto, siempre visible arriba. -->
+                <div class="px-3 pt-3 pb-2 border-bottom flex-shrink-0">
+                    <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-collection me-1"></i>Registro seleccionado</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle mb-0 small" id="tabla-resumen-grafico-forecast">
+                            <thead class="table-dark"></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
+
+                <!-- Región con SCROLL: gráfico + detalle (se desplazan; la tabla de arriba queda fija). -->
+                <div class="px-3 py-3 flex-grow-1" style="overflow-y:auto;">
+
+                <!-- Título del gráfico (mismo ícono que el botón "Gráfico producto"). -->
+                <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-graph-up me-1"></i>Gráfico demanda histórica y demanda forecast</h6>
 
                 <!-- Filtros por año (client-side); el JS los llena con los años del producto. -->
                 <div class="row g-2 mb-2 align-items-end" id="fc-grafico-filtros" style="display:none;">
                     <div class="col-auto">
-                        <label class="form-label fw-bold small mb-1" for="fc-grafico-mostrar">Mostrar</label>
-                        <select class="form-select form-select-sm" id="fc-grafico-mostrar">
-                            <option value="ambos" selected>Demanda y Venta Neta</option>
-                            <option value="demanda">Demanda</option>
-                            <option value="venta">Venta Neta</option>
-                        </select>
+                        <label class="form-label fw-bold small mb-1">Mostrar</label>
+                        <!-- Multiselección de series (utils.js -> inicializarMultiselect). -->
+                        <div id="fc-grafico-mostrar" style="min-width: 230px;"></div>
                     </div>
                     <div class="col-auto">
                         <label class="form-label fw-bold small mb-1" for="fc-grafico-anio-desde">Año desde</label>
@@ -54,16 +59,18 @@
                         <table class="table table-sm table-striped table-hover align-middle mb-0" id="tabla-detalle-grafico-forecast" style="width:100%">
                             <thead class="table-dark">
                                 <tr>
-                                    <th style="width: 15%">Año</th>
-                                    <th style="width: 15%">Mes</th>
-                                    <th style="width: 35%" class="text-end">Cantidad Forecast</th>
-                                    <th style="width: 35%" class="text-end">Venta Presupuestada</th>
+                                    <th style="width: 12%">Año</th>
+                                    <th style="width: 16%">Mes</th>
+                                    <th style="width: 16%">Tipo</th>
+                                    <th style="width: 28%" class="text-end">Demanda Forecast</th>
+                                    <th style="width: 28%" class="text-end">Demanda Histórica</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
                         </table>
                     </div>
                 </div>
+                </div><!-- fin de la región con scroll -->
             </div>
             <div class="modal-footer bg-light py-2">
                 <button type="button"

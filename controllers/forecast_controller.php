@@ -119,17 +119,22 @@ switch ($action) {
 
             // Forecast (MySQL): Cantidad Forecast del producto, valorizada en $ (demanda × precio
             // realizado) para compararla contra la venta neta real en el mismo eje. Si falla, el
-            // gráfico muestra solo la historia real. En paralelo se arma el DETALLE mes a mes
-            // (año, mes, cantidad forecast, venta presupuestada) para la tabla bajo el gráfico.
+            // gráfico muestra solo la historia real.
+            //
+            // El DETALLE mes a mes (tabla bajo el gráfico) combina, por año-mes:
+            //   - Tipo 'Forecast'  -> demanda_forecast (forecast_x_producto).
+            //   - Tipo 'Histórico' -> la MISMA demanda que dibuja el gráfico ($datos = SAP), para que
+            //     tabla y gráfico muestren exactamente lo mismo. Se arma en PHP (no con UNION SQL)
+            //     porque el histórico vive en SAP/SQL Server y el forecast en MySQL.
             $forecast = [];
             $detalle  = [];
             try {
+                // Filas 'Forecast': serie del gráfico (demanda valorizada en $) + detalle.
                 $st = $pdo->prepare("
-                    SELECT anio, mes, demanda_forecast AS df, venta_presupuestada AS vp
+                    SELECT anio, mes, demanda_forecast AS df
                     FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY anio, mes
                 ");
                 $st->execute([$itemCode]);
-
                 foreach ($st->fetchAll() as $r) {
                     $df = (float) $r['df'];
                     $forecast[] = [
@@ -138,12 +143,31 @@ switch ($action) {
                         'DemandaValorizada' => ($precio !== null) ? $df * $precio : null,
                     ];
                     $detalle[] = [
-                        'anio'                => (int) $r['anio'],
-                        'mes'                 => (int) $r['mes'],
-                        'demanda_forecast'    => $df,
-                        'venta_presupuestada' => ($r['vp'] !== null) ? (float) $r['vp'] : null,
+                        'anio'              => (int) $r['anio'],
+                        'mes'               => (int) $r['mes'],
+                        'tipo'              => 'Forecast',
+                        'demanda_forecast'  => $df,
+                        'demanda_historica' => null,
                     ];
                 }
+
+                // Filas 'Histórico': MISMA fuente que el gráfico ($datos = demanda mensual de SAP).
+                foreach ($datos as $h) {
+                    $ym = (string) ($h['FechaDocumento'] ?? '');   // 'yyyy-MM'
+                    if ($ym === '') { continue; }
+                    $detalle[] = [
+                        'anio'              => (int) substr($ym, 0, 4),
+                        'mes'               => (int) substr($ym, 5, 2),
+                        'tipo'              => 'Histórico',
+                        'demanda_forecast'  => null,
+                        'demanda_historica' => ($h['Demanda'] !== null) ? (float) $h['Demanda'] : null,
+                    ];
+                }
+
+                // Orden por año-mes (dentro del mismo mes, 'Forecast' antes que 'Histórico').
+                usort($detalle, function ($a, $b) {
+                    return [$a['anio'], $a['mes'], $a['tipo']] <=> [$b['anio'], $b['mes'], $b['tipo']];
+                });
             } catch (Throwable $e) {
                 error_log('[FORECAST][grafico] ' . $e->getMessage());
                 $forecast = [];

@@ -37,7 +37,7 @@
                 return $this->contarTodos();
             }
 
-            $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT producto_codigo) FROM forecast_x_producto $where");
+            $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT f.producto_codigo) FROM forecast_x_producto f $where");
             $stmt->execute($params);
 
             return (int) $stmt->fetchColumn();
@@ -45,7 +45,9 @@
 
         /**
          * Construye el WHERE de los filtros: buscador de producto (nombre o código, LIKE),
-         * familia y sub-familia exactas. Compartido por contarFiltrados y listarPagina.
+         * familia y sub-familia exactas. Compartido por contarFiltrados y listarPagina; por eso
+         * las columnas van calificadas con el alias `f` (la tabla forecast_x_producto), ya que
+         * listarPagina hace JOIN con la subconsulta `pm` y `producto_codigo` sería ambiguo.
          *
          * @return array [string $where, array $params]
          */
@@ -56,18 +58,18 @@
 
             if ($busqueda !== '') {
                 $like          = '%' . $busqueda . '%';
-                $condiciones[] = "(producto_nombre LIKE ? OR producto_codigo LIKE ?)";
+                $condiciones[] = "(f.producto_nombre LIKE ? OR f.producto_codigo LIKE ?)";
                 $params[]      = $like;
                 $params[]      = $like;
             }
 
             if ($familia !== '') {
-                $condiciones[] = "familia = ?";
+                $condiciones[] = "f.familia = ?";
                 $params[]      = $familia;
             }
 
             if ($subFamilia !== '') {
-                $condiciones[] = "sub_familia = ?";
+                $condiciones[] = "f.sub_familia = ?";
                 $params[]      = $subFamilia;
             }
 

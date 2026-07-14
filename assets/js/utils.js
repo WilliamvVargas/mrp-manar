@@ -616,6 +616,104 @@ function inicializarSelectIconos(config) {
 }
 
 /**
+ * Inicializa un desplegable de MULTISELECCIÓN reutilizable: un dropdown de Bootstrap con un
+ * checkbox por opción, de modo que se pueda elegir cualquier combinación (a diferencia de un
+ * <select> normal). Reutilizable por cualquier formulario.
+ *
+ * Se inyecta dentro del contenedor indicado. El botón muestra un resumen de la selección
+ * (todas / ninguna / etiquetas elegidas). El menú NO se cierra al marcar (auto-close "outside").
+ * Cada cambio dispara onCambio con el arreglo de valores seleccionados.
+ *
+ * @param {Object}    config
+ * @param {string}    config.contenedor  - Selector del contenedor donde se inyecta.
+ * @param {Array}     config.opciones    - [{ valor, texto, checked }] (checked opcional, def. true).
+ * @param {Function} [config.onCambio]   - Callback(valoresSeleccionados[]) en cada cambio.
+ * @param {string}   [config.textoVacio] - Texto del botón si no hay nada marcado (def. 'Ninguno').
+ * @param {string}   [config.textoTodos] - Texto del botón si están todas marcadas (def. 'Todos').
+ * @param {string}   [config.tamano]     - 'sm' | '' tamaño del botón (def. 'sm').
+ * @returns {{ getValores: Function, setValores: Function }} API para leer/fijar la selección.
+ */
+function inicializarMultiselect(config) {
+    const $cont    = $(config.contenedor);
+    const opciones = config.opciones || [];
+    const tamano   = (config.tamano === undefined) ? 'sm' : config.tamano;
+    const claseBtn = 'btn border bg-white dropdown-toggle w-100 d-flex align-items-center text-start'
+                   + (tamano ? ' btn-' + tamano : '');
+
+    let itemsHtml = '';
+    opciones.forEach(function(op) {
+        const checked = (op.checked === undefined) ? true : !!op.checked;
+        // El checkbox va DENTRO del label (asociación implícita, sin `for`), como un dropdown-item
+        // en flex: queda indentado por el padding del dropdown-item (adentro y cerca del borde, no
+        // pegado ni afuera). Se evita `.form-check`, cuyo margin-left negativo saca el checkbox del borde.
+        itemsHtml += '<li>'
+                   +   '<label class="dropdown-item d-flex align-items-center gap-2 mb-0" style="cursor: pointer;">'
+                   +     '<input class="form-check-input multiselect-item flex-shrink-0 mt-0" type="checkbox" '
+                   +            'value="' + op.valor + '"' + (checked ? ' checked' : '') + '>'
+                   +     '<span>' + op.texto + '</span>'
+                   +   '</label>'
+                   + '</li>';
+    });
+
+    $cont.html(
+        '<div class="dropdown">'
+        +   '<button class="' + claseBtn + '" type="button" data-bs-toggle="dropdown" '
+        +           'data-bs-auto-close="outside" aria-expanded="false">'
+        +       '<span class="multiselect-texto flex-grow-1 text-truncate"></span>'
+        +   '</button>'
+        +   '<ul class="dropdown-menu w-100" style="min-width: 12rem;">' + itemsHtml + '</ul>'
+        + '</div>'
+    );
+
+    const $texto = $cont.find('.multiselect-texto');
+
+    function getValores() {
+        return $cont.find('.multiselect-item:checked').map(function() { return this.value; }).get();
+    }
+
+    // Resumen visible en el botón: ninguno / todos / lista de etiquetas (en el orden de opciones).
+    function actualizarTexto() {
+        const seleccionados = getValores();
+        let txt;
+        if (seleccionados.length === 0) {
+            txt = config.textoVacio || 'Ninguno';
+        } else if (seleccionados.length === opciones.length) {
+            txt = config.textoTodos || 'Todos';
+        } else {
+            txt = opciones
+                .filter(function(op) { return seleccionados.indexOf(String(op.valor)) !== -1; })
+                .map(function(op) { return op.texto; })
+                .join(', ');
+        }
+        $texto.text(txt);
+    }
+
+    function setValores(valores) {
+        const set = (valores || []).map(String);
+        $cont.find('.multiselect-item').each(function() {
+            this.checked = set.indexOf(this.value) !== -1;
+        });
+        actualizarTexto();
+    }
+
+    $cont.on('change', '.multiselect-item', function() {
+        actualizarTexto();
+        if (typeof config.onCambio === 'function') {
+            config.onCambio(getValores());
+        }
+    });
+
+    // El menú debe seguir ABIERTO al marcar varias opciones. Bootstrap cierra el dropdown ante
+    // cualquier click que llegue a su listener global; se detiene la propagación de los clicks
+    // DENTRO del menú para que no lleguen ahí (los clicks fuera sí cierran, como corresponde).
+    $cont.on('click', '.dropdown-menu', function(e) { e.stopPropagation(); });
+
+    actualizarTexto();
+
+    return { getValores: getValores, setValores: setValores };
+}
+
+/**
  * Construye el HTML de un ítem del listado ordenable de "Asignar Posición".
  * Reutilizable por cualquier mantenedor (lo invoca el `construirItems` del contexto).
  * @param {number|string} id     Identificador del registro.

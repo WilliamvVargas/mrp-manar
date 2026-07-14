@@ -2,8 +2,8 @@ $(document).ready(function() {
 
     // ============================================================
     //  Gráfico producto (mantenedor de Forecast): historia real de demanda/venta (SAP)
-    //  + Cantidad Forecast por producto y su demanda valorizada en $ (MySQL). Se remarca el mes
-    //  seleccionado sobre la serie de Cantidad Forecast.
+    //  + Demanda Forecast por producto y su demanda valorizada en $ (MySQL). Se remarca el mes
+    //  seleccionado sobre la serie de Demanda Forecast.
     // ============================================================
 
     // Google Charts: carga diferida. Se encola el dibujo hasta que esté listo.
@@ -34,8 +34,24 @@ $(document).ready(function() {
     let mesResaltado       = null; // año-mes del registro abierto (se remarca en el forecast)
     let modalGraficoShown  = false; // true cuando el modal terminó de abrirse (ancho final)
     let graficoDibujado    = false; // true tras el primer dibujo (evita dibujar dos veces)
+    let detalleForecastActual = null; // detalle mes a mes del forecast (para refiltrarlo por año)
 
     const anioActual = new Date().getFullYear();
+
+    // Multiselección de series a mostrar en el gráfico (reemplaza el antiguo combo "Mostrar").
+    // Cualquier combinación de las 4 series; por defecto todas marcadas.
+    const mostrarMulti = inicializarMultiselect({
+        contenedor: '#fc-grafico-mostrar',
+        opciones: [
+            { valor: 'demanda_historica',  texto: 'Demanda Histórica' },
+            { valor: 'demanda_forecast',   texto: 'Demanda Forecast' },
+            { valor: 'venta_neta',         texto: 'Venta Neta' },
+            { valor: 'demanda_valorizada', texto: 'Demanda Valorizada' }
+        ],
+        textoTodos: 'Todas las series',
+        textoVacio: 'Ninguna serie',
+        onCambio: function() { cuandoChartsListo(redibujarConFiltro); }
+    });
 
     // Año-mes ('yyyy-MM') <-> índice de mes (año*12 + mes-1), para recorrer meses.
     function ymAIndice(ym) {
@@ -66,63 +82,77 @@ $(document).ready(function() {
     function numOrNull(v) { return (v === null || v === undefined) ? null : (parseFloat(v) || 0); }
 
     // Dibuja, sobre una línea de tiempo continua (historia + futuro):
-    //   - Demanda real (barras azul) + Cantidad Forecast (barras morado)         -> eje de unidades
+    //   - Demanda histórica (barras azul) + Demanda forecast (barras morado)      -> eje de unidades
     //   - Venta neta real (línea roja)
     //     + Demanda valorizada en $ (línea verde = demanda forecast × precio)    -> eje de $
-    // El mes seleccionado (mesResaltado) se remarca en la serie de Cantidad Forecast.
+    // El mes seleccionado (mesResaltado) se remarca en la serie de Demanda Forecast.
     function dibujarGrafico(datos) {
-        const modo       = $('#fc-grafico-mostrar').val() || 'ambos';
-        const mostrarDem = (modo === 'demanda' || modo === 'ambos');
-        const mostrarVen = (modo === 'venta'   || modo === 'ambos');
+        // Series elegidas en el multiselect "Mostrar" (cualquier combinación de las 4).
+        const sel = new Set(mostrarMulti ? mostrarMulti.getValores() : []);
+        const showHist  = sel.has('demanda_historica');
+        const showFc    = sel.has('demanda_forecast');
+        const showVenta = sel.has('venta_neta');
+        const showVal   = sel.has('demanda_valorizada');
         datos = rellenarMeses(datos); // eje X continuo (meses sin dato en blanco)
 
+        // El eje de $ (derecho) solo se separa del de unidades cuando hay series de ambos tipos.
+        const hayUnidades = showHist || showFc;
+        const hayPesos    = showVenta || showVal;
         const ejeDem = 0;
-        const ejeVen = (modo === 'ambos') ? 1 : 0;
+        const ejeVen = (hayUnidades && hayPesos) ? 1 : 0;
 
         const data = new google.visualization.DataTable();
         data.addColumn('string', 'Año-Mes');
 
         const series = {}; const vAxes = {}; let si = 0;
-        const colsPesos = []; // índices de las columnas en $ (Venta Neta, Demanda Valorizada) para formatear su tooltip
+        const colsPesos = [];   // índices de columnas en $ (para formatear su tooltip)
+        const pushers   = [];   // (d, esR) -> valores de la fila, en el mismo orden en que se agregan las columnas
 
-        if (mostrarDem) {
-            data.addColumn('number', 'Demanda');
-            series[si++] = { type: 'bars', targetAxisIndex: ejeDem, color: '#0d6efd' }; // demanda real (azul)
-
-            data.addColumn('number', 'Cantidad Forecast');
+        // --- Series de UNIDADES (eje izquierdo) ---
+        if (showHist) {
+            data.addColumn('number', 'Demanda Histórica');
+            series[si++] = { type: 'bars', targetAxisIndex: ejeDem, color: '#0d6efd' }; // azul
+            pushers.push(function(d) { return [ numOrNull(d.Demanda) ]; });
+        }
+        if (showFc) {
+            data.addColumn('number', 'Demanda Forecast');
             data.addColumn({ type: 'string', role: 'style' });      // resaltado del mes seleccionado
             data.addColumn({ type: 'string', role: 'annotation' });
-            series[si++] = { type: 'bars', targetAxisIndex: ejeDem, color: '#6f42c1' }; // forecast (morado)
-
+            series[si++] = { type: 'bars', targetAxisIndex: ejeDem, color: '#6f42c1' }; // morado
+            pushers.push(function(d, esR) {
+                const fc = numOrNull(d.DemandaForecast);
+                return [
+                    fc,
+                    (esR && fc !== null) ? 'color: #fd7e14; stroke-color: #b45309; stroke-width: 2' : null,
+                    (esR && fc !== null) ? formatearNumero(fc, fc % 1 === 0 ? 0 : 2) : null
+                ];
+            });
+        }
+        if (hayUnidades) {
             vAxes[ejeDem] = { title: 'Demanda (unidades)', minValue: 0 };
         }
-        if (mostrarVen) {
+
+        // --- Series de $ (eje derecho, o único si no hay series de unidades) ---
+        if (showVenta) {
             colsPesos.push(data.getNumberOfColumns());
             data.addColumn('number', 'Venta Neta');
-            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#dc3545', lineWidth: 2, pointSize: 4 }; // venta real (roja)
-
+            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#dc3545', lineWidth: 2, pointSize: 4 }; // roja
+            pushers.push(function(d) { return [ numOrNull(d.Neto) ]; });
+        }
+        if (showVal) {
             colsPesos.push(data.getNumberOfColumns());
             data.addColumn('number', 'Demanda Valorizada');
-            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#198754', lineWidth: 2, pointSize: 4, lineDashStyle: [3, 3] }; // demanda forecast × precio (verde)
-
+            series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#198754', lineWidth: 2, pointSize: 4, lineDashStyle: [3, 3] }; // verde
+            pushers.push(function(d) { return [ numOrNull(d.DemandaValorizada) ]; });
+        }
+        if (hayPesos) {
             vAxes[ejeVen] = { title: 'Venta Neta ($)', minValue: 0, format: 'short' };
         }
 
         datos.forEach(function(d) {
-            const esR  = (d.FechaDocumento === mesResaltado);
-            const fila = [ d.FechaDocumento ];
-            if (mostrarDem) {
-                const fc = numOrNull(d.DemandaForecast);
-                fila.push(
-                    numOrNull(d.Demanda),
-                    fc,
-                    (esR && fc !== null) ? 'color: #fd7e14; stroke-color: #b45309; stroke-width: 2' : null,
-                    (esR && fc !== null) ? formatearNumero(fc, fc % 1 === 0 ? 0 : 2) : null
-                );
-            }
-            if (mostrarVen) {
-                fila.push(numOrNull(d.Neto), numOrNull(d.DemandaValorizada));
-            }
+            const esR = (d.FechaDocumento === mesResaltado);
+            let fila  = [ d.FechaDocumento ];
+            pushers.forEach(function(p) { fila = fila.concat(p(d, esR)); });
             data.addRow(fila);
         });
 
@@ -140,7 +170,7 @@ $(document).ready(function() {
             },
             legend:    { position: 'top' },
             height:    460,
-            chartArea: { left: 80, right: (modo === 'ambos' ? 120 : 80), top: 50, bottom: 90 },
+            chartArea: { left: 80, right: (ejeVen === 1 ? 120 : 80), top: 50, bottom: 90 },
             hAxis:     { title: 'Año-Mes', slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 11 } },
             vAxes:     vAxes,
             tooltip:   { trigger: 'focus' }
@@ -183,6 +213,11 @@ $(document).ready(function() {
         const $estado = $('#fc-grafico-estado');
         const $canvas = $('#fc-grafico-canvas');
 
+        if (mostrarMulti && mostrarMulti.getValores().length === 0) {
+            $canvas.hide().empty();
+            $estado.text('Selecciona al menos una serie para mostrar.').show();
+            return;
+        }
         if (!datos.length) {
             $canvas.hide().empty();
             $estado.text('No hay datos en el rango de años seleccionado.').show();
@@ -228,24 +263,36 @@ $(document).ready(function() {
         const $tb   = $('#tabla-detalle-grafico-forecast tbody');
 
         if (!detalle || !detalle.length) {
-            $tb.html('<tr><td colspan="4" class="text-center text-muted py-3">Sin filas de forecast para este producto.</td></tr>');
+            $tb.html('<tr><td colspan="5" class="text-center text-muted py-3">Sin filas en el rango de años seleccionado.</td></tr>');
             $wrap.show();
             return;
         }
 
+        const guion = '<span class="text-muted">—</span>';
         $tb.html(detalle.map(function(d) {
             const mesNom = MESES[d.mes] || d.mes;
-            const vp = (d.venta_presupuestada === null || d.venta_presupuestada === undefined)
-                ? '<span class="text-muted">—</span>'
-                : '$' + formatearNumero(d.venta_presupuestada, 0);
+            const df = (d.demanda_forecast  === null || d.demanda_forecast  === undefined) ? guion : formatearNumero(d.demanda_forecast, 0);
+            const dh = (d.demanda_historica === null || d.demanda_historica === undefined) ? guion : formatearNumero(d.demanda_historica, 0);
             return '<tr>'
                  + '<td>' + esc(d.anio) + '</td>'
                  + '<td>' + esc(mesNom) + '</td>'
-                 + '<td class="text-end">' + formatearNumero(d.demanda_forecast, 0) + '</td>'
-                 + '<td class="text-end">' + vp + '</td>'
+                 + '<td>' + esc(d.tipo || 'Forecast') + '</td>'
+                 + '<td class="text-end">' + df + '</td>'
+                 + '<td class="text-end">' + dh + '</td>'
                  + '</tr>';
         }).join(''));
         $wrap.show();
+    }
+
+    // Filtra el detalle por el rango de años elegido (mismo que el gráfico) y lo renderiza.
+    function renderDetalleFiltrado() {
+        if (!detalleForecastActual) { return; }
+        const desde = parseInt($('#fc-grafico-anio-desde').val(), 10);
+        const hasta = parseInt($('#fc-grafico-anio-hasta').val(), 10);
+        const filtrado = detalleForecastActual.filter(function(d) {
+            return (isNaN(desde) || d.anio >= desde) && (isNaN(hasta) || d.anio <= hasta);
+        });
+        renderDetalle(filtrado);
     }
 
     // Botón "Gráfico producto" (columna Acciones): abre el modal y pide la serie del producto.
@@ -290,14 +337,15 @@ $(document).ready(function() {
                 const historia = res.data || [];
                 const forecast = res.forecast || [];
 
-                // Detalle mes a mes del forecast (tabla bajo el gráfico), independiente de la historia.
-                renderDetalle(res.detalle || []);
+                // Detalle mes a mes del forecast (tabla bajo el gráfico). Se guarda para renderarlo
+                // filtrado por el mismo rango de años que el gráfico (más abajo, tras poblar los años).
+                detalleForecastActual = res.detalle || [];
 
                 if (!historia.length && !forecast.length) {
                     $estado.text('Sin datos para este producto.').show();
                     return;
                 }
-                // Combina historia (demanda/venta reales) + forecast (Cantidad Forecast / demanda valorizada en $).
+                // Combina historia (demanda/venta reales) + forecast (Demanda Forecast / demanda valorizada en $).
                 const mapa = {};
                 historia.forEach(function(h) {
                     mapa[h.FechaDocumento] = {
@@ -317,6 +365,7 @@ $(document).ready(function() {
 
                 serieGraficoActual = combinado;
                 poblarFiltrosAnios(combinado);
+                renderDetalleFiltrado();  // detalle acotado al rango de años inicial (igual que el gráfico)
                 intentarDibujarGrafico(); // dibuja solo si el modal ya terminó de abrirse
             },
             error: function() {
@@ -325,9 +374,11 @@ $(document).ready(function() {
         });
     });
 
-    // Cambio de "Mostrar" o del rango de años: refiltra/redibuja (client-side).
-    $('#fc-grafico-mostrar, #fc-grafico-anio-desde, #fc-grafico-anio-hasta').on('change', function() {
+    // Cambio del rango de años: refiltra/redibuja el gráfico y el detalle (client-side).
+    // (El multiselect "Mostrar" redibuja el gráfico por su propio onCambio; el detalle no depende de él.)
+    $('#fc-grafico-anio-desde, #fc-grafico-anio-hasta').on('change', function() {
         cuandoChartsListo(redibujarConFiltro);
+        renderDetalleFiltrado();   // el detalle sigue el mismo rango de años que el gráfico
     });
 
     // Redibuja al terminar de mostrarse el modal (evita ancho 0 si se dibujó antes de la transición).
