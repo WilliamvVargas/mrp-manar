@@ -46,24 +46,24 @@ try {
     $grupos = [];
     foreach (leerCsv("$DIR/grupos.csv") as $r) { $grupos[(int) $r['grupo_id']] = [$r['familia'], $r['sub_familia']]; }
 
-    $fc = []; // [id][ym] => yhat ; $metodo[id]
+    $fc = []; // [id][semana] => yhat ; $metodo[id]
     $metodo = [];
     foreach (leerCsv("$DIR/grupos_forecast.csv") as $r) {
         $id = (int) $r['grupo_id'];
-        $fc[$id][$r['ym']] = (float) $r['yhat'];
+        $fc[$id][$r['semana']] = (float) $r['yhat'];
         $metodo[$id] = $r['metodo'];
     }
 
     $real = [];
     foreach (leerCsv("$DIR/grupos_real.csv") as $r) {
-        $real[(int) $r['grupo_id']][$r['ym']] = (float) $r['demanda_real'];
+        $real[(int) $r['grupo_id']][$r['semana']] = (float) $r['demanda_real'];
     }
 
     // ---- Métricas por grupo ---------------------------------------------
     $pdo->exec("TRUNCATE TABLE forecast_backtest");
     $ins = $pdo->prepare("
         INSERT INTO forecast_backtest
-            (familia, sub_familia, metodo, meses_evaluados, desde, hasta,
+            (familia, sub_familia, metodo, semanas_evaluadas, desde, hasta,
              suma_real, suma_forecast, factor, bias_pct, mape)
         VALUES (?,?,?,?,?,?,?,?,?,?,?)
     ");
@@ -73,11 +73,11 @@ try {
     foreach ($grupos as $id => $g) {
         if (empty($real[$id]) || empty($fc[$id])) { continue; }
 
-        $meses = array_keys($real[$id]); sort($meses);
+        $semanas = array_keys($real[$id]); sort($semanas);
         $sumR = 0.0; $sumF = 0.0; $ape = []; $n = 0;
-        foreach ($meses as $ym) {
-            if (!isset($fc[$id][$ym])) { continue; }
-            $r = $real[$id][$ym]; $f = $fc[$id][$ym];
+        foreach ($semanas as $sem) {
+            if (!isset($fc[$id][$sem])) { continue; }
+            $r = $real[$id][$sem]; $f = $fc[$id][$sem];
             $sumR += $r; $sumF += $f; $n++;
             if ($r > 0) { $ape[] = abs($r - $f) / $r; }
         }
@@ -89,7 +89,7 @@ try {
         $mape   = count($ape) ? array_sum($ape) / count($ape) * 100 : null;
 
         $ins->execute([
-            $g[0], $g[1], $metodo[$id] ?? '', $n, $meses[0], $meses[count($meses) - 1],
+            $g[0], $g[1], $metodo[$id] ?? '', $n, $semanas[0], $semanas[count($semanas) - 1],
             round($sumR, 4), round($sumF, 4), round($factor, 6),
             round($bias, 4), $mape !== null ? round($mape, 4) : null,
         ]);

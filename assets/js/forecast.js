@@ -24,8 +24,25 @@ $(document).ready(function() {
             { data: 'producto_nombre',  render: $.fn.dataTable.render.text() },
             { data: 'familia',          render: $.fn.dataTable.render.text() },
             { data: 'sub_familia',      render: $.fn.dataTable.render.text() },
+            {
+                // Cálculo Forecast: insumos aplicados en el cálculo del forecast del producto.
+                // Extensible: hoy solo "Presupuesto"; a futuro se agregan más factores (uno por línea).
+                data: null,
+                orderable: false,
+                searchable: false,
+                className: 'text-nowrap small',
+                render: function(data, type, row) {
+                    const icono = function(ok) {
+                        return ok
+                            ? '<i class="bi bi-check-lg text-success"></i>'
+                            : '<i class="bi bi-x-lg text-danger"></i>';
+                    };
+                    return 'Presupuesto: ' + icono(Number(row.usa_presupuesto) === 1);
+                }
+            },
             { data: 'total_forecast',   className: 'text-end', render: formatearEntero },
-            { data: 'forecast_sig_mes', className: 'text-end', render: formatearEntero },
+            { data: 'forecast_sig_semana', className: 'text-end', render: formatearEntero },
+            { data: null, orderable: false, searchable: false, className: 'text-end', render: function() { return ''; } }, // Cantidad Ajustada (placeholder, sin origen)
             {
                 // Acciones: botones "Gráfico producto" y "Parámetros MRP" (por producto).
                 data: null,
@@ -44,8 +61,8 @@ $(document).ready(function() {
                         + ' data-nombre="'     + attr(row.producto_nombre)  + '"'
                         + ' data-familia="'    + attr(row.familia)          + '"'
                         + ' data-subfamilia="' + attr(row.sub_familia)      + '"'
-                        + ' data-total="'      + attr(row.total_forecast)   + '"'
-                        + ' data-sig="'        + attr(row.forecast_sig_mes) + '"'
+                        + ' data-total="'      + attr(row.total_forecast)      + '"'
+                        + ' data-sig="'        + attr(row.forecast_sig_semana) + '"'
                         + ' title="Gráfico producto"><i class="bi bi-graph-up"></i></button>';
 
                     const btnMrp =

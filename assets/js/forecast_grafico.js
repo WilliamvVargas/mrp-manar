@@ -34,9 +34,7 @@ $(document).ready(function() {
     let mesResaltado       = null; // año-mes del registro abierto (se remarca en el forecast)
     let modalGraficoShown  = false; // true cuando el modal terminó de abrirse (ancho final)
     let graficoDibujado    = false; // true tras el primer dibujo (evita dibujar dos veces)
-    let detalleForecastActual = null; // detalle mes a mes del forecast (para refiltrarlo por año)
-
-    const anioActual = new Date().getFullYear();
+    let detalleForecastActual = null; // detalle semana a semana del forecast (para refiltrarlo por rango)
 
     // Multiselección de series a mostrar en el gráfico (reemplaza el antiguo combo "Mostrar").
     // Cualquier combinación de las 4 series; por defecto todas marcadas.
@@ -53,27 +51,52 @@ $(document).ready(function() {
         onCambio: function() { cuandoChartsListo(redibujarConFiltro); }
     });
 
-    // Año-mes ('yyyy-MM') <-> índice de mes (año*12 + mes-1), para recorrer meses.
-    function ymAIndice(ym) {
-        return parseInt(ym.substring(0, 4), 10) * 12 + (parseInt(ym.substring(5, 7), 10) - 1);
+    // Filtros de rango AÑO-MES (Flatpickr + plugin monthSelect, misma librería que Ventas Históricas).
+    let fpDesde = null, fpHasta = null;
+    // 'yyyy-MM' de la fecha elegida en un picker (o '' si no hay selección).
+    function ymDeFp(fp) {
+        if (!fp || !fp.selectedDates.length) { return ''; }
+        const d = fp.selectedDates[0];
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     }
-    function indiceAYm(idx) {
-        return Math.floor(idx / 12) + '-' + String((idx % 12) + 1).padStart(2, '0');
+    // Nueva config por picker (plugin instanciado aparte para cada uno).
+    function optsPickerFecha() {
+        return {
+            locale: 'es',
+            plugins: [ new monthSelectPlugin({ shorthand: false, dateFormat: 'm/Y' }) ],
+            onChange: function() {
+                cuandoChartsListo(redibujarConFiltro);
+                renderDetalleFiltrado();
+            }
+        };
+    }
+    fpDesde = flatpickr('#fc-grafico-desde', optsPickerFecha());
+    fpHasta = flatpickr('#fc-grafico-hasta', optsPickerFecha());
+
+    // Lunes ISO ('yyyy-MM-dd') <-> índice de semana (relativo a un lunes de referencia).
+    const REF_LUNES = Date.UTC(2020, 0, 6); // 2020-01-06 (lunes)
+    function fechaAIdxSemana(ymd) {
+        const ms = Date.UTC(+ymd.substring(0, 4), +ymd.substring(5, 7) - 1, +ymd.substring(8, 10));
+        return Math.round((ms - REF_LUNES) / 604800000);
+    }
+    function idxSemanaAFecha(idx) {
+        const d = new Date(REF_LUNES + idx * 604800000);
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
     }
 
-    // Completa los año-mes faltantes entre el primero y el último con datos, para que el
-    // eje X sea continuo. Los meses sin registro quedan con valores null (se ven en blanco).
-    function rellenarMeses(datos) {
+    // Completa las SEMANAS faltantes entre la primera y la última con datos, para que el
+    // eje X sea continuo. Las semanas sin registro quedan con valores null (se ven en blanco).
+    function rellenarSemanas(datos) {
         if (!datos || !datos.length) { return datos; }
         const mapa = {};
         datos.forEach(function(d) { mapa[d.FechaDocumento] = d; });
         const claves = Object.keys(mapa).sort();
-        const desde  = ymAIndice(claves[0]);
-        const hasta  = ymAIndice(claves[claves.length - 1]);
+        const desde  = fechaAIdxSemana(claves[0]);
+        const hasta  = fechaAIdxSemana(claves[claves.length - 1]);
         const salida = [];
         for (let i = desde; i <= hasta; i++) {
-            const ym = indiceAYm(i);
-            salida.push(mapa[ym] || { FechaDocumento: ym, Demanda: null, Neto: null, DemandaForecast: null, DemandaValorizada: null });
+            const sem = idxSemanaAFecha(i);
+            salida.push(mapa[sem] || { FechaDocumento: sem, Demanda: null, Neto: null, DemandaForecast: null, DemandaValorizada: null });
         }
         return salida;
     }
@@ -93,7 +116,7 @@ $(document).ready(function() {
         const showFc    = sel.has('demanda_forecast');
         const showVenta = sel.has('venta_neta');
         const showVal   = sel.has('demanda_valorizada');
-        datos = rellenarMeses(datos); // eje X continuo (meses sin dato en blanco)
+        datos = rellenarSemanas(datos); // eje X continuo (semanas sin dato en blanco)
 
         // El eje de $ (derecho) solo se separa del de unidades cuando hay series de ambos tipos.
         const hayUnidades = showHist || showFc;
@@ -179,35 +202,61 @@ $(document).ready(function() {
         new google.visualization.ComboChart(document.getElementById('fc-grafico-canvas')).draw(data, opciones);
     }
 
-    // Llena los selects Año desde / Año hasta con los años presentes en la serie.
-    // Por defecto muestra el AÑO ACTUAL y el AÑO ANTERIOR, acotado a los años que
-    // el producto realmente tenga (si no existen, cae al año disponible más cercano).
-    function poblarFiltrosAnios(datos) {
-        const set = {};
-        datos.forEach(function(d) { set[String(d.FechaDocumento).substring(0, 4)] = true; });
-        const lista = Object.keys(set).sort();
-        const opts  = lista.map(function(a) { return '<option value="' + a + '">' + a + '</option>'; }).join('');
-        $('#fc-grafico-anio-desde').html(opts);
-        $('#fc-grafico-anio-hasta').html(opts);
+    // --- Filtro por rango AÑO-MES (desde / hasta) ---
+    // Desplaza un 'yyyy-MM' n meses.
+    function shiftMes(ym, n) {
+        let y = parseInt(ym.substring(0, 4), 10);
+        let m = parseInt(ym.substring(5, 7), 10) - 1 + n;
+        y += Math.floor(m / 12);
+        m = ((m % 12) + 12) % 12;
+        return y + '-' + String(m + 1).padStart(2, '0');
+    }
+    // Último día ('yyyy-MM-dd') de un mes 'yyyy-MM'.
+    function finDeMes(ym) {
+        const d = new Date(Date.UTC(parseInt(ym.substring(0, 4), 10), parseInt(ym.substring(5, 7), 10), 0));
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+    }
+    // Suma n días a una fecha 'yyyy-MM-dd'.
+    function masDias(ymd, n) {
+        const d = new Date(Date.UTC(+ymd.substring(0, 4), +ymd.substring(5, 7) - 1, +ymd.substring(8, 10)) + n * 86400000);
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+    }
+    // Una semana (lunes 'mondayYmd', lun..dom) SOLAPA el rango [desdeYm, hastaYm] (ambos 'yyyy-MM').
+    function semanaEnRango(mondayYmd, desdeYm, hastaYm) {
+        const ini = desdeYm ? desdeYm + '-01' : '0000-01-01';
+        const fin = hastaYm ? finDeMes(hastaYm) : '9999-12-31';
+        const domingo = masDias(mondayYmd, 6);
+        return mondayYmd <= fin && domingo >= ini;   // solapamiento (comparación lexicográfica ISO)
+    }
 
-        const aniosNum = lista.map(Number);
-        function mayorHasta(limite) {
-            const c = aniosNum.filter(function(y) { return y <= limite; });
-            return c.length ? c[c.length - 1] : aniosNum[0];
-        }
-        $('#fc-grafico-anio-hasta').val(String(mayorHasta(anioActual)));       // año actual
-        $('#fc-grafico-anio-desde').val(String(mayorHasta(anioActual - 1)));   // año anterior
+    // Fija el rango por defecto de los inputs año-mes según los datos: desde = 6 meses antes del
+    // mes actual (acotado a los datos), hasta = último mes con datos (incluye el forecast).
+    // 'yyyy-MM' -> objeto Date (día 1). Flatpickr parsea strings con su dateFormat ('m/Y'), así
+    // que hay que pasarle objetos Date (no strings) a setDate/minDate/maxDate.
+    function ymAFecha(ym) {
+        return new Date(parseInt(ym.substring(0, 4), 10), parseInt(ym.substring(5, 7), 10) - 1, 1);
+    }
+    function poblarFiltroFechas(datos) {
+        const meses = datos.map(function(d) { return String(d.FechaDocumento).substring(0, 7); }).sort();
+        const min = meses[0], max = meses[meses.length - 1];
+        let desde = shiftMes(new Date().toISOString().substring(0, 7), -6);
+        if (desde < min || desde > max) { desde = min; }
+        [fpDesde, fpHasta].forEach(function(fp) {
+            fp.set('minDate', ymAFecha(min));
+            fp.set('maxDate', ymAFecha(max));
+        });
+        fpDesde.setDate(ymAFecha(desde), false);   // false = fija sin disparar onChange
+        fpHasta.setDate(ymAFecha(max), false);
     }
 
     // Filtra la serie por el rango de años elegido y (re)dibuja; muestra aviso si queda vacío.
     function redibujarConFiltro() {
         if (!serieGraficoActual) { return; }
 
-        const desde = parseInt($('#fc-grafico-anio-desde').val(), 10);
-        const hasta = parseInt($('#fc-grafico-anio-hasta').val(), 10);
+        const desde = ymDeFp(fpDesde);
+        const hasta = ymDeFp(fpHasta);
         const datos = serieGraficoActual.filter(function(d) {
-            const anio = parseInt(String(d.FechaDocumento).substring(0, 4), 10);
-            return anio >= desde && anio <= hasta;
+            return semanaEnRango(String(d.FechaDocumento), desde, hasta);
         });
 
         const $estado = $('#fc-grafico-estado');
@@ -220,7 +269,7 @@ $(document).ready(function() {
         }
         if (!datos.length) {
             $canvas.hide().empty();
-            $estado.text('No hay datos en el rango de años seleccionado.').show();
+            $estado.text('No hay datos en el rango de fechas seleccionado.').show();
             return;
         }
         $estado.hide();
@@ -241,7 +290,7 @@ $(document).ready(function() {
 
     // Resumen "Producto seleccionado": datos del producto (la vista es agregada, sin mes puntual).
     function renderResumen(d) {
-        const ths = ['Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Total Forecast (12 meses)', 'Forecast Mes Siguiente'];
+        const ths = ['Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Total Forecast (52 semanas)', 'Forecast Semana Siguiente'];
         const tds = [
             esc(d.codigo), esc(d.nombre), esc(d.familia), esc(d.subfamilia),
             '<span class="fw-bold">' + esc(formatearNumero(d.total, 0)) + '</span>',
@@ -253,29 +302,23 @@ $(document).ready(function() {
         }).join('') + '</tr>');
     }
 
-    // Nombres de mes (índice 1-12) para el detalle bajo el gráfico.
-    const MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-    // Detalle mes a mes del forecast del producto (tabla bajo el gráfico).
+    // Detalle semana a semana del forecast del producto (tabla bajo el gráfico).
     function renderDetalle(detalle) {
         const $wrap = $('#fc-grafico-detalle-wrap');
         const $tb   = $('#tabla-detalle-grafico-forecast tbody');
 
         if (!detalle || !detalle.length) {
-            $tb.html('<tr><td colspan="5" class="text-center text-muted py-3">Sin filas en el rango de años seleccionado.</td></tr>');
+            $tb.html('<tr><td colspan="4" class="text-center text-muted py-3">Sin filas en el rango de fechas seleccionado.</td></tr>');
             $wrap.show();
             return;
         }
 
         const guion = '<span class="text-muted">—</span>';
         $tb.html(detalle.map(function(d) {
-            const mesNom = MESES[d.mes] || d.mes;
             const df = (d.demanda_forecast  === null || d.demanda_forecast  === undefined) ? guion : formatearNumero(d.demanda_forecast, 0);
             const dh = (d.demanda_historica === null || d.demanda_historica === undefined) ? guion : formatearNumero(d.demanda_historica, 0);
             return '<tr>'
-                 + '<td>' + esc(d.anio) + '</td>'
-                 + '<td>' + esc(mesNom) + '</td>'
+                 + '<td>' + esc(d.semana) + '</td>'
                  + '<td>' + esc(d.tipo || 'Forecast') + '</td>'
                  + '<td class="text-end">' + df + '</td>'
                  + '<td class="text-end">' + dh + '</td>'
@@ -287,10 +330,10 @@ $(document).ready(function() {
     // Filtra el detalle por el rango de años elegido (mismo que el gráfico) y lo renderiza.
     function renderDetalleFiltrado() {
         if (!detalleForecastActual) { return; }
-        const desde = parseInt($('#fc-grafico-anio-desde').val(), 10);
-        const hasta = parseInt($('#fc-grafico-anio-hasta').val(), 10);
+        const desde = ymDeFp(fpDesde);
+        const hasta = ymDeFp(fpHasta);
         const filtrado = detalleForecastActual.filter(function(d) {
-            return (isNaN(desde) || d.anio >= desde) && (isNaN(hasta) || d.anio <= hasta);
+            return semanaEnRango(String(d.semana), desde, hasta);
         });
         renderDetalle(filtrado);
     }
@@ -364,7 +407,7 @@ $(document).ready(function() {
                 const combinado = Object.keys(mapa).sort().map(function(k) { return mapa[k]; });
 
                 serieGraficoActual = combinado;
-                poblarFiltrosAnios(combinado);
+                poblarFiltroFechas(combinado);
                 renderDetalleFiltrado();  // detalle acotado al rango de años inicial (igual que el gráfico)
                 intentarDibujarGrafico(); // dibuja solo si el modal ya terminó de abrirse
             },
@@ -374,12 +417,8 @@ $(document).ready(function() {
         });
     });
 
-    // Cambio del rango de años: refiltra/redibuja el gráfico y el detalle (client-side).
-    // (El multiselect "Mostrar" redibuja el gráfico por su propio onCambio; el detalle no depende de él.)
-    $('#fc-grafico-anio-desde, #fc-grafico-anio-hasta').on('change', function() {
-        cuandoChartsListo(redibujarConFiltro);
-        renderDetalleFiltrado();   // el detalle sigue el mismo rango de años que el gráfico
-    });
+    // El cambio del rango año-mes lo maneja el onChange de cada Flatpickr (ver optsPickerFecha).
+    // El multiselect "Mostrar" redibuja el gráfico por su propio onCambio.
 
     // Redibuja al terminar de mostrarse el modal (evita ancho 0 si se dibujó antes de la transición).
     document.getElementById('modalForecastGrafico')

@@ -30,7 +30,7 @@
                 <!-- Título del gráfico (mismo ícono que el botón "Gráfico producto"). -->
                 <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-graph-up me-1"></i>Gráfico demanda histórica y demanda forecast</h6>
 
-                <!-- Filtros por año (client-side); el JS los llena con los años del producto. -->
+                <!-- Filtros por rango año-mes (client-side); el JS fija el rango según el producto. -->
                 <div class="row g-2 mb-2 align-items-end" id="fc-grafico-filtros" style="display:none;">
                     <div class="col-auto">
                         <label class="form-label fw-bold small mb-1">Mostrar</label>
@@ -38,12 +38,12 @@
                         <div id="fc-grafico-mostrar" style="min-width: 230px;"></div>
                     </div>
                     <div class="col-auto">
-                        <label class="form-label fw-bold small mb-1" for="fc-grafico-anio-desde">Año desde</label>
-                        <select class="form-select form-select-sm" id="fc-grafico-anio-desde"></select>
+                        <label class="form-label fw-bold small mb-1" for="fc-grafico-desde">Desde (mes/año)</label>
+                        <input type="text" class="form-control form-control-sm bg-white" id="fc-grafico-desde" placeholder="mes/año" readonly>
                     </div>
                     <div class="col-auto">
-                        <label class="form-label fw-bold small mb-1" for="fc-grafico-anio-hasta">Año hasta</label>
-                        <select class="form-select form-select-sm" id="fc-grafico-anio-hasta"></select>
+                        <label class="form-label fw-bold small mb-1" for="fc-grafico-hasta">Hasta (mes/año)</label>
+                        <input type="text" class="form-control form-control-sm bg-white" id="fc-grafico-hasta" placeholder="mes/año" readonly>
                     </div>
                 </div>
 
@@ -52,18 +52,17 @@
                 <!-- Lienzo del gráfico (Google Charts). -->
                 <div id="fc-grafico-canvas" style="width:100%; min-height:420px;"></div>
 
-                <!-- Detalle mes a mes del forecast del producto (bajo el gráfico); lo llena el JS. -->
+                <!-- Detalle semana a semana del forecast del producto (bajo el gráfico); lo llena el JS. -->
                 <div id="fc-grafico-detalle-wrap" class="mt-4" style="display:none;">
-                    <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-table me-1"></i>Detalle del forecast por mes</h6>
+                    <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-table me-1"></i>Detalle del forecast por semana</h6>
                     <div class="table-responsive small">
                         <table class="table table-sm table-striped table-hover align-middle mb-0" id="tabla-detalle-grafico-forecast" style="width:100%">
                             <thead class="table-dark">
                                 <tr>
-                                    <th style="width: 12%">Año</th>
-                                    <th style="width: 16%">Mes</th>
-                                    <th style="width: 16%">Tipo</th>
-                                    <th style="width: 28%" class="text-end">Demanda Forecast</th>
-                                    <th style="width: 28%" class="text-end">Demanda Histórica</th>
+                                    <th style="width: 22%">Semana (lunes)</th>
+                                    <th style="width: 18%">Tipo</th>
+                                    <th style="width: 30%" class="text-end">Demanda Forecast</th>
+                                    <th style="width: 30%" class="text-end">Demanda Histórica</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>

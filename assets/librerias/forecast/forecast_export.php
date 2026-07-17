@@ -1,19 +1,25 @@
 <?php
 /**
  * ============================================================================
- *  PASO 1/3 — Exporta las series por grupo para el forecast (Solución 1).
+ *  PASO 1/3 — Exporta las series por grupo para el forecast SEMANAL (Solución 1).
  * ----------------------------------------------------------------------------
- *  Genera CSVs en assets/librerias/python/forecast/ que consume Prophet:
+ *  Genera CSVs en assets/librerias/python/forecast/ que consume Prophet. El grano
+ *  temporal es la SEMANA ISO, identificada por la fecha de su LUNES ('yyyy-MM-dd'):
  *    - grupos.csv              : grupo_id, familia, sub_familia
- *    - grupos_demanda.csv      : grupo_id, ym, demanda   (unidades, historia real V3)
- *    - grupos_presupuesto.csv  : grupo_id, ym, presupuesto ($, historia + 12 meses futuros;
- *                                los meses futuros sin presupuesto se imputan con el mismo
- *                                mes del año anterior -> el regresor queda completo)
- *    - productos_demanda.csv   : grupo_id, producto_codigo, producto_nombre, ym, demanda
- *    - meta.csv                : ultimo_actual + los 12 meses a pronosticar
+ *    - grupos_demanda.csv      : grupo_id, semana, demanda   (unidades, historia real)
+ *    - grupos_presupuesto.csv  : grupo_id, semana, presupuesto ($, historia + 52 semanas
+ *                                futuras). El presupuesto vive por MES en MySQL; se prorratea
+ *                                a semana por TASA DIARIA (presupuesto_mes / días_del_mes),
+ *                                sumando los días de cada semana -> resuelve las semanas que
+ *                                cruzan meses. Los meses futuros sin presupuesto se imputan
+ *                                con el mismo mes del año anterior.
+ *    - productos_demanda.csv   : grupo_id, producto_codigo, producto_nombre, semana, demanda
+ *    - productos_estado.csv    : producto_codigo, activo
+ *    - meta.csv                : ultimo_actual (lunes de la última semana completa) + las 52
+ *                                semanas a pronosticar (lunes de cada una)
  *
- *  Demanda real = Cantidad de la V3 (facturas - NC), por producto y año-mes, hasta el
- *  último mes COMPLETO (mes anterior al actual).
+ *  Demanda real = Cantidad (facturas - NC) por artículo y DÍA (SAP), agregada a semana ISO,
+ *  hasta la última semana COMPLETA (la anterior a la semana en curso).
  *
  *  Ejecutar:  http://localhost/manar/assets/librerias/forecast/forecast_export.php   (o por CLI)
  *  OJO: script de pruebas, sin control de acceso.
@@ -31,48 +37,64 @@ require_once __DIR__ . '/../../../config/conexion.php';
 require_once __DIR__ . '/../../../config/conexion_sqlserver.php';
 require_once __DIR__ . '/../../../models/consultas_sap_model.php';
 
-const HORIZONTE = 12;
+const HORIZONTE = 52;   // semanas a pronosticar
 
 function claveGrupo($f, $s) { return mb_strtoupper(trim((string) $f)) . '||' . mb_strtoupper(trim((string) $s)); }
-function ymAIdx($ym)  { return ((int) substr($ym, 0, 4)) * 12 + ((int) substr($ym, 5, 2) - 1); }
-function idxAYm($idx) { return sprintf('%04d-%02d', intdiv($idx, 12), ($idx % 12) + 1); }
+
+/** Lunes (ISO) de la semana que contiene la fecha 'yyyy-MM-dd'. Devuelve 'yyyy-MM-dd'. */
+function lunesDe($fechaYmd) {
+    $d      = new DateTime($fechaYmd);
+    $offset = (int) $d->format('N') - 1;   // N: 1=lunes .. 7=domingo
+    if ($offset > 0) { $d->modify("-$offset days"); }
+    return $d->format('Y-m-d');
+}
+
+/** Mes 'yyyy-MM' 12 meses antes (para imputar el presupuesto de meses futuros/faltantes). */
+function mesMenos12($mesKey) {
+    $d = DateTime::createFromFormat('Y-m-d', $mesKey . '-01');
+    $d->modify('-12 months');
+    return $d->format('Y-m');
+}
 
 header('Content-Type: text/plain; charset=utf-8');
 
 $DIR = __DIR__ . '/../python/forecast';
 if (!is_dir($DIR)) { mkdir($DIR, 0777, true); }
 
-// ---- Ventana temporal -----------------------------------------------------
-$hoy       = new DateTime();
-$finActual = (clone $hoy)->modify('first day of this month')->modify('-1 day'); // último día mes anterior
-$finStr    = $finActual->format('Y-m-d');
-$ultimoYm  = $finActual->format('Y-m');   // último mes con datos completos
-$forecast  = [];
-$cur = (clone $hoy)->modify('first day of this month');
-for ($i = 0; $i < HORIZONTE; $i++) { $forecast[] = $cur->format('Y-m'); $cur->modify('+1 month'); }
-$ultForecast = end($forecast);
+// ---- Ventana temporal (semanas ISO) ---------------------------------------
+$hoy             = new DateTime('today');
+$lunesEstaSemana = new DateTime(lunesDe($hoy->format('Y-m-d')));                 // lunes de la semana en curso
+$finActual       = (clone $lunesEstaSemana)->modify('-1 day');                   // domingo anterior = fin de la última semana COMPLETA
+$finStr          = $finActual->format('Y-m-d');
+$ultimaSemana    = lunesDe($finActual->format('Y-m-d'));                         // lunes de la última semana completa
 
-echo "Último mes real: $ultimoYm   |   Forecast: {$forecast[0]} a $ultForecast\n";
+$forecast = [];
+$cur = clone $lunesEstaSemana;
+for ($i = 0; $i < HORIZONTE; $i++) { $forecast[] = $cur->format('Y-m-d'); $cur->modify('+7 days'); }
+$ultForecast      = end($forecast);
+$finForecastSunday = (new DateTime($ultForecast))->modify('+6 days')->format('Y-m-d'); // domingo de la última semana de forecast
 
-// ---- 1) Demanda real por producto/mes (V3) --------------------------------
+echo "Última semana real (lunes): $ultimaSemana   |   Forecast: {$forecast[0]} a $ultForecast (" . HORIZONTE . " semanas)\n";
+
+// ---- 1) Demanda real por producto/DÍA (SAP), agregada a semana ISO --------
 $sap    = new ConsultaSap($pdoSqlsrv);
-$ventas = $sap->facturasNotasCreditoPorArticulo('', $finStr);
-echo "Filas V3: " . count($ventas) . "\n";
+$ventas = $sap->demandaDiariaPorArticulo('', $finStr);
+echo "Filas demanda diaria: " . count($ventas) . "\n";
 
 $grupos = []; $gruposInfo = []; $grupoDem = []; $prodAgg = []; $next = 1;
 foreach ($ventas as $r) {
     $key = claveGrupo($r['Familia'], $r['SubFamilia']);
     if (!isset($grupos[$key])) { $grupos[$key] = $next; $gruposInfo[$next] = [trim((string) $r['Familia']), trim((string) $r['SubFamilia'])]; $next++; }
     $id  = $grupos[$key];
-    $ym  = $r['FechaDocumento'];
+    $sem = lunesDe($r['Fecha']);   // lunes de la semana ISO del día
     $c   = (float) $r['Cantidad'];
-    $grupoDem[$id][$ym] = ($grupoDem[$id][$ym] ?? 0.0) + $c;
-    if (!isset($prodAgg[$id][$r['CodArticulo']])) { $prodAgg[$id][$r['CodArticulo']] = ['nombre' => $r['Articulo'], 'meses' => []]; }
-    $prodAgg[$id][$r['CodArticulo']]['meses'][$ym] = ($prodAgg[$id][$r['CodArticulo']]['meses'][$ym] ?? 0.0) + $c;
+    $grupoDem[$id][$sem] = ($grupoDem[$id][$sem] ?? 0.0) + $c;
+    if (!isset($prodAgg[$id][$r['CodArticulo']])) { $prodAgg[$id][$r['CodArticulo']] = ['nombre' => $r['Articulo'], 'semanas' => []]; }
+    $prodAgg[$id][$r['CodArticulo']]['semanas'][$sem] = ($prodAgg[$id][$r['CodArticulo']]['semanas'][$sem] ?? 0.0) + $c;
 }
 echo "Grupos: " . count($gruposInfo) . "\n";
 
-// ---- 2) Presupuesto por grupo/mes (MySQL) ---------------------------------
+// ---- 2) Presupuesto por grupo/MES (MySQL) ---------------------------------
 $presGrupoMes = [];
 $rows = $pdo->query("
     SELECT anio, mes, TRIM(familia) fam, TRIM(sub_familia) sub, SUM(venta) p
@@ -85,35 +107,56 @@ foreach ($rows as $pr) {
     $presGrupoMes[$key][sprintf('%04d-%02d', $pr['anio'], $pr['mes'])] = (float) $pr['p'];
 }
 
+/**
+ * Prorratea el presupuesto MENSUAL de un grupo a SEMANAS por tasa diaria, entre dos fechas.
+ * tasa_diaria(mes) = presupuesto_mes / días_del_mes ; presupuesto_semana = Σ tasa_diaria de sus días.
+ * Los meses sin presupuesto (futuros/faltantes) se imputan con el mismo mes del año anterior.
+ *
+ * @return array [ 'yyyy-MM-dd' (lunes) => presupuesto_semana ]
+ */
+function presupuestoSemanal($key, $iniMonday, $finSunday, $presGrupoMes) {
+    $semana = [];
+    $d   = new DateTime($iniMonday);
+    $fin = new DateTime($finSunday);
+    while ($d <= $fin) {
+        $mesKey  = $d->format('Y-m');
+        $budMes  = $presGrupoMes[$key][$mesKey] ?? ($presGrupoMes[$key][mesMenos12($mesKey)] ?? 0.0);
+        $diasMes = (int) $d->format('t');
+        $tasaDia = $diasMes > 0 ? $budMes / $diasMes : 0.0;
+
+        $offset = (int) $d->format('N') - 1;
+        $lunes  = (clone $d)->modify($offset > 0 ? "-$offset days" : '+0 days')->format('Y-m-d');
+        $semana[$lunes] = ($semana[$lunes] ?? 0.0) + $tasaDia;
+
+        $d->modify('+1 day');
+    }
+    ksort($semana);
+    return $semana;
+}
+
 // ---- 3) Escribir CSVs ------------------------------------------------------
 $fG = fopen("$DIR/grupos.csv", 'w');            fputcsv($fG, ['grupo_id', 'familia', 'sub_familia']);
-$fD = fopen("$DIR/grupos_demanda.csv", 'w');    fputcsv($fD, ['grupo_id', 'ym', 'demanda']);
-$fP = fopen("$DIR/grupos_presupuesto.csv", 'w');fputcsv($fP, ['grupo_id', 'ym', 'presupuesto']);
-$fA = fopen("$DIR/productos_demanda.csv", 'w'); fputcsv($fA, ['grupo_id', 'producto_codigo', 'producto_nombre', 'ym', 'demanda']);
+$fD = fopen("$DIR/grupos_demanda.csv", 'w');    fputcsv($fD, ['grupo_id', 'semana', 'demanda']);
+$fP = fopen("$DIR/grupos_presupuesto.csv", 'w');fputcsv($fP, ['grupo_id', 'semana', 'presupuesto']);
+$fA = fopen("$DIR/productos_demanda.csv", 'w'); fputcsv($fA, ['grupo_id', 'producto_codigo', 'producto_nombre', 'semana', 'demanda']);
 
 foreach ($gruposInfo as $id => $g) {
     fputcsv($fG, [$id, $g[0], $g[1]]);
     $key = claveGrupo($g[0], $g[1]);
 
-    // demanda del grupo (ordenada)
-    $meses = $grupoDem[$id]; ksort($meses);
-    foreach ($meses as $ym => $d) { fputcsv($fD, [$id, $ym, round($d, 4)]); }
+    // demanda del grupo por semana (ordenada)
+    $semanas = $grupoDem[$id]; ksort($semanas);
+    foreach ($semanas as $sem => $d) { fputcsv($fD, [$id, $sem, round($d, 4)]); }
 
-    // presupuesto del grupo: desde el primer mes de demanda hasta el último de forecast,
-    // imputando faltantes (incluidos los meses futuros) con el mismo mes del año anterior.
+    // presupuesto del grupo por semana: desde la primera semana de demanda hasta la última de forecast.
     $clavesDem = array_keys($grupoDem[$id]); sort($clavesDem);
-    $desde = ymAIdx($clavesDem[0]);
-    $hasta = ymAIdx($ultForecast);
-    for ($i = $desde; $i <= $hasta; $i++) {
-        $ym  = idxAYm($i);
-        $val = $presGrupoMes[$key][$ym] ?? null;
-        if ($val === null) { $val = $presGrupoMes[$key][idxAYm($i - 12)] ?? 0.0; } // imputa con año anterior
-        fputcsv($fP, [$id, $ym, round($val, 2)]);
-    }
+    $iniMonday = $clavesDem[0];
+    $presSem   = presupuestoSemanal($key, $iniMonday, $finForecastSunday, $presGrupoMes);
+    foreach ($presSem as $sem => $val) { fputcsv($fP, [$id, $sem, round($val, 2)]); }
 
-    // demanda por producto
+    // demanda por producto y semana
     foreach ($prodAgg[$id] as $cod => $info) {
-        foreach ($info['meses'] as $ym => $d) { fputcsv($fA, [$id, $cod, $info['nombre'], $ym, round($d, 4)]); }
+        foreach ($info['semanas'] as $sem => $d) { fputcsv($fA, [$id, $cod, $info['nombre'], $sem, round($d, 4)]); }
     }
 }
 fclose($fG); fclose($fD); fclose($fP); fclose($fA);
@@ -137,8 +180,8 @@ fclose($fE);
 echo "Estado productos -> activos: $nAct | inactivos: $nInact\n";
 
 $fM = fopen("$DIR/meta.csv", 'w'); fputcsv($fM, ['clave', 'valor']);
-fputcsv($fM, ['ultimo_actual', $ultimoYm]);
-foreach ($forecast as $k => $m) { fputcsv($fM, ["forecast_$k", $m]); }
+fputcsv($fM, ['ultimo_actual', $ultimaSemana]);
+foreach ($forecast as $k => $s) { fputcsv($fM, ["forecast_$k", $s]); }
 fclose($fM);
 
 echo "CSVs escritos en assets/librerias/python/forecast/\n";

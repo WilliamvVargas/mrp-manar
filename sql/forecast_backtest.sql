@@ -1,8 +1,8 @@
 -- =====================================================================
 --  Tabla: forecast_backtest
 -- ---------------------------------------------------------------------
---  Resultado de validar el forecast contra meses ya conocidos: se ocultan
---  los últimos N meses reales, se pronostican y se comparan. Por grupo
+--  Resultado de validar el forecast contra semanas ya conocidas: se ocultan
+--  las últimas N semanas reales, se pronostican y se comparan. Por grupo
 --  (familia, sub-familia) guarda el error y el FACTOR de corrección de sesgo:
 --
 --    factor = suma_real / suma_forecast   (acotado a [0.25, 4])
@@ -11,12 +11,12 @@
 
 CREATE TABLE `forecast_backtest` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `familia`         varchar(100) DEFAULT NULL,
-  `sub_familia`     varchar(100) DEFAULT NULL,
-  `metodo`          varchar(20)  DEFAULT NULL, -- prophet / fallback (del backtest)
-  `meses_evaluados` tinyint(2) unsigned DEFAULT NULL,
-  `desde`           varchar(7) DEFAULT NULL,   -- primer mes evaluado (yyyy-MM)
-  `hasta`           varchar(7) DEFAULT NULL,   -- último mes evaluado (yyyy-MM)
+  `familia`           varchar(100) DEFAULT NULL,
+  `sub_familia`       varchar(100) DEFAULT NULL,
+  `metodo`            varchar(20)  DEFAULT NULL, -- prophet / fallback (del backtest)
+  `semanas_evaluadas` smallint(4) unsigned DEFAULT NULL,
+  `desde`             varchar(10) DEFAULT NULL,  -- primera semana evaluada (lunes yyyy-MM-dd)
+  `hasta`             varchar(10) DEFAULT NULL,  -- última semana evaluada (lunes yyyy-MM-dd)
   `suma_real`       decimal(18,4) DEFAULT NULL,
   `suma_forecast`   decimal(18,4) DEFAULT NULL,
   `factor`          decimal(10,6) DEFAULT NULL, -- corrección de sesgo (real/forecast, acotado)

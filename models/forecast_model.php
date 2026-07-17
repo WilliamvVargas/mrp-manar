@@ -105,8 +105,9 @@
         /**
          * Devuelve una página de PRODUCTOS para DataTables (server-side), agrupando
          * forecast_x_producto por producto:
-         *   - total_forecast   = SUM(demanda_forecast) de todos los meses (horizonte 12m).
-         *   - forecast_sig_mes = demanda_forecast del primer mes de forecast del producto.
+         *   - total_forecast      = SUM(demanda_forecast) de todas las semanas (horizonte 52 sem).
+         *   - forecast_sig_semana = demanda_forecast de la primera semana de forecast del producto.
+         *   - usa_presupuesto     = 1 si el grupo del producto se pronosticó CON presupuesto.
          *
          * @param string $busqueda   Texto a buscar en producto_nombre o producto_codigo.
          * @param string $familia    Familia exacta a filtrar ('' = todas).
@@ -120,12 +121,12 @@
         {
             // Lista blanca de columnas ordenables (aliases de la consulta): evita inyección.
             $columnasValidas = [
-                'producto_codigo'  => 'producto_codigo',
-                'producto_nombre'  => 'producto_nombre',
-                'familia'          => 'familia',
-                'sub_familia'      => 'sub_familia',
-                'total_forecast'   => 'total_forecast',
-                'forecast_sig_mes' => 'forecast_sig_mes',
+                'producto_codigo'     => 'producto_codigo',
+                'producto_nombre'     => 'producto_nombre',
+                'familia'             => 'familia',
+                'sub_familia'         => 'sub_familia',
+                'total_forecast'      => 'total_forecast',
+                'forecast_sig_semana' => 'forecast_sig_semana',
             ];
 
             $piezas = [];
@@ -146,18 +147,19 @@
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
-            // pm: primer mes de forecast de cada producto (índice año*12+mes), para tomar
-            // la demanda del "mes siguiente" (el más próximo del horizonte).
+            // pm: primera semana de forecast de cada producto (menor semana_inicio), para tomar
+            // la demanda de la "semana siguiente" (la más próxima del horizonte).
             $sql = "SELECT f.producto_codigo,
                            MAX(f.producto_nombre) AS producto_nombre,
                            MAX(f.familia)         AS familia,
                            MAX(f.sub_familia)     AS sub_familia,
                            SUM(f.demanda_forecast) AS total_forecast,
-                           SUM(CASE WHEN (f.anio * 12 + f.mes) = pm.min_periodo
-                                    THEN f.demanda_forecast ELSE 0 END) AS forecast_sig_mes
+                           SUM(CASE WHEN f.semana_inicio = pm.min_semana
+                                    THEN f.demanda_forecast ELSE 0 END) AS forecast_sig_semana,
+                           MAX(f.usa_presupuesto) AS usa_presupuesto
                     FROM forecast_x_producto f
                     JOIN (
-                        SELECT producto_codigo, MIN(anio * 12 + mes) AS min_periodo
+                        SELECT producto_codigo, MIN(semana_inicio) AS min_semana
                         FROM forecast_x_producto
                         GROUP BY producto_codigo
                     ) pm ON pm.producto_codigo = f.producto_codigo

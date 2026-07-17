@@ -498,6 +498,86 @@
         }
 
         /**
+         * Demanda (Cantidad) DIARIA por artículo: facturas (INV1) menos NC (RIN1), agrupada por
+         * DÍA del documento y código de artículo, con familia/sub-familia. Igual que
+         * facturasNotasCreditoPorArticulo pero al grano DÍA ('yyyy-MM-dd') y solo Cantidad
+         * (la usa el forecast semanal para bucketizar a semana ISO en PHP).
+         *
+         * @param  string $desde Fecha documento desde (inclusive), '' = sin límite.
+         * @param  string $hasta Fecha documento hasta (inclusive), '' = sin límite.
+         * @return array Filas: ['Fecha' => 'yyyy-MM-dd', 'CodArticulo', 'Articulo', 'Familia', 'SubFamilia', 'Cantidad'].
+         */
+        public function demandaDiariaPorArticulo($desde = '', $hasta = '')
+        {
+            $desde = preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde) ? $desde : '';
+            $hasta = preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta) ? $hasta : '';
+
+            $filtroFecha = '';
+            $params      = [];
+
+            if ($desde !== '') {
+                $filtroFecha .= " AND T0.DocDate >= ?";
+                $params[]     = $desde;
+            }
+            if ($hasta !== '') {
+                $filtroFecha .= " AND T0.DocDate <= ?";
+                $params[]     = $hasta;
+            }
+
+            $sql = "
+                SELECT
+                    X.Fecha,
+                    X.CodArticulo,
+                    X.Articulo,
+                    X.Familia,
+                    X.SubFamilia,
+                    SUM(X.Cantidad) AS Cantidad
+                FROM (
+                    SELECT
+                        CONVERT(char(10), T0.DocDate, 126) AS Fecha,
+                        T1.ItemCode AS CodArticulo,
+                        IT.ItemName AS Articulo,
+                        UF.Descr    AS Familia,
+                        US.Descr    AS SubFamilia,
+                        T1.Quantity AS Cantidad
+                    FROM OINV T0
+                    INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                    LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    WHERE T0.CANCELED = 'N'
+                      AND UF.Descr IS NOT NULL
+                      AND US.Descr IS NOT NULL $filtroFecha
+
+                    UNION ALL
+
+                    SELECT
+                        CONVERT(char(10), T0.DocDate, 126),
+                        T1.ItemCode,
+                        IT.ItemName,
+                        UF.Descr,
+                        US.Descr,
+                        -T1.Quantity
+                    FROM ORIN T0
+                    INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                    LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    WHERE T0.CANCELED = 'N'
+                      AND UF.Descr IS NOT NULL
+                      AND US.Descr IS NOT NULL $filtroFecha
+                ) X
+                GROUP BY X.Fecha, X.CodArticulo, X.Articulo, X.Familia, X.SubFamilia
+                ORDER BY X.Fecha, X.CodArticulo
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(array_merge($params, $params));
+
+            return $stmt->fetchAll();
+        }
+
+        /**
          * Detalle de la v3: facturas (INV1) y NC (RIN1) donde aparece un artículo dentro de
          * un año-mes ('yyyy-MM'). Devuelve una fila por línea de ese artículo en cada documento.
          *
@@ -673,6 +753,49 @@
                 ) X
                 GROUP BY X.FechaDocumento
                 ORDER BY X.FechaDocumento
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$itemCode, $itemCode]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * Demanda (Cantidad) y neto DIARIOS de un artículo: facturas menos NC, por DÍA del
+         * documento ('yyyy-MM-dd'). Igual que demandaMensualProducto pero al grano día, para
+         * que el gráfico agregue a SEMANA ISO en PHP.
+         *
+         * @return array Filas: ['Fecha' => 'yyyy-MM-dd', 'Demanda' => ..., 'Neto' => ...].
+         */
+        public function demandaDiariaProducto($itemCode)
+        {
+            $sql = "
+                SELECT
+                    X.Fecha,
+                    SUM(X.Cantidad)  AS Demanda,
+                    SUM(X.TotalNeto) AS Neto
+                FROM (
+                    SELECT
+                        CONVERT(char(10), T0.DocDate, 126) AS Fecha,
+                        T1.Quantity  AS Cantidad,
+                        T1.LineTotal AS TotalNeto
+                    FROM OINV T0
+                    INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                    WHERE T0.CANCELED = 'N' AND T1.ItemCode = ?
+
+                    UNION ALL
+
+                    SELECT
+                        CONVERT(char(10), T0.DocDate, 126),
+                        -T1.Quantity,
+                        -T1.LineTotal
+                    FROM ORIN T0
+                    INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                    WHERE T0.CANCELED = 'N' AND T1.ItemCode = ?
+                ) X
+                GROUP BY X.Fecha
+                ORDER BY X.Fecha
             ";
 
             $stmt = $this->pdo->prepare($sql);

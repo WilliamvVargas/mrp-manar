@@ -10,6 +10,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css">
     <link href="assets/css/custom.css" rel="stylesheet">
 </head>
 <body>
@@ -66,13 +68,15 @@
                 <table class="table table-hover align-middle" id="tabla-consulta-forecast" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 11%">Código Producto</th>
-                            <th style="width: 23%">Nombre Producto</th>
-                            <th style="width: 16%">Familia</th>
-                            <th style="width: 16%">Sub-Familia</th>
-                            <th style="width: 12%" class="text-end">Total Forecast (12 meses)</th>
-                            <th style="width: 12%" class="text-end">Forecast Mes Siguiente</th>
-                            <th style="width: 10%" class="text-center">Acciones</th>
+                            <th style="width: 9%">Código Producto</th>
+                            <th style="width: 18%">Nombre Producto</th>
+                            <th style="width: 12%">Familia</th>
+                            <th style="width: 12%">Sub-Familia</th>
+                            <th style="width: 11%">Cálculo Forecast</th>
+                            <th style="width: 10%" class="text-end">Total Forecast (52 semanas)</th>
+                            <th style="width: 10%" class="text-end">Forecast Semana Siguiente</th>
+                            <th style="width: 10%" class="text-end">Cantidad Ajustada</th>
+                            <th style="width: 8%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -94,6 +98,9 @@
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://www.gstatic.com/charts/loader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/forecast.js?v=<?php echo filemtime(__DIR__ . '/assets/js/forecast.js'); ?>"></script>
 <script src="assets/js/forecast_grafico.js?v=<?php echo filemtime(__DIR__ . '/assets/js/forecast_grafico.js'); ?>"></script>

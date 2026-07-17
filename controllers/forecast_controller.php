@@ -12,6 +12,16 @@ $action = $_REQUEST['action'] ?? '';
 require_once __DIR__ . '/../includes/control_acceso_controlador.php';
 exigirAccesoControlador('forecast', $action);
 
+// Helpers de semana ISO (para el gráfico semanal).
+/** Lunes ISO ('yyyy-MM-dd') de la semana que contiene la fecha. */
+function fcLunes($ymd) {
+    return date('Y-m-d', strtotime('monday this week', strtotime($ymd . ' 12:00:00')));
+}
+/** Índice de semana relativo a un lunes de referencia (para ponderar la ventana reciente). */
+function fcSemIdx($mondayYmd) {
+    return (int) round((strtotime($mondayYmd . ' 12:00:00') - strtotime('2020-01-06 12:00:00')) / 604800);
+}
+
 switch ($action) {
 
     case 'listar':
@@ -28,7 +38,8 @@ switch ($action) {
         $subFamilia = trim($_GET['sub_familia'] ?? '');   // '' = todas
 
         // Ordenamiento multi-columna (índice de DataTables -> nombre lógico de la vista agrupada).
-        $columnas = ['producto_codigo', 'producto_nombre', 'familia', 'sub_familia', 'total_forecast', 'forecast_sig_mes'];
+        // Índice 4 ("Cálculo Forecast") es placeholder sin orden: null mantiene alineados los índices.
+        $columnas = ['producto_codigo', 'producto_nombre', 'familia', 'sub_familia', null, 'total_forecast', 'forecast_sig_semana'];
         $ordenes  = [];
         if (isset($_GET['order']) && is_array($_GET['order'])) {
             foreach ($_GET['order'] as $o) {
@@ -81,9 +92,8 @@ switch ($action) {
 
     case 'grafico_producto':
 
-        // Serie mensual del producto para el gráfico: demanda/venta reales (SAP / SQL Server) +
-        // Cantidad Forecast por producto y su demanda valorizada en $ (MySQL). Mismo formato
-        // que la V3 de Consultas SAP, pero se plotea la Cantidad Forecast (demanda_forecast).
+        // Serie SEMANAL del producto para el gráfico: demanda/venta reales (SAP, por día agregado
+        // a semana ISO) + Cantidad Forecast por semana y su demanda valorizada en $ (MySQL).
         require_once __DIR__ . '/../config/conexion_sqlserver.php';
         require_once __DIR__ . '/../models/consultas_sap_model.php';
 
@@ -95,78 +105,79 @@ switch ($action) {
 
         try {
             $model = new ConsultaSap($pdoSqlsrv);
-            $datos = $model->demandaMensualProducto($itemCode);
 
-            // Precio unitario realizado (neto/cantidad) ponderado a los últimos 12 meses de venta
-            // real (α=0.85, más peso a lo reciente). Sale de SAP -> es independiente del presupuesto,
-            // por lo que valorizar la demanda con él NO es circular. Sirve para llevar la demanda
-            // futura (unidades) a $ y compararla contra la venta presupuestada en el mismo eje.
+            // Historia real por DÍA (SAP) agregada a SEMANA ISO (clave = lunes). La clave temporal
+            // del gráfico (FechaDocumento) es el lunes 'yyyy-MM-dd'.
+            $porSemana = []; // [lunes] => ['Demanda'=>, 'Neto'=>]
+            foreach ($model->demandaDiariaProducto($itemCode) as $d) {
+                $lun = fcLunes($d['Fecha']);
+                if (!isset($porSemana[$lun])) { $porSemana[$lun] = ['Demanda' => 0.0, 'Neto' => 0.0]; }
+                $porSemana[$lun]['Demanda'] += (float) $d['Demanda'];
+                $porSemana[$lun]['Neto']    += (float) $d['Neto'];
+            }
+            ksort($porSemana);
+            $datos = [];
+            foreach ($porSemana as $lun => $v) {
+                $datos[] = ['FechaDocumento' => $lun, 'Demanda' => $v['Demanda'], 'Neto' => $v['Neto']];
+            }
+
+            // Precio unitario realizado (neto/cantidad) ponderado a las últimas 52 semanas de venta
+            // real (α=0.96, más peso a lo reciente). Independiente del presupuesto -> valorizar la
+            // demanda con él NO es circular. Sirve para llevar la demanda futura (unidades) a $.
             $precio = null;
             if (!empty($datos)) {
-                $idxMes = function ($ym) { return ((int) substr($ym, 0, 4)) * 12 + ((int) substr($ym, 5, 2) - 1); };
                 $ultimo = 0;
-                foreach ($datos as $d) { $ultimo = max($ultimo, $idxMes($d['FechaDocumento'])); }
+                foreach ($datos as $d) { $ultimo = max($ultimo, fcSemIdx($d['FechaDocumento'])); }
                 $sumNeto = 0.0; $sumCant = 0.0;
                 foreach ($datos as $d) {
-                    $k = $ultimo - $idxMes($d['FechaDocumento']);
-                    if ($k < 0 || $k >= 12) { continue; }   // solo la ventana de 12 meses
-                    $w = pow(0.85, $k);
+                    $k = $ultimo - fcSemIdx($d['FechaDocumento']);
+                    if ($k < 0 || $k >= 52) { continue; }   // solo la ventana de 52 semanas
+                    $w = pow(0.96, $k);
                     $sumNeto += $w * (float) $d['Neto'];
                     $sumCant += $w * (float) $d['Demanda'];
                 }
                 if ($sumCant > 0) { $precio = $sumNeto / $sumCant; }
             }
 
-            // Forecast (MySQL): Cantidad Forecast del producto, valorizada en $ (demanda × precio
-            // realizado) para compararla contra la venta neta real en el mismo eje. Si falla, el
-            // gráfico muestra solo la historia real.
-            //
-            // El DETALLE mes a mes (tabla bajo el gráfico) combina, por año-mes:
+            // Forecast SEMANAL (MySQL): Cantidad Forecast valorizada en $ + detalle por semana.
             //   - Tipo 'Forecast'  -> demanda_forecast (forecast_x_producto).
-            //   - Tipo 'Histórico' -> la MISMA demanda que dibuja el gráfico ($datos = SAP), para que
-            //     tabla y gráfico muestren exactamente lo mismo. Se arma en PHP (no con UNION SQL)
-            //     porque el histórico vive en SAP/SQL Server y el forecast en MySQL.
+            //   - Tipo 'Histórico' -> la MISMA demanda semanal que dibuja el gráfico ($datos).
             $forecast = [];
             $detalle  = [];
             try {
-                // Filas 'Forecast': serie del gráfico (demanda valorizada en $) + detalle.
                 $st = $pdo->prepare("
-                    SELECT anio, mes, demanda_forecast AS df
-                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY anio, mes
+                    SELECT semana_inicio, demanda_forecast AS df
+                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY semana_inicio
                 ");
                 $st->execute([$itemCode]);
                 foreach ($st->fetchAll() as $r) {
-                    $df = (float) $r['df'];
+                    $sem = (string) $r['semana_inicio'];   // lunes ISO
+                    $df  = (float) $r['df'];
                     $forecast[] = [
-                        'ym'                => sprintf('%04d-%02d', $r['anio'], $r['mes']),
+                        'ym'                => $sem,       // clave temporal del gráfico (lunes)
                         'DemandaForecast'   => $df,
                         'DemandaValorizada' => ($precio !== null) ? $df * $precio : null,
                     ];
                     $detalle[] = [
-                        'anio'              => (int) $r['anio'],
-                        'mes'               => (int) $r['mes'],
+                        'semana'            => $sem,
                         'tipo'              => 'Forecast',
                         'demanda_forecast'  => $df,
                         'demanda_historica' => null,
                     ];
                 }
 
-                // Filas 'Histórico': MISMA fuente que el gráfico ($datos = demanda mensual de SAP).
                 foreach ($datos as $h) {
-                    $ym = (string) ($h['FechaDocumento'] ?? '');   // 'yyyy-MM'
-                    if ($ym === '') { continue; }
                     $detalle[] = [
-                        'anio'              => (int) substr($ym, 0, 4),
-                        'mes'               => (int) substr($ym, 5, 2),
+                        'semana'            => $h['FechaDocumento'],
                         'tipo'              => 'Histórico',
                         'demanda_forecast'  => null,
                         'demanda_historica' => ($h['Demanda'] !== null) ? (float) $h['Demanda'] : null,
                     ];
                 }
 
-                // Orden por año-mes (dentro del mismo mes, 'Forecast' antes que 'Histórico').
+                // Orden por semana (dentro de la misma, 'Forecast' antes que 'Histórico').
                 usort($detalle, function ($a, $b) {
-                    return [$a['anio'], $a['mes'], $a['tipo']] <=> [$b['anio'], $b['mes'], $b['tipo']];
+                    return [$a['semana'], $a['tipo']] <=> [$b['semana'], $b['tipo']];
                 });
             } catch (Throwable $e) {
                 error_log('[FORECAST][grafico] ' . $e->getMessage());
