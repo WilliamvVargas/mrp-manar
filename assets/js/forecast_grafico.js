@@ -30,6 +30,23 @@ $(document).ready(function() {
 
     const esc = function(v) { return (v === null || v === undefined) ? '' : $('<div>').text(v).html(); };
 
+    // Nombres de mes (1-12), largo y corto, para etiquetar semanas de forma legible.
+    const MESES_LARGO = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const MESES_CORTO = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    // Etiqueta legible de una semana desde su lunes 'yyyy-MM-dd'. La "semana del mes" es ceil(día/7)
+    // del lunes (lun 1-7 -> Semana 1, 8-14 -> 2, ...). largo=true -> "Julio 2026 · Semana 3";
+    // largo=false -> "jul-26 S3" (compacto para el eje X del gráfico).
+    function etiquetaSemana(mondayYmd, largo) {
+        const y   = mondayYmd.substring(0, 4);
+        const m   = parseInt(mondayYmd.substring(5, 7), 10);
+        const dia = parseInt(mondayYmd.substring(8, 10), 10);
+        const sem = Math.ceil(dia / 7);
+        return largo
+            ? MESES_LARGO[m] + ' ' + y + ' · Semana ' + sem
+            : MESES_CORTO[m] + '-' + y.substring(2) + ' S' + sem;
+    }
+
     let serieGraficoActual = null; // última serie cargada (para redibujar al mostrar el modal)
     let mesResaltado       = null; // año-mes del registro abierto (se remarca en el forecast)
     let modalGraficoShown  = false; // true cuando el modal terminó de abrirse (ancho final)
@@ -125,7 +142,7 @@ $(document).ready(function() {
         const ejeVen = (hayUnidades && hayPesos) ? 1 : 0;
 
         const data = new google.visualization.DataTable();
-        data.addColumn('string', 'Año-Mes');
+        data.addColumn('string', 'Semana');
 
         const series = {}; const vAxes = {}; let si = 0;
         const colsPesos = [];   // índices de columnas en $ (para formatear su tooltip)
@@ -174,7 +191,7 @@ $(document).ready(function() {
 
         datos.forEach(function(d) {
             const esR = (d.FechaDocumento === mesResaltado);
-            let fila  = [ d.FechaDocumento ];
+            let fila  = [ etiquetaSemana(String(d.FechaDocumento), false) ];
             pushers.forEach(function(p) { fila = fila.concat(p(d, esR)); });
             data.addRow(fila);
         });
@@ -194,7 +211,7 @@ $(document).ready(function() {
             legend:    { position: 'top' },
             height:    460,
             chartArea: { left: 80, right: (ejeVen === 1 ? 120 : 80), top: 50, bottom: 90 },
-            hAxis:     { title: 'Año-Mes', slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 11 } },
+            hAxis:     { title: 'Semana', slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 11 } },
             vAxes:     vAxes,
             tooltip:   { trigger: 'focus' }
         };
@@ -318,7 +335,7 @@ $(document).ready(function() {
             const df = (d.demanda_forecast  === null || d.demanda_forecast  === undefined) ? guion : formatearNumero(d.demanda_forecast, 0);
             const dh = (d.demanda_historica === null || d.demanda_historica === undefined) ? guion : formatearNumero(d.demanda_historica, 0);
             return '<tr>'
-                 + '<td>' + esc(d.semana) + '</td>'
+                 + '<td title="' + esc(d.semana) + '">' + esc(etiquetaSemana(String(d.semana), true)) + '</td>'
                  + '<td>' + esc(d.tipo || 'Forecast') + '</td>'
                  + '<td class="text-end">' + df + '</td>'
                  + '<td class="text-end">' + dh + '</td>'

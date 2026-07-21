@@ -59,7 +59,7 @@
                         <table class="table table-sm table-striped table-hover align-middle mb-0" id="tabla-detalle-grafico-forecast" style="width:100%">
                             <thead class="table-dark">
                                 <tr>
-                                    <th style="width: 22%">Semana (lunes)</th>
+                                    <th style="width: 22%">Semana</th>
                                     <th style="width: 18%">Tipo</th>
                                     <th style="width: 30%" class="text-end">Demanda Forecast</th>
                                     <th style="width: 30%" class="text-end">Demanda Histórica</th>
