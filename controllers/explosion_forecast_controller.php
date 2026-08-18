@@ -54,10 +54,24 @@ switch ($action) {
             exit;
         }
 
+        // Si el entorno de Python (venv) no existe, se intenta crear automáticamente con
+        // setup_python.bat (crea el venv e instala requirements.txt). Solo en el primer paso;
+        // es idempotente y la primera vez puede tardar varios minutos (instala Prophet).
+        $setOut = [];
+        if ($i === 0 && !is_file($py)) {
+            $setup = $rootB . '\\assets\\librerias\\python\\setup_python.bat';
+            if (is_file($setup)) {
+                exec('"' . $setup . '" 2>&1', $setOut, $setRet);
+            }
+        }
+
         if (!is_file($php) || !is_file($py) || !is_file($fp)) {
             echo json_encode([
                 'status'  => 'error',
-                'message' => 'No se encontró el ejecutable de PHP o Python (o forecast_prophet.py). Revisa las rutas del pipeline.',
+                'message' => 'Falta PHP o el entorno de Python. Se intentó crear el venv con setup_python.bat; '
+                           . 'si persiste, verifica que Python esté instalado en el servidor y córrelo manualmente '
+                           . '(assets/librerias/python/setup_python.bat).',
+                'salida'  => implode("\n", array_slice($setOut, -15)),
             ]);
             exit;
         }

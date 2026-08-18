@@ -1,4 +1,4 @@
--- =====================================================================================
+,,,,,,,,,,,,,,,16-- =====================================================================================
 -- Base de datos: mrp_manar — ESQUEMA + DATOS (consolidado en un solo archivo).
 --
 -- Reemplaza a los antiguos archivos migracion_*.sql separados. Incluye:
@@ -424,8 +424,7 @@ INSERT INTO `iconos` (`id`, `nombre`, `tipo`, `valor`, `archivo`, `coloreable`, 
   ('6', 'Gráfico Positivo', 'bootstrap', 'graph-up-arrow', NULL, '1', '6', '2026-06-28 22:21:16', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
   ('7', 'Pago Efectivo', 'bootstrap', 'cash-coin', NULL, '1', '7', '2026-06-28 22:22:35', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
   ('8', 'Signo Dolar', 'bootstrap', 'currency-dollar', NULL, '1', '8', '2026-06-28 22:23:06', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('9', 'SAP icono', 'personalizado', 'custom-sap-icono', 'custom-sap-icono.svg', '1', '9', '2026-06-28 22:24:50', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('10', 'Entra Sale', 'bootstrap', 'arrow-down-up', NULL, '1', '9', '2026-08-17 16:17:30', '2026-08-17 16:17:41', 'b15652b6-74ac-11f1-a03a-e454e8877a9a', 'b15652b6-74ac-11f1-a03a-e454e8877a9a');
+  ('9', 'SAP icono', 'personalizado', 'custom-sap-icono', 'custom-sap-icono.svg', '1', '9', '2026-06-28 22:24:50', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
 
 --
 -- Datos: `menus`
@@ -446,8 +445,7 @@ INSERT INTO `item_menus` (`id`, `menu_id`, `nombre`, `icono_id`, `enlace`, `esta
   ('6', '2', 'Forecast', '6', 'forecast', '1', '1', '2026-06-28 22:31:09', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
   ('7', '2', 'Presupuesto', '7', 'presupuesto', '1', '2', '2026-06-28 22:31:26', '2026-06-28 22:51:13', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
   ('8', '2', 'Ventas Históricas', '8', 'ventas-historicas', '1', '3', '2026-06-28 22:31:54', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('9', '2', 'Consultas SAP', '9', 'consultas-sap', '1', '4', '2026-06-28 22:32:29', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('10', '2', 'MRP', '10', 'mrp', '1', '5', '2026-08-17 16:17:58', NULL, 'b15652b6-74ac-11f1-a03a-e454e8877a9a', NULL);
+  ('9', '2', 'Consultas SAP', '9', 'consultas-sap', '1', '4', '2026-06-28 22:32:29', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
 
 --
 -- Datos: `accesos`
@@ -465,8 +463,7 @@ INSERT INTO `accesos` (`id`, `id_perfil`, `id_item_menu`, `estado`, `created_at`
   ('28', '2', '6', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
   ('29', '2', '7', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
   ('30', '2', '8', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
-  ('31', '2', '9', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
-  ('41', '1', '10', '1', '2026-08-17 16:18:21', 'b15652b6-74ac-11f1-a03a-e454e8877a9a', NULL, NULL);
+  ('31', '2', '9', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL);
 
 --
 -- Datos: `usuarios`
