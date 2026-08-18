@@ -21,6 +21,12 @@
 
     try {
         $pdoSqlsrv = new PDO($sqlsrvDsn, SQLSRV_USER, SQLSRV_PASS, $sqlsrvOpciones);
+
+        // Fija el orden de fecha a año-mes-día para esta sesión. Sin esto, el login del
+        // servidor puede tener idioma Español (DATEFORMAT dmy) e interpretar mal las fechas
+        // 'YYYY-MM-DD' que se pasan como parámetro (ej. '2026-08-16' -> intenta mes=16 ->
+        // "conversión de nvarchar en datetime fuera de intervalo"). Blinda todas las consultas.
+        $pdoSqlsrv->exec('SET DATEFORMAT ymd');
     } catch (PDOException $e) {
         error_log('[SQLSRV] ' . $e->getMessage());
         die('Error de conexión a SQL Server.');

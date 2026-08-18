@@ -22,6 +22,10 @@
 
     try {
         $pdoWms = new PDO($wmsDsn, WMS_USER, WMS_PASS, $wmsOpciones);
+
+        // Año-mes-día para las fechas de esta sesión (igual que la conexión SAP): blinda las
+        // consultas ante logins con idioma Español (DATEFORMAT dmy) en el servidor.
+        $pdoWms->exec('SET DATEFORMAT ymd');
     } catch (PDOException $e) {
         error_log('[WMS] ' . $e->getMessage());
         die('Error de conexión al WMS.');
