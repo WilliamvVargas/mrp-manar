@@ -129,23 +129,49 @@ $(document).ready(function() {
         ItemName:   'Nombre Producto',
         Familia:    'Familia',
         SubFamilia: 'Sub-Familia',
-        LeadTime:   'Lead Time (días)',
         MinOrdrQty: 'Cantidad Mínima de Pedido',
         OrdrMulti:  'Múltiplo de Pedido',
         MinStock:   'Stock Mínimo',
         MaxStock:   'Stock Máximo',
         MinOrder:   'Pedido Mínimo',
-        OnHand:     'Stock Disponible (En Mano)',
-        IsCommited: 'Comprometido',
-        OnOrder:    'En Pedido (Solicitado)',
-        CardCode:   'Cód. Proveedor',
-        CardName:   'Proveedor'
+        OnHand:        'Stock Disponible WMS (En Mano)',
+        CompVentas:    'Comprometido Ventas',
+        CompProduccion:'Comprometido Producción',
+        EnPedido:      'En Pedido (Compras)',
+        EnProduccion:  'En Producción'
+    };
+
+    // Campos de negocio (UDF de OITM), en bloque aparte del modal. Los codificados
+    // (Origen/Marca Propia/E-Commerce) ya vienen resueltos a su descripción desde el modelo.
+    // Los dos que se solapan con un campo estándar llevan "(Negocio)" para diferenciarlos.
+    const ETIQUETAS_MRP_NEGOCIO = {
+        StatusArticulo:   'Status Artículo',
+        Origen:           'Origen Artículo',
+        MarcaPropia:      'Marca Propia',
+        ArticuloNuevo:    'Artículo Nuevo',
+        ECommerce:        'E-Commerce',
+        Campana:          'Campaña',
+        Gramaje:          'Gramaje',
+        UnidCaja:         'Unidades por Caja',
+        UnidEmbProv:      'Unid. Emb. Proveedor',
+        Kilos:            'Kilos',
+        Moneda:           'Moneda',
+        ProveedorNegocio: 'Cód. Proveedor (Negocio)',
+        ProveedorNombre:  'Proveedor (Negocio)',
+        LeadTimeNegocio:  'Lead Time (Negocio)'
     };
 
     // Campos que son cantidades en unidades: se muestran como entero (sin los ".000000" de SAP).
     const CAMPOS_CANTIDAD_MRP = {
-        LeadTime: true, MinOrdrQty: true, OrdrMulti: true, MinStock: true, MaxStock: true,
-        MinOrder: true, OnHand: true, IsCommited: true, OnOrder: true
+        MinOrdrQty: true, OrdrMulti: true, MinStock: true, MaxStock: true,
+        MinOrder: true, OnHand: true, CompVentas: true, CompProduccion: true,
+        EnPedido: true, EnProduccion: true,
+        Gramaje: true, UnidCaja: true, Kilos: true, LeadTimeNegocio: true
+    };
+
+    // Sufijo de unidad que se agrega tras el valor formateado (solo si el campo tiene dato).
+    const CAMPOS_SUFIJO_MRP = {
+        LeadTimeNegocio: ' días'
     };
 
     // Cantidad en unidades: entero si es exacto; si no, hasta 2 decimales sin ceros de relleno.
@@ -160,23 +186,38 @@ $(document).ready(function() {
         return partes.length > 1 ? partes[0] + ',' + partes[1] : partes[0];
     }
 
-    // Arma las filas Campo | Valor de los parámetros MRP (mismo estilo que "Ver detalle").
-    function filasParametrosMrp(registro) {
-        return Object.keys(ETIQUETAS_MRP).map(function(campo) {
+    // Fila de encabezado de sección dentro de la tabla Campo | Valor.
+    function seccionMrp(titulo) {
+        return '<tr class="table-secondary">'
+             + '<th colspan="2" class="small fw-bold text-uppercase">' + titulo + '</th>'
+             + '</tr>';
+    }
+
+    // Arma las filas Campo | Valor de un grupo de campos (mismo estilo que "Ver detalle").
+    function filasCampoValorMrp(etiquetas, registro) {
+        return Object.keys(etiquetas).map(function(campo) {
             const valor = registro[campo];
             let texto;
             if (valor === null || valor === undefined || valor === '') {
                 texto = '<span class="text-muted">—</span>';
             } else if (CAMPOS_CANTIDAD_MRP[campo]) {
-                texto = formatearCantidad(valor);
+                texto = formatearCantidad(valor) + (CAMPOS_SUFIJO_MRP[campo] || '');
             } else {
                 texto = $('<div>').text(valor).html();
             }
             return '<tr>'
-                 + '<th class="fw-semibold small text-nowrap" style="width: 45%;">' + ETIQUETAS_MRP[campo] + '</th>'
+                 + '<th class="fw-semibold small text-nowrap" style="width: 45%;">' + etiquetas[campo] + '</th>'
                  + '<td class="small">' + texto + '</td>'
                  + '</tr>';
         }).join('');
+    }
+
+    // Cuerpo del modal: parámetros estándar SAP + bloque de campos de negocio (UDF).
+    function filasParametrosMrp(registro) {
+        return seccionMrp('Parámetros MRP (SAP)')
+             + filasCampoValorMrp(ETIQUETAS_MRP, registro)
+             + seccionMrp('Campos de negocio (UDF)')
+             + filasCampoValorMrp(ETIQUETAS_MRP_NEGOCIO, registro);
     }
 
     // Botón "Parámetros para MRP": pide la consulta al controlador y la muestra en el modal.
@@ -224,6 +265,10 @@ $(document).ready(function() {
 
     const renderTxt = function(d) { return (d === null || d === undefined) ? '' : $('<div>').text(d).html(); };
     const renderCant = function(d) { return formatearCantidad(d); };   // cantidades en unidades (entero)
+    const renderDias = function(d) {                                    // cantidad + " días" (vacío si no hay dato)
+        const v = formatearCantidad(d);
+        return v === '' ? '' : v + ' días';
+    };
 
     // Al terminar de abrirse el modal (ancho final ya disponible), carga y arma el DataTable.
     $('#modalForecastParametrosMrpLista').on('shown.bs.modal', function() {
@@ -272,17 +317,32 @@ $(document).ready(function() {
                         { data: 'ItemName',   render: renderTxt },
                         { data: 'Familia',    render: renderTxt },
                         { data: 'SubFamilia', render: renderTxt },
-                        { data: 'LeadTime',   className: 'text-end', render: renderCant },
                         { data: 'MinOrdrQty', className: 'text-end', render: renderCant },
                         { data: 'OrdrMulti',  className: 'text-end', render: renderCant },
                         { data: 'MinStock',   className: 'text-end', render: renderCant },
                         { data: 'MaxStock',   className: 'text-end', render: renderCant },
                         { data: 'MinOrder',   className: 'text-end', render: renderCant },
-                        { data: 'OnHand',     className: 'text-end', render: renderCant },
-                        { data: 'IsCommited', className: 'text-end', render: renderCant },
-                        { data: 'OnOrder',    className: 'text-end', render: renderCant },
-                        { data: 'CardCode',   render: renderTxt },
-                        { data: 'CardName',   render: renderTxt }
+                        { data: 'OnHand',        className: 'text-end', render: renderCant },
+                        { data: 'CompVentas',    className: 'text-end', render: renderCant },
+                        { data: 'CompProduccion',className: 'text-end', render: renderCant },
+                        { data: 'EnPedido',      className: 'text-end', render: renderCant },
+                        { data: 'EnProduccion',  className: 'text-end', render: renderCant },
+
+                        // Campos de negocio (UDF de OITM).
+                        { data: 'StatusArticulo',   render: renderTxt },
+                        { data: 'Origen',           render: renderTxt },
+                        { data: 'MarcaPropia',      render: renderTxt },
+                        { data: 'ArticuloNuevo',    render: renderTxt },
+                        { data: 'ECommerce',        render: renderTxt },
+                        { data: 'Campana',          render: renderTxt },
+                        { data: 'Gramaje',          className: 'text-end', render: renderCant },
+                        { data: 'UnidCaja',         className: 'text-end', render: renderCant },
+                        { data: 'UnidEmbProv',      render: renderTxt },
+                        { data: 'Kilos',            className: 'text-end', render: renderCant },
+                        { data: 'Moneda',           render: renderTxt },
+                        { data: 'ProveedorNegocio', render: renderTxt },
+                        { data: 'ProveedorNombre',  render: renderTxt },
+                        { data: 'LeadTimeNegocio',  className: 'text-end', render: renderDias }
                     ]
                 });
 

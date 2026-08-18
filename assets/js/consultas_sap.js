@@ -194,18 +194,35 @@ $(document).ready(function() {
         },
         stock: {
             url: 'controllers/consultas_sap_controller.php?action=stock',
-            titulo: '<i class="bi bi-boxes me-2"></i>Consulta Stock — Existencias por Bodega',
+            titulo: '<i class="bi bi-boxes me-2"></i>Consulta Stock — Inventario WMS por pallet',
+            filtros: ['estadoPallet', 'vencimiento'],
             columnas: [
-                { data: 'CodigoArticulo',   title: 'Cód. Artículo', render: renderTexto },
-                { data: 'NombreArticulo',   title: 'Artículo',      render: renderTexto },
-                { data: 'UnidadInventario', title: 'Unidad',        className: 'text-center', render: renderTexto },
-                { data: 'CodigoBodega',     title: 'Cód. Bodega',   className: 'text-center', render: renderTexto },
-                { data: 'NombreBodega',     title: 'Bodega',        render: renderTexto },
-                { data: 'StockActual',      title: 'Stock Actual',  className: 'text-end', render: renderCantidad },
-                { data: 'Comprometido',     title: 'Comprometido',  className: 'text-end', render: renderCantidad },
-                { data: 'Pedido',           title: 'Pedido',        className: 'text-end', render: renderCantidad },
-                { data: 'StockMinimo',      title: 'Stock Mín.',    className: 'text-end', render: renderCantidad },
-                { data: 'StockMaximo',      title: 'Stock Máx.',    className: 'text-end', render: renderCantidad }
+                { data: 'CodArticulo',      title: 'Cód. Artículo',  render: renderTexto },
+                { data: 'Articulo',         title: 'Artículo',       render: renderTexto },
+                { data: 'FIngreso',         title: 'F. Ingreso',     className: 'text-center', render: renderFecha },
+                { data: 'FVencimiento',     title: 'F. Vencimiento', className: 'text-center', render: renderFecha },
+                { data: 'Lote',             title: 'Nro. Lote',      className: 'text-center', render: renderTexto },
+                { data: 'Ubicacion',        title: 'Ubicación',      className: 'text-center', render: renderTexto },
+                { data: 'Zona',             title: 'Zona',           className: 'text-center', render: renderTexto },
+                { data: 'Pasillo',          title: 'Pasillo',        className: 'text-center', render: renderTexto },
+                { data: 'Rack',             title: 'Rack',           className: 'text-center', render: renderTexto },
+                { data: 'Nivel',            title: 'Nivel',          className: 'text-center', render: renderTexto },
+                { data: 'EstadoPallet',     title: 'Estado Pallet',  className: 'text-center', render: renderTexto },
+                { data: 'Vencimiento',      title: 'Vencimiento',    className: 'text-center', render: renderTexto },
+                { data: 'DiasParaVencer',   title: 'Días p/Vencer',  className: 'text-end', render: renderNumero },
+                { data: 'DiasEnInventario', title: 'Días en Inv.',   className: 'text-end', render: renderNumero },
+                { data: 'Cantidad',         title: 'Cantidad',       className: 'text-end', render: renderCantidad }
+            ]
+        },
+        stock_producto: {
+            url: 'controllers/consultas_sap_controller.php?action=stock_producto',
+            titulo: '<i class="bi bi-box-seam me-2"></i>Consulta Stock por Producto — WMS (suma vigente, sin vencidos)',
+            totales: ['Cantidad'],
+            columnas: [
+                { data: 'CodArticulo', title: 'Cód. Artículo', render: renderTexto },
+                { data: 'Articulo',    title: 'Artículo',      render: renderTexto },
+                { data: 'Lineas',      title: 'N° Líneas',     className: 'text-end', render: renderNumero },
+                { data: 'Cantidad',    title: 'Cantidad',      className: 'text-end', render: renderCantidad }
             ]
         }
     };
@@ -326,6 +343,8 @@ $(document).ready(function() {
         $('.filtro-item-tipo').toggleClass('d-none', filtrosActivos.indexOf('tipo') < 0);
         $('.filtro-item-familia').toggleClass('d-none', filtrosActivos.indexOf('familia') < 0);
         $('.filtro-item-subfamilia').toggleClass('d-none', filtrosActivos.indexOf('subfamilia') < 0);
+        $('.filtro-item-estado-pallet').toggleClass('d-none', filtrosActivos.indexOf('estadoPallet') < 0);
+        $('.filtro-item-vencimiento').toggleClass('d-none', filtrosActivos.indexOf('vencimiento') < 0);
         $('.filtro-item-limpiar').toggleClass('d-none', filtrosActivos.length === 0);
 
         setBtnLoading($boton, 'Cargando...');
@@ -427,6 +446,10 @@ $(document).ready(function() {
         cargarConsulta('stock', $(this));
     });
 
+    $('#btn-consulta-stock-producto').on('click', function() {
+        cargarConsulta('stock_producto', $(this));
+    });
+
     $('#btn-consulta-facs-ncs').on('click', function() {
         cargarConsulta('facs_ncs', $(this));
     });
@@ -500,10 +523,11 @@ $(document).ready(function() {
     }
 
     // Rellena un select conservando la selección SOLO si sigue disponible.
-    function llenarSelectV2(selector, valores) {
+    // etiquetaTodos: texto de la opción "sin filtro" (por defecto 'Todas').
+    function llenarSelectV2(selector, valores, etiquetaTodos) {
         const $sel   = $(selector);
         const actual = $sel.val();
-        $sel.empty().append('<option value="">Todas</option>');
+        $sel.empty().append('<option value="">' + (etiquetaTodos || 'Todas') + '</option>');
         valores.forEach(function(v) { $sel.append($('<option>').val(v).text(v)); });
         $sel.val(valores.indexOf(actual) !== -1 ? actual : '');
     }
@@ -513,10 +537,21 @@ $(document).ready(function() {
         llenarSelectV2('#filtro-v2-subfamilia', distintosV2('SubFamilia', $('#filtro-v2-familia').val()));
     }
 
-    // Llena los selects de Familia y Sub-Familia con los valores ya cargados. Tipo Doc. es fijo.
+    // Llena cada select con los valores presentes en las filas cargadas, según los
+    // filtros que declare la consulta activa. Tipo Doc. es fijo (opciones en el HTML).
     function poblarFiltrosV2() {
-        llenarSelectV2('#filtro-v2-familia', distintosV2('Familia', ''));
-        poblarSubFamiliasV2();
+        if (filtrosActivos.indexOf('familia') >= 0) {
+            llenarSelectV2('#filtro-v2-familia', distintosV2('Familia', ''));
+        }
+        if (filtrosActivos.indexOf('subfamilia') >= 0) {
+            poblarSubFamiliasV2();
+        }
+        if (filtrosActivos.indexOf('estadoPallet') >= 0) {
+            llenarSelectV2('#filtro-v2-estado-pallet', distintosV2('EstadoPallet', ''), 'Todos');
+        }
+        if (filtrosActivos.indexOf('vencimiento') >= 0) {
+            llenarSelectV2('#filtro-v2-vencimiento', distintosV2('Vencimiento', ''), 'Todos');
+        }
     }
 
     // Filtro client-side por Tipo Doc. / Familia / Sub-Familia (solo cuando la v2 está activa).
@@ -539,6 +574,14 @@ $(document).ready(function() {
             const sub = $('#filtro-v2-subfamilia').val();
             if (sub && (fila.SubFamilia || '') !== sub) { return false; }
         }
+        if (filtrosActivos.indexOf('estadoPallet') >= 0) {
+            const ep = $('#filtro-v2-estado-pallet').val();
+            if (ep && (fila.EstadoPallet || '') !== ep) { return false; }
+        }
+        if (filtrosActivos.indexOf('vencimiento') >= 0) {
+            const ven = $('#filtro-v2-vencimiento').val();
+            if (ven && (fila.Vencimiento || '') !== ven) { return false; }
+        }
         return true;
     });
 
@@ -548,14 +591,15 @@ $(document).ready(function() {
         if (tabla) { tabla.draw(); }
     });
 
-    // Tipo Doc. y Sub-Familia solo re-dibujan (client-side).
-    $('#filtro-v2-tipo, #filtro-v2-subfamilia').on('change', function() {
+    // Tipo Doc., Sub-Familia y los filtros de Stock (Estado Pallet / Vencimiento) solo
+    // re-dibujan (client-side).
+    $('#filtro-v2-tipo, #filtro-v2-subfamilia, #filtro-v2-estado-pallet, #filtro-v2-vencimiento').on('change', function() {
         if (tabla) { tabla.draw(); }
     });
 
     // Botón "Limpiar": deja todos los filtros por defecto y recarga la consulta activa.
     $('#btn-limpiar-filtros-sap').on('click', function() {
-        $('#filtro-v2-tipo, #filtro-v2-familia, #filtro-v2-subfamilia').val('');
+        $('#filtro-v2-tipo, #filtro-v2-familia, #filtro-v2-subfamilia, #filtro-v2-estado-pallet, #filtro-v2-vencimiento').val('');
         $('#consulta').val('');
 
         // Fecha vuelve al rango por defecto: desde enero del año actual, hasta sin límite.

@@ -208,6 +208,15 @@ switch ($action) {
             $model = new ConsultaSap($pdoSqlsrv);
             $datos = $model->parametrosMrpProducto($itemCode);
 
+            // El "En Mano" (OnHand) se reemplaza por el stock VIGENTE del WMS (otra conexión).
+            require_once __DIR__ . '/../config/conexion_wms.php';        // $pdoWms
+            require_once __DIR__ . '/../models/consultas_wms_model.php'; // ConsultaWms
+            $stockWms = (new ConsultaWms($pdoWms))->stockPorProductoMap();
+            foreach ($datos as &$fila) {
+                $fila['OnHand'] = $stockWms[trim($fila['ItemCode'])] ?? 0;
+            }
+            unset($fila);
+
             echo json_encode(['status' => 'success', 'data' => $datos]);
         } catch (PDOException $e) {
             error_log('[FORECAST][parametros_mrp] ' . $e->getMessage());
@@ -224,6 +233,15 @@ switch ($action) {
         try {
             $model = new ConsultaSap($pdoSqlsrv);
             $datos = $model->parametrosMrp();
+
+            // El "En Mano" (OnHand) se reemplaza por el stock VIGENTE del WMS (otra conexión).
+            require_once __DIR__ . '/../config/conexion_wms.php';        // $pdoWms
+            require_once __DIR__ . '/../models/consultas_wms_model.php'; // ConsultaWms
+            $stockWms = (new ConsultaWms($pdoWms))->stockPorProductoMap();
+            foreach ($datos as &$fila) {
+                $fila['OnHand'] = $stockWms[trim($fila['ItemCode'])] ?? 0;
+            }
+            unset($fila);
 
             echo json_encode(['status' => 'success', 'data' => $datos]);
         } catch (PDOException $e) {

@@ -161,11 +161,13 @@ foreach ($gruposInfo as $id => $g) {
 }
 fclose($fG); fclose($fD); fclose($fP); fclose($fA);
 
-// Estado de actividad (OITM): activo = validFor 'Y' y NO congelado. Los inactivos se
-// excluirán del forecast (paso 3), redistribuyendo su participación a los activos.
+// Estado de actividad del NEGOCIO (OITM.U_Sta_Art): activo = 'Activo'. Los 'Descontinuado'
+// se excluirán del forecast (paso 3), redistribuyendo su participación a los activos.
+// Criterio cambiado el 2026-08-17 desde validFor/frozenFor a U_Sta_Art: los flags estándar
+// estaban desactualizados e incluían ~71 descontinuados en el pronóstico.
 $estadoAct = [];
 foreach ($sap->estadoActividadProductos() as $e) {
-    $estadoAct[$e['ItemCode']] = (($e['validFor'] ?? 'N') === 'Y' && ($e['frozenFor'] ?? 'N') !== 'Y') ? 1 : 0;
+    $estadoAct[$e['ItemCode']] = (trim((string) ($e['U_Sta_Art'] ?? '')) === 'Activo') ? 1 : 0;
 }
 $fE = fopen("$DIR/productos_estado.csv", 'w'); fputcsv($fE, ['producto_codigo', 'activo']);
 $nAct = 0; $nInact = 0;

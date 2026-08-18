@@ -39,8 +39,11 @@
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-oc">
                     <i class="bi bi-search"></i> Consulta OC
                 </button>
-                <button class="btn btn-danger btn-sm" type="button" id="btn-consulta-stock">
+                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-stock">
                     <i class="bi bi-search"></i> Consulta Stock
+                </button>
+                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-stock-producto">
+                    <i class="bi bi-search"></i> Consulta Stock x Producto
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-odv">
                     <i class="bi bi-search"></i> Consulta ODV
@@ -94,6 +97,21 @@
                             <option value="">Todas</option>
                         </select>
                     </div>
+
+                    <!-- Filtros de la consulta Stock (WMS); el JS los muestra solo en esa consulta. -->
+                    <div class="col-md-2 filtro-item-estado-pallet d-none">
+                        <label class="form-label fw-bold small mb-1" for="filtro-v2-estado-pallet">Estado Pallet</label>
+                        <select class="form-select form-select-sm" id="filtro-v2-estado-pallet">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 filtro-item-vencimiento d-none">
+                        <label class="form-label fw-bold small mb-1" for="filtro-v2-vencimiento">Vencimiento</label>
+                        <select class="form-select form-select-sm" id="filtro-v2-vencimiento">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+
                     <div class="col-md-auto d-flex align-items-end filtro-item-limpiar d-none">
                         <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros-sap">
                             <i class="bi bi-eraser me-1"></i> Limpiar

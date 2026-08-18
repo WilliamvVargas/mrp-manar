@@ -3,6 +3,7 @@
 # las credenciales van en estos archivos, que se crean copiando los *.example.php.
 config/config_mysql.php
 config/config_sqlserver.php
+config/config_wms.php
 
 # Ignorar archivos temporales o de sistema
 .DS_Store

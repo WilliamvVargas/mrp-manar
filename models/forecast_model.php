@@ -91,6 +91,23 @@
         }
 
         /**
+         * Serie semanal del forecast por producto, ordenada cronológicamente. Para el MRP:
+         * permite sumar la demanda de las próximas N semanas (el horizonte del lead time).
+         *
+         * @return array Filas ['producto_codigo'=>..., 'semana_inicio'=>'yyyy-mm-dd', 'demanda'=>float]
+         *               ordenadas por producto y semana ascendente.
+         */
+        public function demandaSemanalPorProducto()
+        {
+            return $this->pdo->query(
+                "SELECT producto_codigo, semana_inicio, SUM(demanda_forecast) AS demanda
+                 FROM forecast_x_producto
+                 GROUP BY producto_codigo, semana_inicio
+                 ORDER BY producto_codigo, semana_inicio ASC"
+            )->fetchAll();
+        }
+
+        /**
          * Sub-familias distintas presentes en el forecast (alfabético), para el filtro.
          *
          * @return string[]

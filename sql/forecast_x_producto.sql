@@ -38,6 +38,10 @@ CREATE TABLE `forecast_x_producto` (
   `participacion`      decimal(9,8)  DEFAULT NULL, -- participación del producto en el grupo (0..1)
   `metodo`             varchar(20)   DEFAULT NULL, -- 'prophet' o 'fallback'
 
+  -- Ajuste/corrección posterior del pronóstico (opcionales, nullable; se llenan si se aplica).
+  `factor`                decimal(10,6) DEFAULT NULL, -- factor de corrección aplicado a la demanda
+  `demanda_forecast_corr` decimal(15,4) DEFAULT NULL, -- demanda_forecast corregida por el factor
+
   -- Presupuesto ($) por semana (grupo × participación) + flag de uso como regresor.
   -- usa_presupuesto = 1 si el grupo se pronosticó CON el presupuesto como regresor;
   -- 0 si el grupo no tiene presupuesto cargado (se pronostica igual, pero sin él).

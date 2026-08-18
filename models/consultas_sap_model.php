@@ -19,6 +19,82 @@
         }
 
         /**
+         * Columnas de la consulta de Parámetros para MRP, compartidas por
+         * parametrosMrpProducto() (un producto) y parametrosMrp() (todos). Incluye:
+         *  - Parámetros estándar SAP: maestro (OITM) y stock por bodega (OITW).
+         *  - En Pedido (compras, OC pendiente) y En Producción (órdenes de producción liberadas)
+         *    se calculan por subconsulta a bodega 010; antes iban juntos en OITW.OnOrder.
+         *  - Comprometido Ventas (OV abiertas) y Comprometido Producción (componentes que
+         *    consumirán las órdenes de producción) también por subconsulta a bodega 010;
+         *    antes iban juntos en OITW.IsCommited.
+         *  - Campos de negocio (UDF de OITM). Los codificados (Origen/Marca Propia/E-Commerce)
+         *    se resuelven a su descripción vía UFD1. El proveedor del negocio (U_NX_Proveedor)
+         *    guarda un código que se resuelve a su nombre en la tabla de usuario @PROVEEDORES
+         *    (alias PV). El lead time del negocio (U_LeadTime, "Negocio") es el que se usa; el
+         *    estándar OITM.LeadTime NO se incluye (está vacío para todos los productos).
+         * Depende de los alias de tabla T0=OITM, T1=OITW y los joins UF/US/UO/UMP/UEC/PV.
+         */
+        const COLUMNAS_PARAMETROS_MRP = "
+                    T0.ItemCode,
+                    T0.ItemName,
+                    UF.Descr AS Familia,
+                    US.Descr AS SubFamilia,
+                    T0.MinOrdrQty,
+                    T0.OrdrMulti,
+                    T1.MinStock,
+                    T1.MaxStock,
+                    T1.MinOrder,
+                    T1.OnHand,
+
+                    -- Comprometido Ventas = pendiente de despacho de órdenes de venta abiertas, bodega 010.
+                    ISNULL((
+                        SELECT SUM(r.OpenQty)
+                        FROM RDR1 r INNER JOIN ORDR o ON o.DocEntry = r.DocEntry
+                        WHERE o.CANCELED = 'N' AND r.LineStatus = 'O' AND r.OpenQty > 0
+                          AND r.WhsCode = '010' AND r.ItemCode = T0.ItemCode
+                    ), 0) AS CompVentas,
+
+                    -- Comprometido Producción = componentes pendientes de consumir por órdenes de producción liberadas, bodega 010.
+                    ISNULL((
+                        SELECT SUM(c.PlannedQty - c.IssuedQty)
+                        FROM WOR1 c INNER JOIN OWOR w ON w.DocEntry = c.DocEntry
+                        WHERE w.Status = 'R' AND (c.PlannedQty - c.IssuedQty) > 0
+                          AND c.Warehouse = '010' AND c.ItemCode = T0.ItemCode
+                    ), 0) AS CompProduccion,
+
+                    -- En Pedido = pendiente de recepción de OC (compras) en bodega 010.
+                    ISNULL((
+                        SELECT SUM(p.OpenQty)
+                        FROM POR1 p INNER JOIN OPOR o ON o.DocEntry = p.DocEntry
+                        WHERE o.CANCELED = 'N' AND p.LineStatus = 'O' AND p.OpenQty > 0
+                          AND p.WhsCode = '010' AND p.ItemCode = T0.ItemCode
+                    ), 0) AS EnPedido,
+
+                    -- En Producción = pendiente de órdenes de producción LIBERADAS (Status 'R') a bodega 010.
+                    ISNULL((
+                        SELECT SUM(w.PlannedQty - w.CmpltQty)
+                        FROM OWOR w
+                        WHERE w.Status = 'R' AND (w.PlannedQty - w.CmpltQty) > 0
+                          AND w.Warehouse = '010' AND w.ItemCode = T0.ItemCode
+                    ), 0) AS EnProduccion,
+
+                    T0.U_Sta_Art      AS StatusArticulo,
+                    UO.Descr          AS Origen,
+                    UMP.Descr         AS MarcaPropia,
+                    T0.U_Art_Nuevo    AS ArticuloNuevo,
+                    UEC.Descr         AS ECommerce,
+                    T0.U_Campana      AS Campana,
+                    T0.U_NX_Gramaje   AS Gramaje,
+                    T0.U_NX_UnidCaja  AS UnidCaja,
+                    T0.U_UnidEmbProv  AS UnidEmbProv,
+                    T0.U_Kilos        AS Kilos,
+                    T0.U_Currency     AS Moneda,
+                    T0.U_NX_Proveedor AS ProveedorNegocio,
+                    PV.Name           AS ProveedorNombre,
+                    T0.U_LeadTime     AS LeadTimeNegocio
+        ";
+
+        /**
          * Órdenes de Venta (ODV) con líneas abiertas y su entrega relacionada (si existe).
          * Solo documentos no anulados, líneas abiertas y con cantidad pendiente de despacho.
          *
@@ -126,66 +202,6 @@
                 ORDER BY
                     OPOR.DocNum,
                     POR1.LineNum
-            ";
-
-            return $this->pdo->query($sql)->fetchAll();
-        }
-
-        /**
-         * Stock por artículo y bodega: existencias (actual, comprometido, pedido),
-         * mínimos/máximos y parámetros de abastecimiento/planificación. Solo artículos
-         * de inventario y activos.
-         *
-         * @return array Lista de filas (arreglos asociativos).
-         */
-        public function stock()
-        {
-            $sql = "
-                SELECT
-                    T0.ItemCode        AS CodigoArticulo,
-                    T0.ItemName        AS NombreArticulo,
-                    T0.ItmsGrpCod      AS CodigoGrupo,
-                    T0.InvntryUom      AS UnidadInventario,
-
-                    T1.WhsCode         AS CodigoBodega,
-                    T2.WhsName         AS NombreBodega,
-
-                    T1.OnHand          AS StockActual,
-                    T1.IsCommited      AS Comprometido,
-                    T1.OnOrder         AS Pedido,
-                    T1.MinStock        AS StockMinimo,
-                    T1.MaxStock        AS StockMaximo,
-
-                    T1.MinOrder        AS CantidadMinimaPedido,
-                    --T1.OrderMultiple   AS MultiploPedido,
-
-                    T0.PrcrmntMtd      AS MetodoAbastecimiento,
-                    T0.OrdrIntrvl      AS IntervaloPedido,
-                    T0.OrdrMulti       AS MultiploPedidoGeneral,
-                    T0.MinOrdrQty      AS CantidadMinimaPedidoGeneral,
-                    T0.LeadTime        AS TiempoEntregaDias,
-                    T0.PlaningSys      AS SistemaPlanificacion,
-                    T0.PrchseItem      AS ArticuloCompra,
-                    T0.SellItem        AS ArticuloVenta,
-                    T0.InvntItem       AS ArticuloInventario,
-
-                    T0.validFor        AS Activo,
-                    T0.frozenFor       AS Bloqueado
-
-                FROM OITM T0
-                INNER JOIN OITW T1
-                    ON T0.ItemCode = T1.ItemCode
-
-                INNER JOIN OWHS T2
-                    ON T1.WhsCode = T2.WhsCode
-
-                WHERE
-                    T0.InvntItem = 'Y'
-                    AND T0.validFor = 'Y'
-
-                ORDER BY
-                    T0.ItemCode,
-                    T1.WhsCode
             ";
 
             return $this->pdo->query($sql)->fetchAll();
@@ -815,26 +831,15 @@
         {
             $sql = "
                 SELECT
-                    T0.ItemCode,
-                    T0.ItemName,
-                    UF.Descr AS Familia,
-                    US.Descr AS SubFamilia,
-                    T0.LeadTime,
-                    T0.MinOrdrQty,
-                    T0.OrdrMulti,
-                    T1.MinStock,
-                    T1.MaxStock,
-                    T1.MinOrder,
-                    T1.OnHand,
-                    T1.IsCommited,
-                    T1.OnOrder,
-                    T0.CardCode,
-                    T3.CardName
+                    " . self::COLUMNAS_PARAMETROS_MRP . "
                 FROM OITM T0
                 INNER JOIN OITW T1 ON T0.ItemCode = T1.ItemCode
-                LEFT  JOIN OCRD T3 ON T0.CardCode = T3.CardCode
-                LEFT  JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = T0.U_Familia
-                LEFT  JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = T0.U_SubFamilia
+                LEFT  JOIN UFD1 UF  ON UF.TableID  = 'OITM' AND UF.FieldID  = 8  AND UF.FldValue  = T0.U_Familia
+                LEFT  JOIN UFD1 US  ON US.TableID  = 'OITM' AND US.FieldID  = 9  AND US.FldValue  = T0.U_SubFamilia
+                LEFT  JOIN UFD1 UO  ON UO.TableID  = 'OITM' AND UO.FieldID  = 7  AND UO.FldValue  = T0.U_Origin
+                LEFT  JOIN UFD1 UMP ON UMP.TableID = 'OITM' AND UMP.FieldID = 12 AND UMP.FldValue = T0.U_MPropia
+                LEFT  JOIN UFD1 UEC ON UEC.TableID = 'OITM' AND UEC.FieldID = 15 AND UEC.FldValue = T0.U_ECommerce
+                LEFT  JOIN [@PROVEEDORES] PV ON LTRIM(RTRIM(PV.Code)) = LTRIM(RTRIM(T0.U_NX_Proveedor))
                 WHERE T1.WhsCode = '010' AND T0.ItemCode = ?
                 ORDER BY T0.ItemCode, T1.WhsCode
             ";
@@ -855,26 +860,15 @@
         {
             $sql = "
                 SELECT
-                    T0.ItemCode,
-                    T0.ItemName,
-                    UF.Descr AS Familia,
-                    US.Descr AS SubFamilia,
-                    T0.LeadTime,
-                    T0.MinOrdrQty,
-                    T0.OrdrMulti,
-                    T1.MinStock,
-                    T1.MaxStock,
-                    T1.MinOrder,
-                    T1.OnHand,
-                    T1.IsCommited,
-                    T1.OnOrder,
-                    T0.CardCode,
-                    T3.CardName
+                    " . self::COLUMNAS_PARAMETROS_MRP . "
                 FROM OITM T0
                 INNER JOIN OITW T1 ON T0.ItemCode = T1.ItemCode
-                LEFT  JOIN OCRD T3 ON T0.CardCode = T3.CardCode
-                LEFT  JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = T0.U_Familia
-                LEFT  JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = T0.U_SubFamilia
+                LEFT  JOIN UFD1 UF  ON UF.TableID  = 'OITM' AND UF.FieldID  = 8  AND UF.FldValue  = T0.U_Familia
+                LEFT  JOIN UFD1 US  ON US.TableID  = 'OITM' AND US.FieldID  = 9  AND US.FldValue  = T0.U_SubFamilia
+                LEFT  JOIN UFD1 UO  ON UO.TableID  = 'OITM' AND UO.FieldID  = 7  AND UO.FldValue  = T0.U_Origin
+                LEFT  JOIN UFD1 UMP ON UMP.TableID = 'OITM' AND UMP.FieldID = 12 AND UMP.FldValue = T0.U_MPropia
+                LEFT  JOIN UFD1 UEC ON UEC.TableID = 'OITM' AND UEC.FieldID = 15 AND UEC.FldValue = T0.U_ECommerce
+                LEFT  JOIN [@PROVEEDORES] PV ON LTRIM(RTRIM(PV.Code)) = LTRIM(RTRIM(T0.U_NX_Proveedor))
                 WHERE T1.WhsCode = '010'
                 ORDER BY T0.ItemCode, T1.WhsCode
             ";
@@ -883,14 +877,63 @@
         }
 
         /**
-         * Estado de actividad de los artículos (maestro OITM). En SAP B1:
-         *   validFor = 'Y'  -> artículo activo
-         *   frozenFor = 'Y' -> artículo congelado/inactivo
+         * Estado de actividad de los artículos (maestro OITM). Dos nociones de estado:
+         *   U_Sta_Art = 'Activo' | 'Descontinuado' -> estado de NEGOCIO (UDF). Criterio del forecast.
+         *   validFor = 'Y'/'N', frozenFor = 'Y'/'N' -> flags estándar SAP (referencia).
+         * El forecast usa U_Sta_Art: los 'Descontinuado' se excluyen del cálculo. Los flags
+         * estándar están desactualizados (muchos descontinuados siguen con validFor='Y').
          *
-         * @return array Filas: ['ItemCode' => ..., 'validFor' => 'Y'/'N', 'frozenFor' => 'Y'/'N'].
+         * @return array Filas: ['ItemCode'=>..., 'U_Sta_Art'=>..., 'validFor'=>..., 'frozenFor'=>...].
          */
         public function estadoActividadProductos()
         {
-            return $this->pdo->query("SELECT ItemCode, validFor, frozenFor FROM OITM")->fetchAll();
+            return $this->pdo->query("SELECT ItemCode, U_Sta_Art, validFor, frozenFor FROM OITM")->fetchAll();
+        }
+
+        /**
+         * Abastecimiento por producto para el MRP (bodega 010), en versión reducida:
+         *   - Comprometido = salidas reservadas: OV abiertas + consumo de producción liberada (bodega 010).
+         *   - EnPedido     = entradas por compra (OC pendiente): bodegas 010 + IMP01 (Importaciones),
+         *                    porque las compras de importados se reciben en IMP01 antes de pasar a 010.
+         *   - EnProduccion = entradas por producción (órdenes liberadas hacia 010).
+         * Solo artículos con ficha en la bodega 010. Incluye también LeadTime (U_LeadTime, en días).
+         *
+         * @return array Filas: ['ItemCode'=>..., 'LeadTime'=>..., 'Comprometido'=>..., 'EnPedido'=>..., 'EnProduccion'=>...].
+         */
+        public function abastecimientoPorProducto()
+        {
+            $sql = "
+                SELECT
+                    T0.ItemCode,
+                    T0.U_LeadTime AS LeadTime,
+                    ISNULL((
+                        SELECT SUM(r.OpenQty)
+                        FROM RDR1 r INNER JOIN ORDR o ON o.DocEntry = r.DocEntry
+                        WHERE o.CANCELED = 'N' AND r.LineStatus = 'O' AND r.OpenQty > 0
+                          AND r.WhsCode = '010' AND r.ItemCode = T0.ItemCode
+                    ), 0)
+                    + ISNULL((
+                        SELECT SUM(c.PlannedQty - c.IssuedQty)
+                        FROM WOR1 c INNER JOIN OWOR w ON w.DocEntry = c.DocEntry
+                        WHERE w.Status = 'R' AND (c.PlannedQty - c.IssuedQty) > 0
+                          AND c.Warehouse = '010' AND c.ItemCode = T0.ItemCode
+                    ), 0) AS Comprometido,
+                    ISNULL((
+                        SELECT SUM(p.OpenQty)
+                        FROM POR1 p INNER JOIN OPOR op ON op.DocEntry = p.DocEntry
+                        WHERE op.CANCELED = 'N' AND p.LineStatus = 'O' AND p.OpenQty > 0
+                          AND p.WhsCode IN ('010', 'IMP01') AND p.ItemCode = T0.ItemCode
+                    ), 0) AS EnPedido,
+                    ISNULL((
+                        SELECT SUM(w2.PlannedQty - w2.CmpltQty)
+                        FROM OWOR w2
+                        WHERE w2.Status = 'R' AND (w2.PlannedQty - w2.CmpltQty) > 0
+                          AND w2.Warehouse = '010' AND w2.ItemCode = T0.ItemCode
+                    ), 0) AS EnProduccion
+                FROM OITM T0
+                WHERE EXISTS (SELECT 1 FROM OITW t WHERE t.ItemCode = T0.ItemCode AND t.WhsCode = '010')
+            ";
+
+            return $this->pdo->query($sql)->fetchAll();
         }
     }

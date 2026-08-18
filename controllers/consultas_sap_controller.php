@@ -45,15 +45,37 @@ switch ($action) {
 
     case 'stock':
 
-        // Consulta Stock: existencias por artículo y bodega (lectura desde SAP / SQL Server).
+        // Consulta Stock: inventario en tiempo real por pallet/lote/ubicación desde el WMS
+        // (SGL WMS / SQL Server), no desde SAP. Usa su propia conexión $pdoWms.
         try {
-            $model = new ConsultaSap($pdoSqlsrv);
+            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms
+            require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
+
+            $model = new ConsultaWms($pdoWms);
             $datos = $model->stock();
 
             echo json_encode(['status' => 'success', 'data' => $datos]);
         } catch (PDOException $e) {
-            error_log('[CONSULTAS_SAP] ' . $e->getMessage());
-            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta Stock.']);
+            error_log('[CONSULTAS_WMS] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta de Stock (WMS).']);
+        }
+        exit;
+
+    case 'stock_producto':
+
+        // Consulta Stock por Producto: stock del WMS agregado por artículo (suma de todas las
+        // líneas), excluyendo las vencidas. Usa la conexión $pdoWms.
+        try {
+            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms
+            require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
+
+            $model = new ConsultaWms($pdoWms);
+            $datos = $model->stockPorProducto();
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_WMS] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta de Stock por Producto (WMS).']);
         }
         exit;
 

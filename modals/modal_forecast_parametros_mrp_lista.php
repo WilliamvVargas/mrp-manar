@@ -35,17 +35,32 @@
                                 <th title="Nombre Producto">Producto</th>
                                 <th>Familia</th>
                                 <th title="Sub-Familia">Sub-Fam.</th>
-                                <th class="text-end" title="Lead Time (días)">L. Time</th>
                                 <th class="text-end" title="Cantidad Mínima de Pedido">Cant. Mín.</th>
                                 <th class="text-end" title="Múltiplo de Pedido">Múlt.</th>
                                 <th class="text-end" title="Stock Mínimo">Stk. Mín.</th>
                                 <th class="text-end" title="Stock Máximo">Stk. Máx.</th>
                                 <th class="text-end" title="Pedido Mínimo">Ped. Mín.</th>
-                                <th class="text-end" title="Stock Disponible (En Mano)">En Mano</th>
-                                <th class="text-end" title="Comprometido">Comprom.</th>
-                                <th class="text-end" title="En Pedido (Solicitado)">En Pedido</th>
-                                <th title="Código Proveedor">Cód. Prov.</th>
-                                <th>Proveedor</th>
+                                <th class="text-end" title="Stock Disponible WMS vigente (En Mano)">En Mano (WMS)</th>
+                                <th class="text-end" title="Comprometido Ventas — órdenes de venta abiertas, bodega 010">Comp. Vta.</th>
+                                <th class="text-end" title="Comprometido Producción — consumo de órdenes de producción, bodega 010">Comp. Prod.</th>
+                                <th class="text-end" title="En Pedido — pendiente de OC (compras), bodega 010">En Pedido (Cmp.)</th>
+                                <th class="text-end" title="En Producción — órdenes de producción liberadas, bodega 010">En Prod.</th>
+
+                                <!-- Campos de negocio (UDF de OITM) -->
+                                <th title="Status Artículo (negocio)">Status Art.</th>
+                                <th title="Origen Artículo">Origen</th>
+                                <th title="Marca Propia">M. Propia</th>
+                                <th title="Artículo Nuevo">Art. Nuevo</th>
+                                <th title="E-Commerce">E-Comm.</th>
+                                <th title="Campaña">Campaña</th>
+                                <th class="text-end" title="Gramaje">Gramaje</th>
+                                <th class="text-end" title="Unidades por Caja">Unid. Caja</th>
+                                <th title="Unidad Emb. Proveedor">U. Emb. Prov.</th>
+                                <th class="text-end" title="Kilos">Kilos</th>
+                                <th title="Moneda">Moneda</th>
+                                <th title="Código Proveedor (negocio, UDF U_NX_Proveedor)">Cód. Prov. (Neg.)</th>
+                                <th title="Proveedor (negocio, resuelto en @PROVEEDORES)">Proveedor (Neg.)</th>
+                                <th class="text-end" title="Lead Time (negocio, UDF)">L.Time (Neg.)</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
