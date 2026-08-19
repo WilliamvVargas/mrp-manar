@@ -1,4 +1,4 @@
-,,,,,,,,,,,,,,,16-- =====================================================================================
+-- =====================================================================================
 -- Base de datos: mrp_manar — ESQUEMA + DATOS (consolidado en un solo archivo).
 --
 -- Reemplaza a los antiguos archivos migracion_*.sql separados. Incluye:
@@ -111,6 +111,66 @@ CREATE TABLE `forecast` (
   `updated_by` varchar(36) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `forecast_backtest`  (se llena por proceso; sin datos)
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `forecast_backtest` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `familia` varchar(100) DEFAULT NULL,
+  `sub_familia` varchar(100) DEFAULT NULL,
+  `metodo` varchar(20) DEFAULT NULL,
+  `semanas_evaluadas` smallint(4) unsigned DEFAULT NULL,
+  `desde` varchar(10) DEFAULT NULL,
+  `hasta` varchar(10) DEFAULT NULL,
+  `suma_real` decimal(18,4) DEFAULT NULL,
+  `suma_forecast` decimal(18,4) DEFAULT NULL,
+  `factor` decimal(10,6) DEFAULT NULL,
+  `bias_pct` decimal(10,4) DEFAULT NULL,
+  `mape` decimal(10,4) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_bt_grupo` (`familia`,`sub_familia`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `forecast_x_producto`  (se llena por proceso; sin datos)
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `forecast_x_producto` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `iso_year` smallint(4) unsigned NOT NULL,
+  `iso_week` tinyint(2) unsigned NOT NULL,
+  `semana_inicio` date NOT NULL,
+  `familia` varchar(100) DEFAULT NULL,
+  `sub_familia` varchar(100) DEFAULT NULL,
+  `producto_codigo` varchar(50) NOT NULL,
+  `producto_nombre` varchar(200) DEFAULT NULL,
+  `demanda_forecast` decimal(15,4) NOT NULL DEFAULT 0.0000,
+  `forecast_grupo` decimal(18,4) DEFAULT NULL,
+  `forecast_grupo_min` decimal(18,4) DEFAULT NULL,
+  `forecast_grupo_max` decimal(18,4) DEFAULT NULL,
+  `participacion` decimal(9,8) DEFAULT NULL,
+  `metodo` varchar(20) DEFAULT NULL,
+  `factor` decimal(10,6) DEFAULT NULL,
+  `demanda_forecast_corr` decimal(15,4) DEFAULT NULL,
+  `presupuesto_grupo` decimal(15,2) DEFAULT NULL,
+  `venta_presupuestada` decimal(15,2) DEFAULT NULL,
+  `usa_presupuesto` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_fxp_semana_producto` (`iso_year`,`iso_week`,`producto_codigo`),
+  KEY `idx_fxp_semana` (`semana_inicio`),
+  KEY `idx_fxp_grupo` (`familia`,`sub_familia`),
+  KEY `idx_fxp_producto` (`producto_codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -239,6 +299,43 @@ CREATE TABLE `presupuestos` (
   `updated_by` varchar(36) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7049 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `presupuesto_x_producto`  (se llena por proceso; sin datos)
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `presupuesto_x_producto` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `anio` smallint(4) unsigned NOT NULL,
+  `mes` tinyint(2) unsigned NOT NULL,
+  `familia` varchar(100) DEFAULT NULL,
+  `sub_familia` varchar(100) DEFAULT NULL,
+  `producto_codigo` varchar(50) NOT NULL,
+  `producto_nombre` varchar(200) DEFAULT NULL,
+  `presupuesto_neto` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `neto_pond_producto` decimal(15,2) DEFAULT NULL,
+  `neto_pond_grupo` decimal(15,2) DEFAULT NULL,
+  `cantidad_pond_producto` decimal(15,4) DEFAULT NULL,
+  `participacion` decimal(9,8) DEFAULT NULL,
+  `precio_unitario` decimal(15,4) DEFAULT NULL,
+  `factor_cumplimiento` decimal(10,6) DEFAULT NULL,
+  `venta_estimada` decimal(15,2) DEFAULT NULL,
+  `cantidad_estimada` decimal(15,4) NOT NULL DEFAULT 0.0000,
+  `cantidad_real` decimal(15,4) DEFAULT NULL,
+  `diferencia` decimal(10,4) DEFAULT NULL,
+  `alfa` decimal(4,3) unsigned NOT NULL DEFAULT 0.850,
+  `ventana_meses` tinyint(2) unsigned NOT NULL DEFAULT 12,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(36) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pxp_periodo_producto` (`anio`,`mes`,`producto_codigo`),
+  KEY `idx_pxp_periodo` (`anio`,`mes`),
+  KEY `idx_pxp_grupo` (`familia`,`sub_familia`),
+  KEY `idx_pxp_producto` (`producto_codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -424,7 +521,8 @@ INSERT INTO `iconos` (`id`, `nombre`, `tipo`, `valor`, `archivo`, `coloreable`, 
   ('6', 'Gráfico Positivo', 'bootstrap', 'graph-up-arrow', NULL, '1', '6', '2026-06-28 22:21:16', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
   ('7', 'Pago Efectivo', 'bootstrap', 'cash-coin', NULL, '1', '7', '2026-06-28 22:22:35', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
   ('8', 'Signo Dolar', 'bootstrap', 'currency-dollar', NULL, '1', '8', '2026-06-28 22:23:06', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('9', 'SAP icono', 'personalizado', 'custom-sap-icono', 'custom-sap-icono.svg', '1', '9', '2026-06-28 22:24:50', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
+  ('9', 'SAP icono', 'personalizado', 'custom-sap-icono', 'custom-sap-icono.svg', '1', '9', '2026-06-28 22:24:50', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
+  ('10', 'Entra Sale', 'bootstrap', 'arrow-down-up', NULL, '1', '10', '2026-08-17 16:17:30', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
 
 --
 -- Datos: `menus`
@@ -445,7 +543,8 @@ INSERT INTO `item_menus` (`id`, `menu_id`, `nombre`, `icono_id`, `enlace`, `esta
   ('6', '2', 'Forecast', '6', 'forecast', '1', '1', '2026-06-28 22:31:09', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
   ('7', '2', 'Presupuesto', '7', 'presupuesto', '1', '2', '2026-06-28 22:31:26', '2026-06-28 22:51:13', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
   ('8', '2', 'Ventas Históricas', '8', 'ventas-historicas', '1', '3', '2026-06-28 22:31:54', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('9', '2', 'Consultas SAP', '9', 'consultas-sap', '1', '4', '2026-06-28 22:32:29', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
+  ('9', '2', 'Consultas SAP', '9', 'consultas-sap', '1', '4', '2026-06-28 22:32:29', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
+  ('10', '2', 'MRP', '10', 'mrp', '1', '5', '2026-08-17 16:17:58', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
 
 --
 -- Datos: `accesos`
@@ -463,7 +562,8 @@ INSERT INTO `accesos` (`id`, `id_perfil`, `id_item_menu`, `estado`, `created_at`
   ('28', '2', '6', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
   ('29', '2', '7', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
   ('30', '2', '8', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
-  ('31', '2', '9', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL);
+  ('31', '2', '9', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
+  ('41', '1', '10', '1', '2026-08-17 16:18:21', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL, NULL);
 
 --
 -- Datos: `usuarios`

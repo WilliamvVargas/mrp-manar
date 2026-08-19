@@ -99,10 +99,12 @@ venv\Scripts\python.exe -c "import prophet, pandas; print(prophet.__version__)"
 
 ## 4. Crear las tablas del forecast
 
-Ejecutar una vez (phpMyAdmin o mysql):
+Las tablas del forecast (`forecast_x_producto`, `forecast_backtest`) son parte del esquema
+completo en `sql/manar.sql`. Si ya importaste esa base, ya están creadas. Para (re)crear el
+esquema completo desde cero (una vez, en Windows SIEMPRE con el charset explícito para no
+corromper acentos):
 ```
-mysql -u root -P 3307 mrp_manar < sql\forecast_x_producto.sql
-mysql -u root -P 3307 mrp_manar < sql\forecast_backtest.sql
+mysql -u root --default-character-set=utf8mb4 mrp_manar < sql\manar.sql
 ```
 
 ---

@@ -10,7 +10,7 @@
  *    bias_pct   = (suma_forecast / suma_real - 1) * 100   (negativo = subestima)
  *    mape       = promedio(|real - forecast| / real) * 100
  *
- *  Requiere antes: sql/forecast_backtest.sql y haber corrido:
+ *  Requiere antes: la tabla forecast_backtest (parte del esquema en sql/manar.sql) y haber corrido:
  *    1) forecast_backtest_export.php   2) python forecast_prophet.py backtest
  * ============================================================================
  */
@@ -140,5 +140,5 @@ try {
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) { $pdo->rollBack(); }
     echo "\nERROR: " . $e->getMessage() . "\n";
-    echo "(¿Corriste sql/forecast_backtest.sql, el export y el prophet backtest?)\n";
+    echo "(¿Importaste sql/manar.sql, y corriste el export y el prophet backtest?)\n";
 }

@@ -20,7 +20,7 @@
  *  semana) viajan a cada producto. Recalcula toda la tabla forecast_x_producto.
  *
  *  Ejecutar (después de los pasos 1 y 2):  http://localhost/manar/assets/librerias/forecast/forecast_cargar.php
- *  Requiere antes: sql/forecast_x_producto.sql
+ *  Requiere antes: la tabla forecast_x_producto (parte del esquema en sql/manar.sql)
  * ============================================================================
  */
 
@@ -201,5 +201,5 @@ try {
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) { $pdo->rollBack(); }
     echo "\nERROR: " . $e->getMessage() . "\n";
-    echo "(¿Ejecutaste sql/forecast_x_producto.sql y los pasos 1 y 2?)\n";
+    echo "(¿Importaste sql/manar.sql y corriste los pasos 1 y 2?)\n";
 }
