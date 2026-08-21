@@ -4,12 +4,14 @@ require_once __DIR__ . '/../config/conexion.php';
 require_once __DIR__ . '/../includes/funciones_validacion.php';
 require_once __DIR__ . '/../models/usuario_model.php';
 require_once __DIR__ . '/../models/perfiles_model.php';
+require_once __DIR__ . '/../models/usuario_empresa_model.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-$usuarioModel = new Usuario($pdo);
-$perfilModel  = new Perfil($pdo);
+$usuarioModel        = new Usuario($pdo);
+$perfilModel         = new Perfil($pdo);
+$usuarioEmpresaModel = new UsuarioEmpresa($pdo);
 
 // El primer usuario (sembrado) se llama "admin": no puede cambiar su nombre de usuario
 // ni eliminarse. Se identifica por su nombre de usuario (el id es un UUID).
@@ -31,6 +33,49 @@ function validarPerfilUsuario($valor, Perfil $perfilModel)
         return 'El <b>Perfil</b> seleccionado no es válido.';
     }
     return null;
+}
+
+/**
+ * Valida las Empresas asignadas: al menos una (obligatorio) y que todas existan.
+ *
+ * @return string|null Error si falla, null si pasa.
+ */
+function validarEmpresasUsuario(array $empresasSel, PDO $pdo)
+{
+    $ids = array_values(array_filter($empresasSel, function ($v) {
+        return $v !== '' && $v !== null;
+    }));
+
+    if (count($ids) === 0) {
+        return 'Debe asignar al menos una <b>Empresa</b>.';
+    }
+
+    $unicos       = array_values(array_unique($ids));
+    $placeholders = implode(',', array_fill(0, count($unicos), '?'));
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM empresas WHERE id IN ($placeholders)");
+    $stmt->execute($unicos);
+    if ((int) $stmt->fetchColumn() !== count($unicos)) {
+        return 'Alguna <b>Empresa</b> seleccionada no es válida.';
+    }
+    return null;
+}
+
+/**
+ * Firma normalizada de una asignación de empresas (ids ordenados + la por defecto), para
+ * detectar cambios al editar sin depender del orden en que llegan.
+ *
+ * @return string
+ */
+function firmaEmpresas(array $ids, $porDefecto)
+{
+    $ids = array_values(array_unique(array_filter($ids, function ($v) {
+        return $v !== '' && $v !== null;
+    })));
+    sort($ids);
+    if (!in_array($porDefecto, $ids, true)) {
+        $porDefecto = $ids[0] ?? '';
+    }
+    return implode(',', $ids) . '|' . $porDefecto;
 }
 
 $action = $_REQUEST['action'] ?? '';
@@ -98,6 +143,8 @@ switch ($action) {
             $usuario = $usuarioModel->buscarPorId($id);
 
             if ($usuario) {
+                // Empresas asignadas (para marcar los checkboxes y la por defecto).
+                $usuario['empresas'] = $usuarioEmpresaModel->empresasDe($id);
                 echo json_encode([
                     'status' => 'success',
                     'data' => $usuario
@@ -114,6 +161,18 @@ switch ($action) {
         }
         exit;
 
+    case 'empresas_catalogo':
+
+        // Catálogo de empresas para los checkboxes del formulario de usuario.
+        try {
+            $empresas = $pdo->query("SELECT id, nombre FROM empresas ORDER BY posicion ASC, nombre ASC")
+                            ->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['status' => 'success', 'data' => $empresas]);
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     case 'registrar':
 
         retrasar();
@@ -125,6 +184,8 @@ switch ($action) {
         $estado = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
         $password = $_POST['password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
+        $empresasSel    = isset($_POST['empresas']) && is_array($_POST['empresas']) ? $_POST['empresas'] : [];
+        $empresaDefecto = $_POST['empresa_defecto'] ?? '';
 
         $errores = [];
 
@@ -141,6 +202,9 @@ switch ($action) {
         if ($err = validarPerfilUsuario($idPerfil, $perfilModel))
             $errores['id_perfil'] = $err;
 
+        if ($err = validarEmpresasUsuario($empresasSel, $pdo))
+            $errores['empresas'] = $err;
+
         if ($err = validarCampoTexto($password, 'Contraseña', 'password'))
             $errores['password'] = $err;
 
@@ -155,6 +219,14 @@ switch ($action) {
             $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
             if ($usuarioModel->crear($usuario, $nombres, $apellidos, $password_hash, $idPerfil, $estado, $_SESSION['usuario_id'])) {
+
+                // Recupera el id (UUID lo pone el trigger) para asignar sus empresas.
+                $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE usuario = ?");
+                $stmt->execute([$usuario]);
+                $nuevoId = $stmt->fetchColumn();
+                if ($nuevoId) {
+                    $usuarioEmpresaModel->sincronizar($nuevoId, $empresasSel, $empresaDefecto, $_SESSION['usuario_id']);
+                }
 
                 echo json_encode(['status' => 'success',
                                   'message' => 'Usuario creado con éxito',
@@ -182,6 +254,8 @@ switch ($action) {
         $apellidos = trim($_POST['apellidos'] ?? '');
         $idPerfil = $_POST['id_perfil'] ?? '';
         $estado = isset($_POST['estado']) ? 1 : 0;   // switch: presente = activo
+        $empresasSel    = isset($_POST['empresas']) && is_array($_POST['empresas']) ? $_POST['empresas'] : [];
+        $empresaDefecto = $_POST['empresa_defecto'] ?? '';
 
         $errores = [];
 
@@ -197,6 +271,9 @@ switch ($action) {
 
         if ($err = validarPerfilUsuario($idPerfil, $perfilModel))
             $errores['id_perfil'] = $err;
+
+        if ($err = validarEmpresasUsuario($empresasSel, $pdo))
+            $errores['empresas'] = $err;
 
         enviarErrorCamposFormulario($errores);
 
@@ -223,6 +300,17 @@ switch ($action) {
                 $estado = (int) $actual['estado'];
             }
 
+            // Firma de las empresas actuales vs. las enviadas (para incluirlas en la
+            // detección de cambios: pudieron cambiar aunque los datos del usuario no).
+            $empresasActuales = $usuarioEmpresaModel->empresasDe($id);
+            $idsActuales      = array_column($empresasActuales, 'id_empresa');
+            $defectoActual    = '';
+            foreach ($empresasActuales as $e) {
+                if ((int) $e['por_defecto'] === 1) { $defectoActual = $e['id_empresa']; break; }
+            }
+            $cambioEmpresas = firmaEmpresas($idsActuales, $defectoActual)
+                           !== firmaEmpresas($empresasSel, $empresaDefecto);
+
             // Sin cambios: los datos son idénticos a los actuales. Se detecta comparando el DATO
             // (no por filas afectadas), porque actualizar tocaría updated_by y daría un falso
             // "éxito" en un registro recién creado (cuyo updated_by aún es NULL).
@@ -230,7 +318,8 @@ switch ($action) {
                        && $actual['nombres']   === $nombres
                        && $actual['apellidos'] === $apellidos
                        && (string) $actual['id_perfil'] === (string) $idPerfil
-                       && (int) $actual['estado'] === $estado;
+                       && (int) $actual['estado'] === $estado
+                       && !$cambioEmpresas;
 
             if ($sinCambios) {
                 echo json_encode([
@@ -241,6 +330,7 @@ switch ($action) {
             }
 
             $usuarioModel->actualizarDatos($id, $usuario, $nombres, $apellidos, $idPerfil, $estado, $_SESSION['usuario_id']);
+            $usuarioEmpresaModel->sincronizar($id, $empresasSel, $empresaDefecto, $_SESSION['usuario_id']);
 
             echo json_encode([
                 'status'  => 'success',

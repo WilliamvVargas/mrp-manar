@@ -4,6 +4,7 @@
     require_once __DIR__ . '/../config/conexion.php';
     require_once __DIR__ . '/../models/accesos_model.php';
     require_once __DIR__ . '/../models/usuario_model.php';
+    require_once __DIR__ . '/../models/usuario_empresa_model.php';
     require_once __DIR__ . '/funciones_mantenedor.php';   // encabezadoMantenedor() para el card de cada mantenedor
 
     $menuNavegacion = (new Acceso($pdo))->menuNavegacion($_SESSION['usuario_id'] ?? null);
@@ -11,6 +12,23 @@
     // Perfil del usuario en sesión, para mostrarlo bajo su nombre (junto al botón Salir).
     $usuarioSesion = (new Usuario($pdo))->buscarPorId($_SESSION['usuario_id'] ?? null);
     $perfilUsuario = $usuarioSesion['perfil'] ?? null;
+
+    // Empresas del usuario y empresa activa (selector del navbar). La activa vive en la sesión
+    // ($_SESSION['empresa_id'], seteada en el login); si faltara, se usa la por defecto.
+    $empresasUsuario = (new UsuarioEmpresa($pdo))->empresasConNombre($_SESSION['usuario_id'] ?? null);
+    $empresaActivaId = $_SESSION['empresa_id'] ?? '';
+    if ($empresaActivaId === '' && !empty($empresasUsuario)) {
+        foreach ($empresasUsuario as $eu) {
+            if ((int) $eu['por_defecto'] === 1) { $empresaActivaId = $eu['id_empresa']; break; }
+        }
+        if ($empresaActivaId === '') { $empresaActivaId = $empresasUsuario[0]['id_empresa']; }
+    }
+
+    // Datos de la empresa activa (para mostrar su logo en el brand del navbar).
+    $empresaActiva = null;
+    foreach ($empresasUsuario as $eu) {
+        if ($eu['id_empresa'] === $empresaActivaId) { $empresaActiva = $eu; break; }
+    }
 
     // Ruta actual (archivo sin .php) para marcar el menú/ítem activo. Los archivos de página se
     // llaman igual que el `enlace` del item_menu, así que basta comparar el nombre del archivo.
@@ -36,7 +54,21 @@
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
     <div class="container">
-        <a class="navbar-brand fw-bold" href="dashboard">Panel de Control</a>
+        <a class="navbar-brand fw-bold d-flex align-items-center py-0" href="dashboard">
+            <?php if ($empresaActiva && !empty($empresaActiva['logo'])): ?>
+                <!-- Contenedor de tamaño fijo; el logo se escala dentro manteniendo su proporción. -->
+                <span class="d-inline-flex align-items-center justify-content-center bg-white rounded"
+                      style="width: 170px; height: 44px; padding: 4px;">
+                    <img src="assets/img/empresas/<?= htmlspecialchars(rawurlencode($empresaActiva['logo'])) ?>"
+                         alt="<?= htmlspecialchars($empresaActiva['nombre']) ?>"
+                         style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;">
+                </span>
+            <?php elseif ($empresaActiva): ?>
+                <?= htmlspecialchars($empresaActiva['nombre']) ?>
+            <?php else: ?>
+                Panel de Control
+            <?php endif; ?>
+        </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -72,6 +104,32 @@
                     </li>
                 <?php endforeach; ?>
             </ul>
+
+            <?php if (!empty($empresasUsuario)): ?>
+                <!-- Selector de empresa activa: la empresa con la que trabaja el usuario. Al
+                     cambiarla se actualiza $_SESSION['empresa_id'] y se recarga la página. -->
+                <div class="d-flex align-items-center me-3 mb-2 mb-lg-0">
+                    <div class="input-group input-group-sm" style="width: auto;">
+                        <span class="input-group-text bg-dark text-white-50 border-secondary">
+                            <i class="bi bi-building"></i>
+                        </span>
+                        <select id="selector-empresa-activa"
+                                class="form-select form-select-sm bg-dark text-white border-secondary"
+                                data-csrf="<?= htmlspecialchars($_SESSION['csrf_token']) ?>"
+                                title="Empresa con la que trabajas"
+                                style="min-width: 150px;"
+                                <?= count($empresasUsuario) === 1 ? 'disabled' : '' ?>>
+                            <?php foreach ($empresasUsuario as $emp): ?>
+                                <option value="<?= htmlspecialchars($emp['id_empresa']) ?>"
+                                    <?= ($emp['id_empresa'] === $empresaActivaId) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($emp['nombre']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="dropdown">
                 <button class="btn btn-dark dropdown-toggle d-flex align-items-center py-1"
                         type="button"

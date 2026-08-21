@@ -98,6 +98,13 @@
                         $_SESSION['usuario_nombre'] = $usuario;
                         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
+                        // Empresa activa: la marcada como "por defecto" del usuario. La usa la
+                        // fábrica conectarSap() para armar la conexión SAP. Si el usuario no tiene
+                        // empresas, queda null y la fábrica cae a la empresa por defecto global.
+                        require_once __DIR__ . '/../models/usuario_empresa_model.php';
+                        $usuarioEmpresaModel = new UsuarioEmpresa($pdo);
+                        $_SESSION['empresa_id'] = $usuarioEmpresaModel->empresaPorDefecto($usuario_db['id']);
+
                         $url_defecto = 'dashboard';
 
                         // Se añade una ruta de redirección en caso de haber ingresado por un url

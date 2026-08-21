@@ -101,6 +101,20 @@
                         <input type="hidden" id="id_perfil_editar" name="id_perfil">
                     </div>
 
+                    <!-- Empresas (N-a-N). El JS puebla la lista con checkboxes; el radio con
+                         estrella marca la empresa por defecto (la que se carga al iniciar sesión). -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1 d-block">
+                            Empresas <span class="text-danger">*</span>
+                            <span class="text-muted fw-normal small">— marca la <i class="bi bi-star-fill text-warning"></i> por defecto</span>
+                        </label>
+                        <ul class="list-group list-empresas-usuario" id="lista-empresas-usuario-editar"
+                            style="max-height: 170px; overflow-y: auto;">
+                            <li class="list-group-item small text-muted">Cargando empresas...</li>
+                        </ul>
+                        <div class="invalid-feedback small" id="error-empresas-editar"></div>
+                    </div>
+
                     <!-- Estado -->
                     <div class="mb-2">
                         <label class="form-label fw-bold small mb-1 d-block">Estado</label>

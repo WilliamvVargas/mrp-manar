@@ -1,16 +1,15 @@
--- =====================================================================================
--- Base de datos: mrp_manar — ESQUEMA + DATOS (consolidado en un solo archivo).
---
--- Reemplaza a los antiguos archivos migracion_*.sql separados. Incluye:
---   - Estructura completa (tablas, índices, claves foráneas, triggers).
---   - Datos de configuración: perfiles, iconos, menús, ítem menús, accesos.
---   - Usuarios (con la contraseña REDACTADA: hay que resetearla tras importar).
--- Ejecutar sobre un MySQL/MariaDB vacío.
--- =====================================================================================
+-- ============================================================================
+--  Base de datos: mrp_manar  (esquema + datos de configuración)
+--  DATOS: solo tablas de configuración. Las tablas de proceso externo
+--  (forecast_*, presupuestos, sap_*, ventas_historicas, etc.) van SOLO con
+--  su estructura. Importar con: mysql --default-character-set=utf8mb4 ...
+-- ============================================================================
+
+SET FOREIGN_KEY_CHECKS=0;
 
 -- MariaDB dump 10.19  Distrib 10.4.32-MariaDB, for Win64 (AMD64)
 --
--- Host: 127.0.0.1    Database: mrp_manar
+-- Host: localhost    Database: mrp_manar
 -- ------------------------------------------------------
 -- Server version	10.4.32-MariaDB
 
@@ -26,12 +25,129 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Current Database: `mrp_manar`
+-- Table structure for table `perfiles`
 --
 
-CREATE DATABASE /*!32312 IF NOT EXISTS*/ `mrp_manar` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `perfiles` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(50) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` char(36) DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` char(36) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_perfiles_nombre` (`nombre`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
-USE `mrp_manar`;
+--
+-- Dumping data for table `perfiles`
+--
+
+LOCK TABLES `perfiles` WRITE;
+/*!40000 ALTER TABLE `perfiles` DISABLE KEYS */;
+INSERT INTO `perfiles` VALUES (1,'Administrador','2026-06-28 13:55:33','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-06-28 13:55:40','ceae2b43-67ae-11f1-823d-e89c256a6df4'),(2,'Usuario Prueba','2026-06-28 13:56:02','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-06-28 22:01:58','ceae2b43-67ae-11f1-823d-e89c256a6df4');
+/*!40000 ALTER TABLE `perfiles` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `iconos`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `iconos` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(60) NOT NULL,
+  `tipo` enum('bootstrap','personalizado') NOT NULL,
+  `valor` varchar(60) NOT NULL,
+  `archivo` varchar(255) DEFAULT NULL,
+  `coloreable` tinyint(1) NOT NULL DEFAULT 1,
+  `posicion` int(10) unsigned NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `created_by` char(36) DEFAULT NULL,
+  `updated_by` char(36) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_iconos_valor` (`valor`),
+  KEY `idx_iconos_tipo` (`tipo`),
+  KEY `idx_iconos_posicion` (`posicion`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `iconos`
+--
+
+LOCK TABLES `iconos` WRITE;
+/*!40000 ALTER TABLE `iconos` DISABLE KEYS */;
+INSERT INTO `iconos` VALUES (1,'Usuarios','bootstrap','people-fill',NULL,1,1,'2026-06-28 22:11:49',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(2,'Perfiles','bootstrap','person-badge',NULL,1,2,'2026-06-28 22:13:51',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(3,'Menús','bootstrap','segmented-nav',NULL,1,3,'2026-06-28 22:14:51',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(4,'Ítem Menús','bootstrap','menu-app-fill',NULL,1,4,'2026-06-28 22:15:33',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(5,'Grilla 3x3','bootstrap','grid-3x3-gap-fill',NULL,1,5,'2026-06-28 22:16:20',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(6,'Gráfico Positivo','bootstrap','graph-up-arrow',NULL,1,6,'2026-06-28 22:21:16',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(7,'Pago Efectivo','bootstrap','cash-coin',NULL,1,7,'2026-06-28 22:22:35',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(8,'Signo Dolar','bootstrap','currency-dollar',NULL,1,8,'2026-06-28 22:23:06',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(9,'SAP icono','personalizado','custom-sap-icono','custom-sap-icono.svg',1,10,'2026-06-28 22:24:50','2026-08-19 11:37:39','ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(10,'Entra Sale','bootstrap','arrow-down-up',NULL,1,11,'2026-08-17 16:17:30','2026-08-19 11:37:39','ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(11,'Edificio','bootstrap','building-fill',NULL,1,9,'2026-08-19 11:37:31','2026-08-19 11:37:39','9e5eeb19-9be1-11f1-9260-e454e8877a9a',NULL);
+/*!40000 ALTER TABLE `iconos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `menus`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `menus` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(30) NOT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `posicion` int(11) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `menus`
+--
+
+LOCK TABLES `menus` WRITE;
+/*!40000 ALTER TABLE `menus` DISABLE KEYS */;
+INSERT INTO `menus` VALUES (1,'Administración',1,1),(2,'Procesos',1,2);
+/*!40000 ALTER TABLE `menus` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `item_menus`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `item_menus` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `menu_id` int(10) unsigned NOT NULL,
+  `nombre` varchar(60) NOT NULL,
+  `icono_id` int(10) unsigned DEFAULT NULL,
+  `enlace` varchar(100) DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `posicion` int(10) unsigned NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `created_by` char(36) DEFAULT NULL,
+  `updated_by` char(36) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_item_menus_menu` (`menu_id`),
+  KEY `idx_item_menus_posicion` (`posicion`),
+  KEY `idx_item_menus_icono` (`icono_id`),
+  CONSTRAINT `fk_item_menus_icono` FOREIGN KEY (`icono_id`) REFERENCES `iconos` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_item_menus_menu` FOREIGN KEY (`menu_id`) REFERENCES `menus` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `item_menus`
+--
+
+LOCK TABLES `item_menus` WRITE;
+/*!40000 ALTER TABLE `item_menus` DISABLE KEYS */;
+INSERT INTO `item_menus` VALUES (1,1,'Usuarios',1,'usuarios',1,1,'2026-06-28 22:29:04',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(2,1,'Perfiles',2,'perfiles',1,2,'2026-06-28 22:29:24',NULL,'ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(3,1,'Menus',3,'menus',1,4,'2026-06-28 22:30:05','2026-08-19 11:40:14','ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(4,1,'Ítem Menús',4,'item-menus',1,5,'2026-06-28 22:30:28','2026-08-19 11:40:14','ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(5,1,'Iconos',5,'iconos',1,6,'2026-06-28 22:30:44','2026-08-19 11:40:14','ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(6,2,'Generación de Forecast (En unidades)',6,'forecast',1,3,'2026-06-28 22:31:09','2026-08-21 14:16:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(7,2,'Carga Presupuesto (Excel)',7,'presupuesto',1,2,'2026-06-28 22:31:26','2026-08-21 14:14:22','ceae2b43-67ae-11f1-823d-e89c256a6df4','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(8,2,'Ventas Históricas',8,'ventas-historicas',0,5,'2026-06-28 22:31:54','2026-08-21 14:23:16','ceae2b43-67ae-11f1-823d-e89c256a6df4',NULL),(9,2,'Datos ERP - WMS',9,'consultas-sap',1,1,'2026-06-28 22:32:29','2026-08-21 14:07:49','ceae2b43-67ae-11f1-823d-e89c256a6df4','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(10,2,'Pronóstico de Compra',10,'mrp',1,4,'2026-08-17 16:17:58','2026-08-21 14:23:16','ceae2b43-67ae-11f1-823d-e89c256a6df4','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(11,1,'Empresas',11,'empresas',1,3,'2026-08-19 11:36:20','2026-08-19 11:40:14','9e5eeb19-9be1-11f1-9260-e454e8877a9a','9e5eeb19-9be1-11f1-9260-e454e8877a9a');
+/*!40000 ALTER TABLE `item_menus` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `accesos`
@@ -53,8 +169,18 @@ CREATE TABLE `accesos` (
   KEY `idx_accesos_item` (`id_item_menu`),
   CONSTRAINT `fk_accesos_item_menu` FOREIGN KEY (`id_item_menu`) REFERENCES `item_menus` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_accesos_perfil` FOREIGN KEY (`id_perfil`) REFERENCES `perfiles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=53 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `accesos`
+--
+
+LOCK TABLES `accesos` WRITE;
+/*!40000 ALTER TABLE `accesos` DISABLE KEYS */;
+INSERT INTO `accesos` VALUES (1,1,1,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(2,1,2,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(3,1,3,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(4,1,4,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(5,1,5,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(6,1,6,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(7,1,7,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(8,1,8,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(9,1,9,1,'2026-06-28 22:33:17','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(28,2,6,1,'2026-06-29 13:22:36','7bec296c-733d-11f1-9d9b-e89c256a6df4',NULL,NULL),(29,2,7,1,'2026-06-29 13:22:36','7bec296c-733d-11f1-9d9b-e89c256a6df4',NULL,NULL),(30,2,8,1,'2026-06-29 13:22:36','7bec296c-733d-11f1-9d9b-e89c256a6df4',NULL,NULL),(31,2,9,1,'2026-06-29 13:22:36','7bec296c-733d-11f1-9d9b-e89c256a6df4',NULL,NULL),(41,1,10,1,'2026-08-17 16:18:21','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),(47,1,11,1,'2026-08-19 11:38:08','9e5eeb19-9be1-11f1-9260-e454e8877a9a',NULL,NULL);
+/*!40000 ALTER TABLE `accesos` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `empresas`
@@ -65,12 +191,29 @@ CREATE TABLE `accesos` (
 CREATE TABLE `empresas` (
   `id` varchar(36) NOT NULL,
   `nombre` varchar(50) NOT NULL,
+  `empresa_wms` int(11) DEFAULT NULL,
+  `sap_servidor` varchar(100) DEFAULT NULL,
+  `sap_base` varchar(100) DEFAULT NULL,
+  `sap_usuario` varchar(100) DEFAULT NULL,
+  `logo` varchar(255) DEFAULT NULL,
+  `posicion` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `created_by` varchar(36) DEFAULT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `updated_by` varchar(36) DEFAULT NULL
+  `updated_by` varchar(36) DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `empresas`
+--
+
+LOCK TABLES `empresas` WRITE;
+/*!40000 ALTER TABLE `empresas` DISABLE KEYS */;
+INSERT INTO `empresas` VALUES ('db2ebe1a-9be9-11f1-9260-e454e8877a9a','Manar Spa',1,'localhost\\SQLEXPRESS','CLPRDMANAR','app_manar','empresa_6a85d7bd32cdf4.83694038.png',1,'2026-08-19 16:20:13','9e5eeb19-9be1-11f1-9260-e454e8877a9a','2026-08-20 17:47:27','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),('dc8d5040-9bef-11f1-9260-e454e8877a9a','Molderil Spa',2,'localhost\\SQLEXPRESS','CLPRDVERTIENTES','app_manar','empresa_6a85e1d077dbd5.70385291.png',2,'2026-08-19 17:03:12','9e5eeb19-9be1-11f1-9260-e454e8877a9a','2026-08-20 19:02:43','9e5eeb19-9be1-11f1-9260-e454e8877a9a');
+/*!40000 ALTER TABLE `empresas` ENABLE KEYS */;
+UNLOCK TABLES;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
 /*!50003 SET @saved_col_connection = @@collation_connection */ ;
@@ -88,6 +231,85 @@ DELIMITER ;
 /*!50003 SET character_set_client  = @saved_cs_client */ ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
+
+--
+-- Table structure for table `usuarios`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `usuarios` (
+  `id` varchar(36) NOT NULL,
+  `usuario` varchar(50) NOT NULL,
+  `nombres` varchar(128) NOT NULL,
+  `apellidos` varchar(128) NOT NULL,
+  `id_perfil` int(10) unsigned DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `password_hash` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(36) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updated_by` varchar(36) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_usuarios_perfil` (`id_perfil`),
+  CONSTRAINT `fk_usuarios_perfil` FOREIGN KEY (`id_perfil`) REFERENCES `perfiles` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `usuarios`
+--
+
+LOCK TABLES `usuarios` WRITE;
+/*!40000 ALTER TABLE `usuarios` DISABLE KEYS */;
+INSERT INTO `usuarios` VALUES ('9e5eeb19-9be1-11f1-9260-e454e8877a9a','admin','Administración','Manar',1,1,'$2y$10$n4Vt8XHeMYzjAUmeriAUd.p87ujxi27pXx5JfbPdDehYxCNJoVheK','2026-06-14 05:06:31','','2026-08-20 19:01:24','9e5eeb19-9be1-11f1-9260-e454e8877a9a'),('9e5ef670-9be1-11f1-9260-e454e8877a9a','orodriguez','Omar','Rodriguez',2,1,'????????????????????????????????????????????????????????????','2026-06-28 22:05:30','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-06-29 17:23:16','7bec296c-733d-11f1-9d9b-e89c256a6df4'),('9e5ef731-9be1-11f1-9260-e454e8877a9a','wvargas','william','vargas',2,1,'????????????????????????????????????????????????????????????','2026-06-28 22:55:23','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-06-29 00:30:20','ceae2b43-67ae-11f1-823d-e89c256a6df4'),('9e5ef790-9be1-11f1-9260-e454e8877a9a','dmaradona','Diego','Armando',1,1,'????????????????????????????????????????????????????????????','2026-06-28 23:24:22','ceae2b43-67ae-11f1-823d-e89c256a6df4','2026-08-20 19:00:33','9e5eeb19-9be1-11f1-9260-e454e8877a9a');
+/*!40000 ALTER TABLE `usuarios` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = utf8mb4 */ ;
+/*!50003 SET character_set_results = utf8mb4 */ ;
+/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'NO_ZERO_IN_DATE,NO_ZERO_DATE,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `antes_insertar_usuarios` BEFORE INSERT ON `usuarios` FOR EACH ROW BEGIN
+    SET NEW.id = UUID();
+END */;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-08-21 14:56:35
+
+-- MariaDB dump 10.19  Distrib 10.4.32-MariaDB, for Win64 (AMD64)
+--
+-- Host: localhost    Database: mrp_manar
+-- ------------------------------------------------------
+-- Server version	10.4.32-MariaDB
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
 -- Table structure for table `forecast`
@@ -114,7 +336,7 @@ CREATE TABLE `forecast` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `forecast_backtest`  (se llena por proceso; sin datos)
+-- Table structure for table `forecast_backtest`
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -135,11 +357,11 @@ CREATE TABLE `forecast_backtest` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_bt_grupo` (`familia`,`sub_familia`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `forecast_x_producto`  (se llena por proceso; sin datos)
+-- Table structure for table `forecast_x_producto`
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -170,108 +392,7 @@ CREATE TABLE `forecast_x_producto` (
   KEY `idx_fxp_semana` (`semana_inicio`),
   KEY `idx_fxp_grupo` (`familia`,`sub_familia`),
   KEY `idx_fxp_producto` (`producto_codigo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `iconos`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `iconos` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(60) NOT NULL,
-  `tipo` enum('bootstrap','personalizado') NOT NULL,
-  `valor` varchar(60) NOT NULL,
-  `archivo` varchar(255) DEFAULT NULL,
-  `coloreable` tinyint(1) NOT NULL DEFAULT 1,
-  `posicion` int(10) unsigned NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `created_by` char(36) DEFAULT NULL,
-  `updated_by` char(36) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_iconos_valor` (`valor`),
-  KEY `idx_iconos_tipo` (`tipo`),
-  KEY `idx_iconos_posicion` (`posicion`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `item_menus`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `item_menus` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `menu_id` int(10) unsigned NOT NULL,
-  `nombre` varchar(60) NOT NULL,
-  `icono_id` int(10) unsigned DEFAULT NULL,
-  `enlace` varchar(100) DEFAULT NULL,
-  `estado` tinyint(1) NOT NULL DEFAULT 1,
-  `posicion` int(10) unsigned NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `created_by` char(36) DEFAULT NULL,
-  `updated_by` char(36) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_item_menus_menu` (`menu_id`),
-  KEY `idx_item_menus_posicion` (`posicion`),
-  KEY `idx_item_menus_icono` (`icono_id`),
-  CONSTRAINT `fk_item_menus_icono` FOREIGN KEY (`icono_id`) REFERENCES `iconos` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_item_menus_menu` FOREIGN KEY (`menu_id`) REFERENCES `menus` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `login_intentos`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `login_intentos` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `ip` varchar(45) NOT NULL,
-  `usuario` varchar(255) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `idx_ip_usuario_fecha` (`ip`,`usuario`,`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `menus`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `menus` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(30) NOT NULL,
-  `estado` tinyint(1) NOT NULL DEFAULT 1,
-  `posicion` int(11) NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `perfiles`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `perfiles` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(50) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `created_by` char(36) DEFAULT NULL,
-  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `updated_by` char(36) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_perfiles_nombre` (`nombre`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9621 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -298,11 +419,11 @@ CREATE TABLE `presupuestos` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `updated_by` varchar(36) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7049 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14097 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `presupuesto_x_producto`  (se llena por proceso; sin datos)
+-- Table structure for table `presupuesto_x_producto`
 --
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -382,46 +503,6 @@ CREATE TABLE `sap_sync_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `usuarios`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `usuarios` (
-  `id` varchar(36) NOT NULL,
-  `usuario` varchar(50) NOT NULL,
-  `nombres` varchar(128) NOT NULL,
-  `apellidos` varchar(128) NOT NULL,
-  `id_perfil` int(10) unsigned DEFAULT NULL,
-  `estado` tinyint(1) NOT NULL DEFAULT 1,
-  `password_hash` varchar(255) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `created_by` varchar(36) DEFAULT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `updated_by` varchar(36) DEFAULT NULL,
-  KEY `idx_usuarios_perfil` (`id_perfil`),
-  CONSTRAINT `fk_usuarios_perfil` FOREIGN KEY (`id_perfil`) REFERENCES `perfiles` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
-/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
-/*!50003 SET @saved_col_connection = @@collation_connection */ ;
-/*!50003 SET character_set_client  = utf8mb4 */ ;
-/*!50003 SET character_set_results = utf8mb4 */ ;
-/*!50003 SET collation_connection  = utf8mb4_unicode_ci */ ;
-/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
-/*!50003 SET sql_mode              = 'NO_ZERO_IN_DATE,NO_ZERO_DATE,NO_ENGINE_SUBSTITUTION' */ ;
-DELIMITER ;;
-/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `antes_insertar_usuarios` BEFORE INSERT ON `usuarios` FOR EACH ROW BEGIN
-    SET NEW.id = UUID();
-END */;;
-DELIMITER ;
-/*!50003 SET sql_mode              = @saved_sql_mode */ ;
-/*!50003 SET character_set_client  = @saved_cs_client */ ;
-/*!50003 SET character_set_results = @saved_cs_results */ ;
-/*!50003 SET collation_connection  = @saved_col_connection */ ;
-
---
 -- Table structure for table `ventas_historicas`
 --
 
@@ -482,6 +563,41 @@ CREATE TABLE `ventas_historicas` (
   KEY `idx_vh_version` (`version`)
 ) ENGINE=InnoDB AUTO_INCREMENT=52718 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `login_intentos`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `login_intentos` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `ip` varchar(45) NOT NULL,
+  `usuario` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_ip_usuario_fecha` (`ip`,`usuario`,`created_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `usuario_empresas`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `usuario_empresas` (
+  `id_usuario` varchar(36) NOT NULL,
+  `id_empresa` varchar(36) NOT NULL,
+  `por_defecto` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(36) DEFAULT NULL,
+  PRIMARY KEY (`id_usuario`,`id_empresa`),
+  KEY `idx_ue_empresa` (`id_empresa`),
+  CONSTRAINT `fk_ue_empresa` FOREIGN KEY (`id_empresa`) REFERENCES `empresas` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ue_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -492,86 +608,6 @@ CREATE TABLE `ventas_historicas` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-06-29 16:12:50
+-- Dump completed on 2026-08-21 14:56:35
 
-SET FOREIGN_KEY_CHECKS = 0;
-
--- =====================================================================================
--- DATOS de configuración (perfiles, iconos, menús, ítem menús, accesos) y usuarios.
--- Las contraseñas (usuarios.password_hash) están REDACTADAS con '?' por seguridad:
--- al importar, esos usuarios no podrán iniciar sesión hasta resetear su contraseña.
--- =====================================================================================
-
---
--- Datos: `perfiles`
---
-INSERT INTO `perfiles` (`id`, `nombre`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES
-  ('1', 'Administrador', '2026-06-28 13:55:33', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-28 13:55:40', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('2', 'Usuario Prueba', '2026-06-28 13:56:02', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-28 22:01:58', 'ceae2b43-67ae-11f1-823d-e89c256a6df4');
-
---
--- Datos: `iconos`
---
-INSERT INTO `iconos` (`id`, `nombre`, `tipo`, `valor`, `archivo`, `coloreable`, `posicion`, `created_at`, `updated_at`, `created_by`, `updated_by`) VALUES
-  ('1', 'Usuarios', 'bootstrap', 'people-fill', NULL, '1', '1', '2026-06-28 22:11:49', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('2', 'Perfiles', 'bootstrap', 'person-badge', NULL, '1', '2', '2026-06-28 22:13:51', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('3', 'Menús', 'bootstrap', 'segmented-nav', NULL, '1', '3', '2026-06-28 22:14:51', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('4', 'Ítem Menús', 'bootstrap', 'menu-app-fill', NULL, '1', '4', '2026-06-28 22:15:33', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('5', 'Grilla 3x3', 'bootstrap', 'grid-3x3-gap-fill', NULL, '1', '5', '2026-06-28 22:16:20', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('6', 'Gráfico Positivo', 'bootstrap', 'graph-up-arrow', NULL, '1', '6', '2026-06-28 22:21:16', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('7', 'Pago Efectivo', 'bootstrap', 'cash-coin', NULL, '1', '7', '2026-06-28 22:22:35', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('8', 'Signo Dolar', 'bootstrap', 'currency-dollar', NULL, '1', '8', '2026-06-28 22:23:06', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('9', 'SAP icono', 'personalizado', 'custom-sap-icono', 'custom-sap-icono.svg', '1', '9', '2026-06-28 22:24:50', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('10', 'Entra Sale', 'bootstrap', 'arrow-down-up', NULL, '1', '10', '2026-08-17 16:17:30', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
-
---
--- Datos: `menus`
---
-INSERT INTO `menus` (`id`, `nombre`, `estado`, `posicion`) VALUES
-  ('1', 'Administración', '1', '1'),
-  ('2', 'Procesos', '1', '2');
-
---
--- Datos: `item_menus`
---
-INSERT INTO `item_menus` (`id`, `menu_id`, `nombre`, `icono_id`, `enlace`, `estado`, `posicion`, `created_at`, `updated_at`, `created_by`, `updated_by`) VALUES
-  ('1', '1', 'Usuarios', '1', 'usuarios', '1', '1', '2026-06-28 22:29:04', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('2', '1', 'Perfiles', '2', 'perfiles', '1', '2', '2026-06-28 22:29:24', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('3', '1', 'Menus', '3', 'menus', '1', '3', '2026-06-28 22:30:05', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('4', '1', 'Ítem Menús', '4', 'item-menus', '1', '4', '2026-06-28 22:30:28', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('5', '1', 'Iconos', '5', 'iconos', '1', '5', '2026-06-28 22:30:44', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('6', '2', 'Forecast', '6', 'forecast', '1', '1', '2026-06-28 22:31:09', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('7', '2', 'Presupuesto', '7', 'presupuesto', '1', '2', '2026-06-28 22:31:26', '2026-06-28 22:51:13', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('8', '2', 'Ventas Históricas', '8', 'ventas-historicas', '1', '3', '2026-06-28 22:31:54', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('9', '2', 'Consultas SAP', '9', 'consultas-sap', '1', '4', '2026-06-28 22:32:29', '2026-06-28 22:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL),
-  ('10', '2', 'MRP', '10', 'mrp', '1', '5', '2026-08-17 16:17:58', NULL, 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL);
-
---
--- Datos: `accesos`
---
-INSERT INTO `accesos` (`id`, `id_perfil`, `id_item_menu`, `estado`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES
-  ('1', '1', '1', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('2', '1', '2', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('3', '1', '3', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('4', '1', '4', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('5', '1', '5', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('6', '1', '6', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('7', '1', '7', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('8', '1', '8', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('9', '1', '9', '1', '2026-06-28 22:33:17', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 00:03:44', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('28', '2', '6', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
-  ('29', '2', '7', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
-  ('30', '2', '8', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
-  ('31', '2', '9', '1', '2026-06-29 13:22:36', '7bec296c-733d-11f1-9d9b-e89c256a6df4', NULL, NULL),
-  ('41', '1', '10', '1', '2026-08-17 16:18:21', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', NULL, NULL);
-
---
--- Datos: `usuarios`
---
-INSERT INTO `usuarios` (`id`, `usuario`, `nombres`, `apellidos`, `id_perfil`, `estado`, `password_hash`, `created_at`, `created_by`, `updated_at`, `updated_by`) VALUES
-  ('ceae2b43-67ae-11f1-823d-e89c256a6df4', 'admin', 'Administración', 'Manar', '1', '1', '$2y$10$n4Vt8XHeMYzjAUmeriAUd.p87ujxi27pXx5JfbPdDehYxCNJoVheK', '2026-06-14 01:06:31', '', '2026-06-29 00:49:56', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('7bec296c-733d-11f1-9d9b-e89c256a6df4', 'orodriguez', 'Omar', 'Rodriguez', '2', '1', '????????????????????????????????????????????????????????????', '2026-06-28 18:05:30', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-29 13:23:16', '7bec296c-733d-11f1-9d9b-e89c256a6df4'),
-  ('73b1043a-7344-11f1-9d9b-e89c256a6df4', 'wvargas', 'william', 'vargas', '2', '1', '????????????????????????????????????????????????????????????', '2026-06-28 18:55:23', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-28 20:30:20', 'ceae2b43-67ae-11f1-823d-e89c256a6df4'),
-  ('808b6edf-7348-11f1-9d9b-e89c256a6df4', 'dmaradona', 'Diego', 'Armando', '1', '1', '????????????????????????????????????????????????????????????', '2026-06-28 19:24:22', 'ceae2b43-67ae-11f1-823d-e89c256a6df4', '2026-06-28 20:30:22', 'ceae2b43-67ae-11f1-823d-e89c256a6df4');
-
-SET FOREIGN_KEY_CHECKS = 1;
+SET FOREIGN_KEY_CHECKS=1;

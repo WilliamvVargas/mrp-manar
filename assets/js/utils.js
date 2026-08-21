@@ -1310,3 +1310,42 @@ $(document).on("click", ".btn-generar-password-global", function() {
         }
     });
 });
+
+
+/* ==========================================================================
+ *  SELECTOR DE EMPRESA ACTIVA (navbar)
+ *  Cambia $_SESSION['empresa_id'] y recarga para que todo el sistema (incluida
+ *  la conexión SAP) use la empresa elegida.
+ * ========================================================================== */
+
+// Recuerda el valor actual al enfocar, para revertir si el cambio falla.
+$(document).on('focus', '#selector-empresa-activa', function() {
+    $(this).data('previo', $(this).val());
+});
+
+$(document).on('change', '#selector-empresa-activa', function() {
+    const $sel      = $(this);
+    const empresaId = $sel.val();
+    const csrf      = $sel.data('csrf');
+
+    $sel.prop('disabled', true);
+
+    $.ajax({
+        url: 'controllers/empresa_activa_controller.php?action=cambiar',
+        type: 'POST',
+        data: { empresa_id: empresaId, csrf_token: csrf },
+        dataType: 'json',
+        success: function(res) {
+            if (res.status === 'success') {
+                location.reload();   // recarga con la nueva empresa activa
+            } else {
+                $sel.val($sel.data('previo')).prop('disabled', false);
+                alert(res.message || 'No se pudo cambiar la empresa.');
+            }
+        },
+        error: function() {
+            $sel.val($sel.data('previo')).prop('disabled', false);
+            alert('No se pudo cambiar la empresa.');
+        }
+    });
+});

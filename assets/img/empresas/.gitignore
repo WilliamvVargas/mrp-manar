@@ -1,0 +1,3 @@
+# Ignora los logos subidos, conserva la carpeta en el repo.
+*
+!.gitignore

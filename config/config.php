@@ -30,6 +30,11 @@
   define('PERFIL_NOMBRE_MAX_LENGTH', 50);
   define('PERFIL_ADMIN_ID', 1);   // Perfil Administrador fijo: no se puede editar ni eliminar
 
+  //Empresas
+  define('EMPRESA_NOMBRE_MIN_LENGTH', 2);
+  define('EMPRESA_NOMBRE_MAX_LENGTH', 50);   // debe coincidir con empresas.nombre (varchar 50)
+  define('EMPRESA_LOGO_MAX_PESO_MB', 2);     // peso máximo del logo (imagen)
+
   //Seguridad de acceso (freno de fuerza bruta)
   define('LOGIN_MAX_INTENTOS', 5);      // Intentos fallidos permitidos por IP + usuario
   define('LOGIN_VENTANA_MINUTOS', 15);  // Ventana de tiempo y duración del bloqueo

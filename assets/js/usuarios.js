@@ -424,6 +424,7 @@ $(document).ready(function() {
                 if (res.status === 'success') {
                     limpiarFormularioCompleto(formulario, modalMensaje, true);
                     $('#label-estado').text('Activo');   // switch vuelve a su valor por defecto
+                    resetEmpresasCrear();
                     tablaConsulta.ajax.reload(null, true);
                     mostrarMensajeFormulario(
                         modalMensaje,
@@ -443,6 +444,10 @@ $(document).ready(function() {
                         // El error de Perfil apunta al hidden #id_perfil: márcalo en el combobox visible.
                         if (res.errors && res.errors.id_perfil) {
                             $('#input_perfil').addClass('is-invalid').removeClass('is-valid');
+                        }
+                        // El error de Empresas no es un input único: se muestra bajo la lista.
+                        if (res.errors && res.errors.empresas) {
+                            mostrarErrorEmpresas($('#lista-empresas-usuario'), res.errors.empresas);
                         }
                     }
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
@@ -491,6 +496,10 @@ $(document).ready(function() {
                         // El error de Perfil apunta al hidden #id_perfil: márcalo en el combobox visible.
                         if (res.errors && res.errors.id_perfil) {
                             $('#input_perfil_editar').addClass('is-invalid').removeClass('is-valid');
+                        }
+                        // El error de Empresas no es un input único: se muestra bajo la lista.
+                        if (res.errors && res.errors.empresas) {
+                            mostrarErrorEmpresas($('#lista-empresas-usuario-editar'), res.errors.empresas);
                         }
                     }
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
@@ -605,6 +614,7 @@ $('#modalUsuarioCrear').on('hidden.bs.modal', function (e) {
 
     limpiarFormularioCompleto("#form-usuario","#modal-mensajes", true);
     $('#label-estado').text('Activo');   // el switch vuelve a su valor por defecto (activo)
+    resetEmpresasCrear();
 
 });
 
@@ -681,7 +691,10 @@ $(document).on('click', '.btn-editar', function() {
                     .prop('disabled', esAdmin);
                 $('#label-estado-editar').text(activoEditar ? 'Activo' : 'Inactivo');
 
-            } 
+                // Empresas asignadas del usuario (marca checkboxes + la por defecto).
+                poblarEmpresasEditar(response.data.empresas);
+
+            }
             else {
                 mostrarMensajeFormulario(modalMensaje, 'Atención', response.message, 'danger', 0);
             }
@@ -790,5 +803,103 @@ $(document).on('click', '.btn-copiar-credenciales-global', function() {
                   .addClass('btn-light border-secondary-subtle')
                   .html('<i class="bi bi-clipboard me-1"></i> Copiar');
         }, 2000);
+    });
+});
+
+
+/* ==========================================================================
+ *  EMPRESAS DEL USUARIO (relación N-a-N) — checkboxes + radio "por defecto"
+ *  Los checkboxes viajan como empresas[]; la por defecto como empresa_defecto
+ *  (van solos en el serialize() de cada formulario).
+ * ========================================================================== */
+
+// Construye una fila: checkbox (empresa) + radio con estrella (por defecto).
+function construirFilaEmpresa(emp) {
+    const nombre = $('<div>').text(emp.nombre || '').html();
+    const id     = $('<div>').text(emp.id).html();
+    return ''
+        + '<li class="list-group-item d-flex align-items-center py-1 px-2 small">'
+        +   '<label class="d-flex align-items-center flex-grow-1 mb-0" style="cursor:pointer;">'
+        +     '<input class="form-check-input chk-empresa mt-0 me-2" type="checkbox" name="empresas[]" value="' + id + '">'
+        +     '<span>' + nombre + '</span>'
+        +   '</label>'
+        +   '<label class="mb-0 ms-2" title="Marcar como empresa por defecto" style="cursor:pointer;">'
+        +     '<input class="form-check-input radio-defecto me-1" type="radio" name="empresa_defecto" value="' + id + '" disabled>'
+        +     '<i class="bi bi-star-fill text-warning"></i>'
+        +   '</label>'
+        + '</li>';
+}
+
+// Garantiza que siempre haya UNA por defecto entre las seleccionadas.
+function autoDefectoEmpresa($lista) {
+    const $checked = $lista.find('.chk-empresa:checked');
+    if ($checked.length === 1) {
+        $checked.closest('li').find('.radio-defecto').prop('checked', true);
+    } else if ($checked.length > 1 && $lista.find('.radio-defecto:checked').length === 0) {
+        $checked.first().closest('li').find('.radio-defecto').prop('checked', true);
+    }
+}
+
+function limpiarErrorEmpresas($lista) {
+    $lista.closest('.mb-2').find('.invalid-feedback').removeClass('d-block').text('');
+}
+function mostrarErrorEmpresas($lista, msg) {
+    $lista.closest('.mb-2').find('.invalid-feedback').addClass('d-block').html(msg);
+}
+
+// Marca las empresas de un usuario en el modal de edición.
+function poblarEmpresasEditar(empresas) {
+    const $lista = $('#lista-empresas-usuario-editar');
+    $lista.find('.chk-empresa').prop('checked', false);
+    $lista.find('.radio-defecto').prop('checked', false).prop('disabled', true);
+
+    (empresas || []).forEach(function(e) {
+        const $chk = $lista.find('.chk-empresa[value="' + e.id_empresa + '"]');
+        if (!$chk.length) { return; }
+        $chk.prop('checked', true);
+        const $radio = $chk.closest('li').find('.radio-defecto').prop('disabled', false);
+        if (Number(e.por_defecto) === 1) { $radio.prop('checked', true); }
+    });
+    autoDefectoEmpresa($lista);
+    limpiarErrorEmpresas($lista);
+}
+
+// Deja el bloque de empresas de "crear" en limpio.
+function resetEmpresasCrear() {
+    const $lista = $('#lista-empresas-usuario');
+    $lista.find('.chk-empresa').prop('checked', false);
+    $lista.find('.radio-defecto').prop('checked', false).prop('disabled', true);
+    limpiarErrorEmpresas($lista);
+}
+
+// Al marcar/desmarcar una empresa: habilita/inhabilita su radio y recalcula la por defecto.
+$(document).on('change', '.list-empresas-usuario .chk-empresa', function() {
+    const $lista = $(this).closest('.list-empresas-usuario');
+    const $radio = $(this).closest('li').find('.radio-defecto');
+    if (this.checked) {
+        $radio.prop('disabled', false);
+    } else {
+        $radio.prop('disabled', true).prop('checked', false);
+    }
+    autoDefectoEmpresa($lista);
+    limpiarErrorEmpresas($lista);
+});
+
+// Carga el catálogo de empresas una sola vez y lo inyecta en ambos formularios.
+$(document).ready(function() {
+    $.ajax({
+        url: 'controllers/usuarios_controller.php?action=empresas_catalogo',
+        type: 'GET',
+        dataType: 'json',
+        success: function(res) {
+            if (res.status !== 'success' || !Array.isArray(res.data)) { return; }
+            let html = '';
+            if (res.data.length === 0) {
+                html = '<li class="list-group-item small text-muted">No hay empresas registradas.</li>';
+            } else {
+                res.data.forEach(function(emp) { html += construirFilaEmpresa(emp); });
+            }
+            $('#lista-empresas-usuario, #lista-empresas-usuario-editar').html(html);
+        }
     });
 });
