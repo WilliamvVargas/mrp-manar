@@ -1,33 +1,23 @@
 <?php
     /*
-     * Conexión a SQL Server vía PDO (driver pdo_sqlsrv). Separada de la conexión MySQL
-     * (config/conexion.php): expone $pdoSqlsrv.
+     * Conexión a SQL Server (SAP) vía PDO. Expone $pdoSqlsrv.
      *
-     * Los datos de conexión viven como constantes en config/config_sqlserver.php.
-     * Requiere la extensión pdo_sqlsrv + Microsoft ODBC Driver 18 for SQL Server.
+     * Modelo multi-empresa: la conexión se arma DINÁMICAMENTE con la fábrica conectarSap()
+     * (config/conexion_sqlserver_factory.php), que toma servidor/base/usuario de la empresa
+     * (tabla `empresas`) y la contraseña del mapa SQLSRV_PASS_POR_BASE (config_sqlserver.php).
      *
-     * Nota: con ODBC Driver 18 el cifrado viene activo por defecto; en servidores con
-     * certificado autofirmado (ej. instancia local) se usa TrustServerCertificate=1.
+     * Por compatibilidad, este archivo sigue exponiendo el global $pdoSqlsrv, armado para la
+     * empresa activa ($_SESSION['empresa_id']) o, en su defecto, la empresa por defecto.
+     * Para conectar a una empresa concreta, usa conectarSap($pdo, $idEmpresa) directamente.
      */
 
-    require_once __DIR__ . '/config_sqlserver.php';
-
-    $sqlsrvOpciones = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ];
-
-    $sqlsrvDsn = 'sqlsrv:Server=' . SQLSRV_HOST . ';Database=' . SQLSRV_DB . ';TrustServerCertificate=1';
+    require_once __DIR__ . '/conexion.php';                    // $pdo (MySQL) — lo necesita la fábrica
+    require_once __DIR__ . '/conexion_sqlserver_factory.php';  // conectarSap()
 
     try {
-        $pdoSqlsrv = new PDO($sqlsrvDsn, SQLSRV_USER, SQLSRV_PASS, $sqlsrvOpciones);
-
-        // Fija el orden de fecha a año-mes-día para esta sesión. Sin esto, el login del
-        // servidor puede tener idioma Español (DATEFORMAT dmy) e interpretar mal las fechas
-        // 'YYYY-MM-DD' que se pasan como parámetro (ej. '2026-08-16' -> intenta mes=16 ->
-        // "conversión de nvarchar en datetime fuera de intervalo"). Blinda todas las consultas.
-        $pdoSqlsrv->exec('SET DATEFORMAT ymd');
-    } catch (PDOException $e) {
+        $pdoSqlsrv = conectarSap($pdo);
+    } catch (Throwable $e) {
+        // El detalle (empresa sin configurar, falta password, credenciales, red...) queda en el log.
         error_log('[SQLSRV] ' . $e->getMessage());
         die('Error de conexión a SQL Server.');
     }
