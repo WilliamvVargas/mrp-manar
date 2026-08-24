@@ -25,14 +25,13 @@
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Presupuesto'); ?></h5>
             <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success btn-sm" id="btn-descargar-excel">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Descargar Excel
+                </button>
                 <button class="btn btn-primary btn-sm"
                         data-bs-toggle="modal"
                         data-bs-target="#modalCargaMasivaPresupuesto">
                     <i class="bi bi-file-arrow-up"></i> Carga Masiva Presupuesto
-                </button>
-                <button class="btn btn-primary btn-sm" type="button" id="btn-explosion-forecast"
-                        data-bs-toggle="modal" data-bs-target="#modalExplosionForecast">
-                    <i class="bi bi-diagram-3"></i> Explosión de Forecast
                 </button>
             </div>
         </div>
@@ -40,6 +39,12 @@
             <div class="table-responsive">
 
                 <div class="row g-2 mb-2 mx-0">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="filtro-version">Versión</label>
+                        <select class="form-select form-select-sm" id="filtro-version">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
                     <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="filtro-anio">Año</label>
                         <select class="form-select form-select-sm" id="filtro-anio">
@@ -64,13 +69,13 @@
                             <option value="12">Diciembre</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="filtro-familia">Familia</label>
                         <select class="form-select form-select-sm" id="filtro-familia">
                             <option value="">Todas</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="filtro-sub-familia">Sub-Familia</label>
                         <select class="form-select form-select-sm" id="filtro-sub-familia">
                             <option value="">Todas</option>
@@ -87,29 +92,23 @@
                     <thead class="table-dark">
                         <tr>
                             <th style="width: 4%">ID</th>
+                            <th style="width: 8%">Versión</th>
                             <th style="width: 6%">Año</th>
                             <th style="width: 5%">Mes</th>
-                            <th style="width: 11%">Canal</th>
-                            <th style="width: 11%">Sub-Canal</th>
-                            <th style="width: 11%">Familia</th>
-                            <th style="width: 11%">Sub-Familia</th>
-                            <th style="width: 9%" class="text-end">Venta</th>
-                            <th style="width: 7%" class="text-end">MG %</th>
-                            <th style="width: 9%" class="text-end">MG Neto</th>
-                            <th style="width: 7%" class="text-end">PP</th>
-                            <th style="width: 7%" class="text-end">KG</th>
-                            <th style="width: 6%" class="text-center">Acciones</th>
+                            <th style="width: 10%">Canal</th>
+                            <th style="width: 10%">Sub-Canal</th>
+                            <th style="width: 10%">Familia</th>
+                            <th style="width: 10%">Sub-Familia</th>
+                            <th style="width: 8%" class="text-end">Venta</th>
+                            <th style="width: 6%" class="text-end">MG %</th>
+                            <th style="width: 8%" class="text-end">MG Neto</th>
+                            <th style="width: 6%" class="text-end">PP</th>
+                            <th style="width: 6%" class="text-end">KG</th>
+                            <th style="width: 5%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                     </tbody>
-                    <tfoot class="table-light fw-bold">
-                        <tr>
-                            <td colspan="7" class="text-end">Total Venta:</td>
-                            <td class="text-end" id="total-venta">—</td>
-                            <td colspan="5"></td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
         </div>
@@ -119,7 +118,6 @@
 <?php
     include 'modals/modal_presupuesto_carga_masiva.php';
     include 'modals/modal_presupuesto_productos.php';
-    include 'modals/modal_presupuesto_explosion_forecast.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -127,7 +125,5 @@
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/utils.js"></script>
-<script src="assets/js/presupuesto.js?v=<?php echo filemtime(__DIR__ . '/assets/js/presupuesto.js'); ?>"></script>
-<script src="assets/js/explosion_forecast.js?v=<?php echo filemtime(__DIR__ . '/assets/js/explosion_forecast.js'); ?>"></script>
-</body>
+<script src="assets/js/presupuesto.js?v=<?php echo filemtime(__DIR__ . '/assets/js/presupuesto.js'); ?>"></script></body>
 </html>

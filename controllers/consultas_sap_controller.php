@@ -184,47 +184,48 @@ switch ($action) {
 
     case 'grafico_producto':
 
-        // Serie de demanda mensual (cantidad) de un artículo, toda su historia (sin filtro de fecha),
-        // más el FORECAST por producto (MySQL) y su presupuesto futuro (presupuesto del grupo ×
-        // participación del producto).
+        // Serie SEMANAL (ISO) de un artículo: demanda/venta reales (SAP, por día agregado a
+        // semana; clave = lunes 'yyyy-MM-dd'), más la Cantidad Forecast semanal (MySQL).
         try {
             $itemCode = $_GET['itemcode'] ?? '';
 
             $model = new ConsultaSap($pdoSqlsrv);
-            $datos = $model->demandaMensualProducto($itemCode);
 
-            // Forecast + presupuesto futuro (MySQL). Si la tabla no existe, queda vacío.
+            // Lunes ISO de una fecha 'yyyy-MM-dd'.
+            $lunes = function ($ymd) {
+                return date('Y-m-d', strtotime('monday this week', strtotime($ymd . ' 12:00:00')));
+            };
+
+            // Historia real por DÍA (SAP) agregada a SEMANA ISO (clave = lunes).
+            $porSemana = [];
+            foreach ($model->demandaDiariaProducto($itemCode) as $d) {
+                $lun = $lunes($d['Fecha']);
+                if (!isset($porSemana[$lun])) { $porSemana[$lun] = ['Demanda' => 0.0, 'Neto' => 0.0]; }
+                $porSemana[$lun]['Demanda'] += (float) $d['Demanda'];
+                $porSemana[$lun]['Neto']    += (float) $d['Neto'];
+            }
+            ksort($porSemana);
+            $datos = [];
+            foreach ($porSemana as $lun => $v) {
+                $datos[] = ['FechaDocumento' => $lun, 'Demanda' => $v['Demanda'], 'Neto' => $v['Neto']];
+            }
+
+            // Forecast SEMANAL (MySQL): Cantidad Forecast por semana (clave = semana_inicio, lunes).
+            // Si la tabla no existe o falla, el gráfico muestra solo la historia real.
             $forecast = [];
             try {
                 require_once __DIR__ . '/../config/conexion.php'; // $pdo (MySQL)
 
                 $st = $pdo->prepare("
-                    SELECT anio, mes, familia, sub_familia, demanda_forecast_corr AS df, participacion AS part
-                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY anio, mes
+                    SELECT semana_inicio, demanda_forecast AS df
+                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY semana_inicio
                 ");
                 $st->execute([$itemCode]);
-                $fr = $st->fetchAll();
-
-                if ($fr) {
-                    // Presupuesto del grupo por año-mes (para repartir por la participación).
-                    $bp = $pdo->prepare("
-                        SELECT anio, mes, SUM(venta) AS v FROM presupuestos
-                        WHERE TRIM(familia) = ? AND TRIM(sub_familia) = ? AND venta IS NOT NULL
-                        GROUP BY anio, mes
-                    ");
-                    $bp->execute([$fr[0]['familia'], $fr[0]['sub_familia']]);
-                    $bud = [];
-                    foreach ($bp->fetchAll() as $b) { $bud[sprintf('%04d-%02d', $b['anio'], $b['mes'])] = (float) $b['v']; }
-
-                    foreach ($fr as $r) {
-                        $ym = sprintf('%04d-%02d', $r['anio'], $r['mes']);
-                        $gb = $bud[$ym] ?? null;
-                        $forecast[] = [
-                            'ym'                => $ym,
-                            'DemandaForecast'   => (float) $r['df'],
-                            'PresupuestoFuturo' => ($gb !== null) ? $gb * (float) $r['part'] : null,
-                        ];
-                    }
+                foreach ($st->fetchAll() as $r) {
+                    $forecast[] = [
+                        'ym'              => (string) $r['semana_inicio'],   // lunes ISO
+                        'DemandaForecast' => (float) $r['df'],
+                    ];
                 }
             } catch (Throwable $e) {
                 error_log('[CONSULTAS_SAP forecast] ' . $e->getMessage());

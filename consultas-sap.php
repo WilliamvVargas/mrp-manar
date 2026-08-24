@@ -27,16 +27,19 @@
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Consultas SAP'); ?></h5>
             <div class="d-flex gap-2">
-                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v2">
-                    <i class="bi bi-search"></i> Consulta Líneas Facs. y NCs
+                <button class="btn btn-warning btn-sm" type="button" id="btn-consulta-facs-ncs-v2">
+                    <i class="bi bi-search"></i> Consulta Facs. y NCs - Líneas
                 </button>
-                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v3">
-                    <i class="bi bi-search"></i> Consulta Productos Facs. y NCs
+                <button class="btn btn-warning btn-sm" type="button" id="btn-consulta-facs-ncs-v3">
+                    <i class="bi bi-search"></i> Consulta Facs. y NCs - Productos
                 </button>
-                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-facs-ncs-v4">
-                    <i class="bi bi-search"></i> Consulta Familias Facs. y NCs
+                <button class="btn btn-warning btn-sm" type="button" id="btn-consulta-facs-ncs-v4">
+                    <i class="bi bi-search"></i> Consulta Facs. y NCs - Familia
                 </button>
-                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-oc">
+                <button class="btn btn-success btn-sm" type="button" id="btn-consulta-odv">
+                    <i class="bi bi-search"></i> Consulta ODV
+                </button>
+                <button class="btn btn-success btn-sm" type="button" id="btn-consulta-oc">
                     <i class="bi bi-search"></i> Consulta OC
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-stock">
@@ -44,9 +47,6 @@
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-stock-producto">
                     <i class="bi bi-search"></i> Consulta Stock x Producto
-                </button>
-                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-odv">
-                    <i class="bi bi-search"></i> Consulta ODV
                 </button>
             </div>
         </div>
@@ -120,7 +120,13 @@
                 </div>
 
                 <!-- Título de la consulta cargada; lo setea el JS al hacer clic en un botón. -->
-                <h6 id="consulta-sap-titulo" class="fw-bold text-primary border-bottom pb-2 mb-3 d-none"></h6>
+                <!-- Encabezado de la consulta: subtítulo (izquierda) + Descargar Excel (extremo derecho). -->
+                <div id="consulta-sap-encabezado" class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3 d-none">
+                    <h6 id="consulta-sap-titulo" class="fw-bold mb-0"></h6>
+                    <button type="button" class="btn btn-success btn-sm" id="btn-descargar-excel">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Descargar Excel
+                    </button>
+                </div>
 
                 <table class="table table-hover align-middle table-sm tabla-compacta" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark"></thead>

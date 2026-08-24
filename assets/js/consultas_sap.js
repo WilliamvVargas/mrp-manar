@@ -73,7 +73,7 @@ $(document).ready(function() {
     const CONSULTAS = {
         odv: {
             url: 'controllers/consultas_sap_controller.php?action=odv',
-            titulo: '<i class="bi bi-cart-check me-2"></i>Consulta ODV — Órdenes de Venta',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta ODV - Órdenes de Venta',
             columnas: [
                 { data: 'OrdenVenta',                    title: 'Orden Venta',     className: 'text-center', render: renderNumero },
                 { data: 'FechaOV',                       title: 'Fecha OV',        className: 'text-center', render: renderFecha },
@@ -91,7 +91,7 @@ $(document).ready(function() {
         },
         oc: {
             url: 'controllers/consultas_sap_controller.php?action=oc',
-            titulo: '<i class="bi bi-bag-check me-2"></i>Consulta OC — Órdenes de Compra',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta OC - Órdenes de Compra',
             columnas: [
                 { data: 'OrdenCompra',                  title: 'Orden Compra',    className: 'text-center', render: renderNumero },
                 { data: 'FechaOC',                      title: 'Fecha OC',        className: 'text-center', render: renderFecha },
@@ -109,7 +109,7 @@ $(document).ready(function() {
         },
         facs_ncs: {
             url: 'controllers/consultas_sap_controller.php?action=facs_ncs',
-            titulo: '<i class="bi bi-receipt me-2"></i>Consulta Facturas y Notas de Crédito',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta Facturas y Notas de Crédito',
             filtroFecha: true,
             verLineas: true,
             totales: ['Neto', 'Impuesto', 'Total'],
@@ -128,7 +128,7 @@ $(document).ready(function() {
         },
         facs_ncs_v2: {
             url: 'controllers/consultas_sap_controller.php?action=facs_ncs_v2',
-            titulo: '<i class="bi bi-receipt-cutoff me-2"></i>Consulta Facturas y Notas de Crédito v2 — Líneas',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta Facturas y Notas de Crédito - Líneas',
             filtroFecha: true,
             filtros: ['tipo', 'familia', 'subfamilia'],
             totales: ['TotalNeto', 'IvaMonto', 'TotalBruto'],
@@ -156,7 +156,7 @@ $(document).ready(function() {
         },
         facs_ncs_v3: {
             url: 'controllers/consultas_sap_controller.php?action=facs_ncs_v3',
-            titulo: '<i class="bi bi-collection me-2"></i>Consulta Facturas y Notas de Crédito v3 — Agrupado por artículo',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta Facturas y Notas de Crédito - Productos',
             filtroFecha: true,
             etiquetaFecha: 'Año-Mes',
             filtros: ['familia', 'subfamilia'],
@@ -178,7 +178,7 @@ $(document).ready(function() {
         },
         facs_ncs_v4: {
             url: 'controllers/consultas_sap_controller.php?action=facs_ncs_v4',
-            titulo: '<i class="bi bi-diagram-3 me-2"></i>Consulta Facturas y Notas de Crédito v4 — Agrupado por familia',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta Facturas y Notas de Crédito - Familia',
             filtroFecha: true,
             etiquetaFecha: 'Año-Mes',
             filtros: ['familia'],
@@ -194,7 +194,7 @@ $(document).ready(function() {
         },
         stock: {
             url: 'controllers/consultas_sap_controller.php?action=stock',
-            titulo: '<i class="bi bi-boxes me-2"></i>Consulta Stock — Inventario WMS por pallet',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta Stock - Inventario WMS por pallet',
             filtros: ['estadoPallet', 'vencimiento'],
             columnas: [
                 { data: 'CodArticulo',      title: 'Cód. Artículo',  render: renderTexto },
@@ -216,7 +216,7 @@ $(document).ready(function() {
         },
         stock_producto: {
             url: 'controllers/consultas_sap_controller.php?action=stock_producto',
-            titulo: '<i class="bi bi-box-seam me-2"></i>Consulta Stock por Producto — WMS (suma vigente, sin vencidos)',
+            titulo: '<i class="bi bi-search me-2"></i>Consulta Stock por Producto - WMS (suma vigente, sin vencidos)',
             totales: ['Cantidad'],
             columnas: [
                 { data: 'CodArticulo', title: 'Cód. Artículo', render: renderTexto },
@@ -361,7 +361,8 @@ $(document).ready(function() {
 
                 $('#consulta-sap-placeholder').hide();
                 $('#alert-container').empty();
-                $('#consulta-sap-titulo').html(cfg.titulo).removeClass('d-none');
+                $('#consulta-sap-titulo').html(cfg.titulo);
+                $('#consulta-sap-encabezado').removeClass('d-none');   // muestra subtítulo + botón Descargar Excel
 
                 columnasAct = cfg.columnas;
                 filasAct    = res.data || [];
@@ -464,6 +465,71 @@ $(document).ready(function() {
 
     $('#btn-consulta-facs-ncs-v4').on('click', function() {
         cargarConsulta('facs_ncs_v4', $(this));
+    });
+
+    // ============================================================
+    //  Descargar la consulta activa a Excel
+    // ============================================================
+    // Exporta a Excel la consulta activa, respetando búsqueda y filtros (lo que se ve en la
+    // tabla). Envía columnas + filas visibles al endpoint genérico, que devuelve el .xlsx.
+    $('#btn-descargar-excel').on('click', function() {
+        if (!claveActual || !tabla) { return; }
+
+        const encabezados = (columnasAct || []).map(function(c) { return c.title || ''; });
+        const visibles    = tabla.rows({ search: 'applied' }).data().toArray();   // filtradas, todas las páginas
+        const filas = visibles.map(function(row) {
+            return (columnasAct || []).map(function(c) {
+                const v = row[c.data];
+                return (v === null || v === undefined) ? '' : v;   // valores crudos (números como número)
+            });
+        });
+
+        if (!filas.length) {
+            mostrarMensajeFormulario('#alert-container', 'Atención', 'No hay filas para exportar.', 'warning');
+            return;
+        }
+
+        const nombre = $('#consulta-sap-titulo').text().trim() || 'consulta';
+
+        const fd = new FormData();
+        fd.append('csrf_token',  $('#csrf_token_password_propio').val() || '');
+        fd.append('nombre',      nombre);
+        fd.append('encabezados', JSON.stringify(encabezados));
+        fd.append('filas',       JSON.stringify(filas));
+
+        const $btn = $(this);
+        setBtnLoading($btn, 'Generando...');
+
+        fetch('controllers/exportar_excel_controller.php?action=exportar', { method: 'POST', body: fd })
+            .then(function(r) { return r.ok ? r.blob() : Promise.reject(r); })
+            .then(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a   = document.createElement('a');
+                a.href = url;
+                // Fecha del equipo en formato YYYY-MM-DD para el nombre del archivo.
+                const hoy   = new Date();
+                const fecha = hoy.getFullYear() + '-'
+                            + String(hoy.getMonth() + 1).padStart(2, '0') + '-'
+                            + String(hoy.getDate()).padStart(2, '0');
+                a.download = nombre.replace(/[\/\\:*?"<>|]+/g, '_') + ' ' + fecha + '.xlsx';   // conserva acentos + fecha
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            })
+            .catch(function(err) {
+                // Si el servidor devolvió un JSON de error, muestra su mensaje; si no, genérico.
+                if (err && typeof err.text === 'function') {
+                    err.text().then(function(t) {
+                        let msg = 'No se pudo generar el Excel.';
+                        try { const j = JSON.parse(t); if (j && j.message) { msg = j.message; } } catch (e) {}
+                        mostrarMensajeFormulario('#alert-container', 'Atención', msg, 'danger');
+                    });
+                } else {
+                    mostrarMensajeFormulario('#alert-container', 'Atención', 'No se pudo generar el Excel.', 'danger');
+                }
+            })
+            .finally(function() { resetBtnLoading($btn); });
     });
 
     // Recarga la consulta activa (si soporta filtro por fecha) tras cambiar el rango mes/año.
@@ -837,27 +903,42 @@ $(document).ready(function() {
     let modalGraficoShown  = false; // true cuando el modal terminó de abrirse (ancho final)
     let graficoDibujado    = false; // true tras el primer dibujo (evita dibujar dos veces)
 
-    // Año-mes ('yyyy-MM') <-> índice de mes (año*12 + mes-1), para recorrer meses.
-    function ymAIndice(ym) {
-        return parseInt(ym.substring(0, 4), 10) * 12 + (parseInt(ym.substring(5, 7), 10) - 1);
-    }
-    function indiceAYm(idx) {
-        return Math.floor(idx / 12) + '-' + String((idx % 12) + 1).padStart(2, '0');
+    // Nombres de mes cortos para etiquetar semanas de forma legible en el eje X.
+    const MESES_CORTO = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+    // Etiqueta compacta de una semana desde su lunes 'yyyy-MM-dd' (ej. "jul-26 S3": semana del mes).
+    function etiquetaSemana(mondayYmd) {
+        const y   = mondayYmd.substring(0, 4);
+        const m   = parseInt(mondayYmd.substring(5, 7), 10);
+        const dia = parseInt(mondayYmd.substring(8, 10), 10);
+        const sem = Math.ceil(dia / 7);
+        return MESES_CORTO[m] + '-' + y.substring(2) + ' S' + sem;
     }
 
-    // Completa los año-mes faltantes entre el primero y el último con datos, para que el
-    // eje X sea continuo. Los meses sin registro quedan con valores null (se ven en blanco).
-    function rellenarMeses(datos) {
+    // Lunes ISO ('yyyy-MM-dd') <-> índice de semana (relativo a un lunes de referencia).
+    const REF_LUNES = Date.UTC(2020, 0, 6); // 2020-01-06 (lunes)
+    function fechaAIdxSemana(ymd) {
+        const ms = Date.UTC(+ymd.substring(0, 4), +ymd.substring(5, 7) - 1, +ymd.substring(8, 10));
+        return Math.round((ms - REF_LUNES) / 604800000);
+    }
+    function idxSemanaAFecha(idx) {
+        const d = new Date(REF_LUNES + idx * 604800000);
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+    }
+
+    // Completa las SEMANAS faltantes entre la primera y la última con datos, para que el eje X
+    // sea continuo. Las semanas sin registro quedan con valores null (se ven en blanco).
+    function rellenarSemanas(datos) {
         if (!datos || !datos.length) { return datos; }
         const mapa = {};
         datos.forEach(function(d) { mapa[d.FechaDocumento] = d; });
         const claves = Object.keys(mapa).sort();
-        const desde  = ymAIndice(claves[0]);
-        const hasta  = ymAIndice(claves[claves.length - 1]);
+        const desde  = fechaAIdxSemana(claves[0]);
+        const hasta  = fechaAIdxSemana(claves[claves.length - 1]);
         const salida = [];
         for (let i = desde; i <= hasta; i++) {
-            const ym = indiceAYm(i);
-            salida.push(mapa[ym] || { FechaDocumento: ym, Demanda: null, Neto: null, DemandaForecast: null, PresupuestoFuturo: null });
+            const sem = idxSemanaAFecha(i);
+            salida.push(mapa[sem] || { FechaDocumento: sem, Demanda: null, Neto: null, DemandaForecast: null });
         }
         return salida;
     }
@@ -874,13 +955,13 @@ $(document).ready(function() {
         const modo       = $('#grafico-mostrar').val() || 'ambos';
         const mostrarDem = (modo === 'demanda' || modo === 'ambos');
         const mostrarVen = (modo === 'venta'   || modo === 'ambos');
-        datos = rellenarMeses(datos); // eje X continuo (meses sin dato en blanco)
+        datos = rellenarSemanas(datos); // eje X continuo (semanas sin dato en blanco)
 
         const ejeDem = 0;
         const ejeVen = (modo === 'ambos') ? 1 : 0;
 
         const data = new google.visualization.DataTable();
-        data.addColumn('string', 'Año-Mes');
+        data.addColumn('string', 'Semana');
 
         const series = {}; const vAxes = {}; let si = 0; let annVen = false;
 
@@ -905,7 +986,7 @@ $(document).ready(function() {
 
         datos.forEach(function(d) {
             const esR  = (d.FechaDocumento === mesResaltado);
-            const fila = [ d.FechaDocumento ];
+            const fila = [ etiquetaSemana(String(d.FechaDocumento)) ];
             if (mostrarDem) {
                 const dem = numOrNull(d.Demanda);
                 fila.push(
@@ -934,7 +1015,7 @@ $(document).ready(function() {
             legend:    { position: 'top' },
             height:    460,
             chartArea: { left: 80, right: (modo === 'ambos' ? 120 : 80), top: 50, bottom: 90 },
-            hAxis:     { title: 'Año-Mes', slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 11 } },
+            hAxis:     { title: 'Semana', slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 11 } },
             vAxes:     vAxes,
             tooltip:   { trigger: 'focus' }
         };
@@ -1009,7 +1090,7 @@ $(document).ready(function() {
         const $canvas = $('#grafico-producto-canvas');
 
         serieGraficoActual = null;
-        mesResaltado       = registro.FechaDocumento; // año-mes del registro abierto
+        mesResaltado       = null; // vista semanal: no se remarca (el registro abierto es un mes)
         graficoDibujado    = false;
         modalGraficoShown  = false;
         $('#grafico-producto-titulo').text('— ' + registro.CodArticulo + ' · ' + (registro.Articulo || ''));
@@ -1041,15 +1122,14 @@ $(document).ready(function() {
                     mapa[h.FechaDocumento] = {
                         FechaDocumento: h.FechaDocumento,
                         Demanda: h.Demanda, Neto: h.Neto,
-                        DemandaForecast: null, PresupuestoFuturo: null
+                        DemandaForecast: null
                     };
                 });
                 forecast.forEach(function(f) {
                     if (!mapa[f.ym]) {
-                        mapa[f.ym] = { FechaDocumento: f.ym, Demanda: null, Neto: null, DemandaForecast: null, PresupuestoFuturo: null };
+                        mapa[f.ym] = { FechaDocumento: f.ym, Demanda: null, Neto: null, DemandaForecast: null };
                     }
-                    mapa[f.ym].DemandaForecast   = f.DemandaForecast;
-                    mapa[f.ym].PresupuestoFuturo = f.PresupuestoFuturo;
+                    mapa[f.ym].DemandaForecast = f.DemandaForecast;
                 });
                 const combinado = Object.keys(mapa).sort().map(function(k) { return mapa[k]; });
 

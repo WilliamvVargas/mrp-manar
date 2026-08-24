@@ -1,6 +1,6 @@
 <?php
 /**
- * Controlador de la "Explosión de Forecast" (botón del mantenedor de Presupuesto).
+ * Controlador de la "Explosión de Forecast" (botón del mantenedor de Forecast).
  * Ejecuta, PASO A PASO, el pipeline que pronostica la demanda por grupo (Prophet) y la
  * reparte a productos, invocando por CLI los scripts existentes (php assets/librerias/forecast/*.php y el
  * venv de Python). Una llamada AJAX por paso; devuelve JSON con el resultado para que el
@@ -15,7 +15,7 @@ header('Cache-Control: no-store');
 $action = $_REQUEST['action'] ?? '';
 
 require_once __DIR__ . '/../includes/control_acceso_controlador.php';
-exigirAccesoControlador('presupuesto', $action);
+exigirAccesoControlador('forecast', $action);
 
 set_time_limit(0);
 

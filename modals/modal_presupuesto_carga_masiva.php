@@ -29,7 +29,7 @@
                     <div class="mb-2">
                         <label class="form-label fw-bold small mb-1" for="archivo-excel-presupuesto">Archivo Excel</label>
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-8">
                                 <div class="input-group input-group-sm">
                                     <input type="file"
                                            class="form-control form-control-sm"

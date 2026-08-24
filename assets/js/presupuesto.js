@@ -37,6 +37,7 @@ $(document).ready(function() {
         tabla: '#tabla-consulta-presupuesto',
         url:   'controllers/presupuesto_controller.php?action=listar',
         extra: function(d) {
+            d.version     = $('#filtro-version').val();       // '' = todas
             d.familia     = $('#filtro-familia').val();       // '' = todas
             d.sub_familia = $('#filtro-sub-familia').val();   // '' = todas
             d.anio        = $('#filtro-anio').val();          // '' = todos
@@ -45,6 +46,7 @@ $(document).ready(function() {
         orden: [[0, 'desc']],   // por id, descendente
         columnas: [
             { data: 'id',            className: 'text-center' },
+            { data: 'version',       className: 'text-center', render: renderTexto },
             { data: 'anio',          className: 'text-center', render: renderNumero },
             { data: 'mes',           className: 'text-center', render: renderNumero },
             { data: 'canal',         render: renderTexto },
@@ -74,8 +76,8 @@ $(document).ready(function() {
         ]
     });
 
-    // Recargar la tabla al cambiar el filtro de Familia, Sub-Familia, Año o Mes.
-    $('#filtro-familia, #filtro-sub-familia, #filtro-anio, #filtro-mes').on('change', function() {
+    // Recargar la tabla al cambiar el filtro de Versión, Familia, Sub-Familia, Año o Mes.
+    $('#filtro-version, #filtro-familia, #filtro-sub-familia, #filtro-anio, #filtro-mes').on('change', function() {
         tablaPresupuesto.ajax.reload();
     });
 
@@ -83,24 +85,48 @@ $(document).ready(function() {
     inicializarBotonLimpiar({
         boton:  '#btn-limpiar-filtros',
         tabla:  tablaPresupuesto,
-        campos: ['#filtro-familia', '#filtro-sub-familia', '#filtro-anio', '#filtro-mes'],
+        campos: ['#filtro-version', '#filtro-familia', '#filtro-sub-familia', '#filtro-anio', '#filtro-mes'],
         delay:  250
     });
 
-    // Tras cada dibujado, muestra en el pie el total de Venta del set filtrado (lo manda el servidor).
-    $('#tabla-consulta-presupuesto').on('draw.dt', function() {
-        const json  = tablaPresupuesto.ajax.json();
-        const total = (json && json.suma_venta != null) ? json.suma_venta : 0;
-        $('#total-venta').text('$' + formatearNumero(total, 0));
-    });
+    // La primera carga de filtros selecciona la última versión por defecto; las
+    // siguientes conservan la selección del usuario (salvo que se pida una explícita).
+    let primeraCargaFiltros = true;
 
-    // Carga las opciones de los filtros de Familia y Año (conservan la selección actual).
-    function cargarFiltros() {
+    // Carga las opciones de los filtros (conservan la selección actual).
+    // versionPreferida (opcional): versión a dejar seleccionada tras recargar (p. ej. la recién cargada).
+    function cargarFiltros(versionPreferida) {
         $.ajax({
             url: 'controllers/presupuesto_controller.php?action=filtros',
             type: 'GET',
             dataType: 'json',
             success: function(res) {
+                // Versión: por defecto la más reciente (primera de la lista, que viene DESC).
+                const $ver      = $('#filtro-version');
+                const verSel    = $ver.val();
+                const versiones = res.versiones || [];
+                $ver.empty().append('<option value="">Todas</option>');
+                versiones.forEach(function(v) {
+                    $ver.append($('<option>').val(v).text(v));
+                });
+
+                let verElegida;
+                if (versionPreferida && versiones.indexOf(versionPreferida) !== -1) {
+                    verElegida = versionPreferida;                 // versión recién cargada
+                } else if (primeraCargaFiltros && verSel === '' && versiones.length) {
+                    verElegida = versiones[0];                     // primera carga: última versión
+                } else {
+                    verElegida = verSel;                           // conserva la selección
+                }
+                $ver.val(verElegida);
+                primeraCargaFiltros = false;
+
+                // Si la selección de versión cambió de forma programática, recarga la tabla
+                // (el evento 'change' solo se dispara por interacción del usuario).
+                if (verElegida !== verSel) {
+                    tablaPresupuesto.ajax.reload();
+                }
+
                 // Familia (texto escapado vía .text()).
                 const $fam   = $('#filtro-familia');
                 const famSel = $fam.val();
@@ -185,8 +211,8 @@ $(document).ready(function() {
                 resetBtnLoading(btn);
                 if (res.status === 'success') {
                     mostrarMensajeFormulario(modalMensaje, 'Éxito', res.message, 'success');
-                    tablaPresupuesto.ajax.reload(null, true);
-                    cargarFiltros();   // por si la carga trajo un año nuevo
+                    // Recarga filtros y salta a la versión recién creada (que también recarga la tabla).
+                    cargarFiltros(res.version);
                 } else {
                     let msg = res.message;
                     if (res.errores && res.errores.length) {
@@ -205,6 +231,62 @@ $(document).ready(function() {
                 $archivo.val('');
             }
         });
+    });
+
+    // Descargar a Excel TODAS las filas que cumplen los filtros actuales (no solo la página
+    // visible). Al ser DataTable server-side, la exportación la arma el servidor.
+    $('#btn-descargar-excel').on('click', function() {
+        // Evita generar un archivo vacío si el filtro no devuelve filas.
+        const info = tablaPresupuesto.page.info();
+        if (info && info.recordsDisplay === 0) {
+            mostrarMensajeFormulario('#alert-container', 'Atención', 'No hay filas para exportar.', 'warning');
+            return;
+        }
+
+        const version = $('#filtro-version').val() || '';
+        const params  = new URLSearchParams({
+            version:     version,
+            familia:     $('#filtro-familia').val() || '',
+            sub_familia: $('#filtro-sub-familia').val() || '',
+            anio:        $('#filtro-anio').val() || '',
+            mes:         $('#filtro-mes').val() || ''
+        });
+
+        const $btn = $(this);
+        setBtnLoading($btn, 'Generando...');
+
+        fetch('controllers/presupuesto_controller.php?action=exportar&' + params.toString())
+            .then(function(r) { return r.ok ? r.blob() : Promise.reject(r); })
+            .then(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a   = document.createElement('a');
+                a.href = url;
+                // Nombre: Presupuesto [versión] YYYY-MM-DD.xlsx
+                const hoy   = new Date();
+                const fecha = hoy.getFullYear() + '-'
+                            + String(hoy.getMonth() + 1).padStart(2, '0') + '-'
+                            + String(hoy.getDate()).padStart(2, '0');
+                const base  = 'Presupuesto' + (version ? ' ' + version : '');
+                a.download = base.replace(/[\/\\:*?"<>|]+/g, '_') + ' ' + fecha + '.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            })
+            .catch(function(err) {
+                if (err && typeof err.text === 'function') {
+                    err.text().then(function(t) {
+                        let msg = 'No se pudo generar el Excel.';
+                        try { const j = JSON.parse(t); if (j && j.message) { msg = j.message; } } catch (e) {}
+                        mostrarMensajeFormulario('#alert-container', 'Atención', msg, 'danger');
+                    });
+                } else {
+                    mostrarMensajeFormulario('#alert-container', 'Atención', 'No se pudo generar el Excel.', 'danger');
+                }
+            })
+            .finally(function() {
+                resetBtnLoading($btn);
+            });
     });
 
     // Acciones -> vista previa: productos de la familia de la fila (origen SAP).

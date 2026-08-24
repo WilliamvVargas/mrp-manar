@@ -26,10 +26,16 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Forecast'); ?></h5>
-            <button class="btn btn-danger btn-sm" type="button" id="btn-parametros-mrp-lista"
-                    data-bs-toggle="modal" data-bs-target="#modalForecastParametrosMrpLista">
-                <i class="bi bi-sliders"></i> Parámetros MRP
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm" type="button" id="btn-explosion-forecast"
+                        data-bs-toggle="modal" data-bs-target="#modalExplosionForecast">
+                    <i class="bi bi-diagram-3"></i> Explosión de Forecast
+                </button>
+                <button class="btn btn-danger btn-sm" type="button" id="btn-parametros-mrp-lista"
+                        data-bs-toggle="modal" data-bs-target="#modalForecastParametrosMrpLista">
+                    <i class="bi bi-sliders"></i> Parámetros MRP
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -91,6 +97,7 @@
     include 'modals/modal_forecast_grafico.php';
     include 'modals/modal_forecast_parametros_mrp.php';
     include 'modals/modal_forecast_parametros_mrp_lista.php';
+    include 'modals/modal_forecast_explosion.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -104,5 +111,6 @@
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/forecast.js?v=<?php echo filemtime(__DIR__ . '/assets/js/forecast.js'); ?>"></script>
 <script src="assets/js/forecast_grafico.js?v=<?php echo filemtime(__DIR__ . '/assets/js/forecast_grafico.js'); ?>"></script>
+<script src="assets/js/explosion_forecast.js?v=<?php echo filemtime(__DIR__ . '/assets/js/explosion_forecast.js'); ?>"></script>
 </body>
 </html>

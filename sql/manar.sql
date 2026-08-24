@@ -403,6 +403,8 @@ CREATE TABLE `forecast_x_producto` (
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `presupuestos` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `empresa_id` varchar(36) DEFAULT NULL,
+  `version` varchar(10) DEFAULT NULL,
   `anio` smallint(4) unsigned DEFAULT NULL,
   `mes` tinyint(2) unsigned DEFAULT NULL,
   `canal` varchar(100) DEFAULT NULL,
@@ -418,8 +420,10 @@ CREATE TABLE `presupuestos` (
   `created_by` varchar(36) DEFAULT NULL,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `updated_by` varchar(36) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=14097 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  PRIMARY KEY (`id`),
+  KEY `idx_presupuestos_empresa` (`empresa_id`),
+  KEY `idx_presupuestos_empresa_version` (`empresa_id`,`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
