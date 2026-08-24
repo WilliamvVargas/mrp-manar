@@ -190,6 +190,115 @@
         }
 
         /**
+         * Comprometido de ventas de UN producto (bodega 010): líneas de órdenes de venta
+         * ABIERTAS con cantidad pendiente de despacho. Es el detalle de la columna
+         * "Comprometido" del MRP (misma base: ORDR/RDR1, no anuladas, LineStatus 'O',
+         * OpenQty > 0, WhsCode '010'). Solo tablas estándar -> sirve para cualquier empresa.
+         *
+         * @param string $itemCode Código de artículo.
+         * @return array Filas ['OrdenVenta','Fecha','FechaEntrega','CodCliente','Cliente','Cantidad','Pendiente'].
+         */
+        public function comprometidoVentasPorProducto($itemCode)
+        {
+            $sql = "
+                SELECT
+                    ORDR.DocNum                             AS OrdenVenta,
+                    CONVERT(char(10), ORDR.DocDate, 126)    AS Fecha,
+                    CONVERT(char(10), ORDR.DocDueDate, 126) AS FechaEntrega,
+                    LTRIM(RTRIM(ORDR.CardCode))             AS CodCliente,
+                    LTRIM(RTRIM(ORDR.CardName))             AS Cliente,
+                    RDR1.Quantity                           AS Cantidad,
+                    RDR1.OpenQty                            AS Pendiente
+                FROM ORDR
+                INNER JOIN RDR1 ON ORDR.DocEntry = RDR1.DocEntry
+                WHERE
+                    ORDR.CANCELED       = 'N'
+                    AND RDR1.LineStatus = 'O'
+                    AND RDR1.OpenQty    > 0
+                    AND RDR1.WhsCode    = '010'
+                    AND RDR1.ItemCode   = ?
+                ORDER BY ORDR.DocDueDate ASC, ORDR.DocNum
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([trim($itemCode)]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * "En Pedido" de UN producto: líneas de órdenes de COMPRA abiertas con cantidad
+         * pendiente de recepción. Es el detalle de la columna "En Pedido" del MRP (misma base:
+         * OPOR/POR1, no anuladas, LineStatus 'O', OpenQty > 0, WhsCode IN ('010','IMP01') —
+         * incluye la bodega de importaciones en tránsito). Solo tablas estándar -> cualquier empresa.
+         *
+         * @param string $itemCode Código de artículo.
+         * @return array Filas ['OrdenCompra','Fecha','FechaEntrega','Almacen','CodProveedor','Proveedor','Cantidad','Pendiente'].
+         */
+        public function enPedidoComprasPorProducto($itemCode)
+        {
+            $sql = "
+                SELECT
+                    OPOR.DocNum                             AS OrdenCompra,
+                    CONVERT(char(10), OPOR.DocDate, 126)    AS Fecha,
+                    CONVERT(char(10), OPOR.DocDueDate, 126) AS FechaEntrega,
+                    LTRIM(RTRIM(POR1.WhsCode))              AS Almacen,
+                    LTRIM(RTRIM(OPOR.CardCode))             AS CodProveedor,
+                    LTRIM(RTRIM(OPOR.CardName))             AS Proveedor,
+                    POR1.Quantity                           AS Cantidad,
+                    POR1.OpenQty                            AS Pendiente
+                FROM OPOR
+                INNER JOIN POR1 ON OPOR.DocEntry = POR1.DocEntry
+                WHERE
+                    OPOR.CANCELED       = 'N'
+                    AND POR1.LineStatus = 'O'
+                    AND POR1.OpenQty    > 0
+                    AND POR1.WhsCode    IN ('010', 'IMP01')
+                    AND POR1.ItemCode   = ?
+                ORDER BY OPOR.DocDueDate ASC, OPOR.DocNum
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([trim($itemCode)]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
+         * "En Producción" de UN producto (bodega 010): órdenes de producción LIBERADAS
+         * (OWOR, Status 'R') con cantidad pendiente de fabricar (PlannedQty - CmpltQty > 0).
+         * Es el detalle de la columna "En Producción" del MRP. Solo tabla estándar OWOR ->
+         * sirve para cualquier empresa.
+         *
+         * @param string $itemCode Código de artículo (producto terminado de la OP).
+         * @return array Filas ['OrdenProduccion','Fecha','FechaEntrega','Planificada','Completada','Pendiente'].
+         */
+        public function enProduccionPorProducto($itemCode)
+        {
+            $sql = "
+                SELECT
+                    OWOR.DocNum                            AS OrdenProduccion,
+                    CONVERT(char(10), OWOR.PostDate, 126)  AS Fecha,
+                    CONVERT(char(10), OWOR.DueDate, 126)   AS FechaEntrega,
+                    OWOR.PlannedQty                        AS Planificada,
+                    OWOR.CmpltQty                          AS Completada,
+                    (OWOR.PlannedQty - OWOR.CmpltQty)      AS Pendiente
+                FROM OWOR
+                WHERE
+                    OWOR.Status = 'R'
+                    AND (OWOR.PlannedQty - OWOR.CmpltQty) > 0
+                    AND OWOR.Warehouse = '010'
+                    AND OWOR.ItemCode  = ?
+                ORDER BY OWOR.DueDate ASC, OWOR.DocNum
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([trim($itemCode)]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
          * Órdenes de Compra (OC) con líneas abiertas y su entrada de mercancía
          * relacionada (si existe). Solo documentos no anulados, líneas abiertas y
          * con cantidad pendiente de recepción.

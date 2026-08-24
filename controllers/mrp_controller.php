@@ -66,7 +66,7 @@
 
                 // 2) Stock vigente del WMS por producto (con visibilidad de vencimiento, umbral 30 días).
                 $stockWms = [];
-                foreach ((new ConsultaWms($pdoWms))->stockVencimientoPorProducto(30) as $r) {
+                foreach ((new ConsultaWms($pdoWms, codigoEmpresaWms($pdo)))->stockVencimientoPorProducto(30) as $r) {
                     $stockWms[trim($r['CodArticulo'])] = $r;
                 }
 
@@ -143,11 +143,96 @@
                     exit;
                 }
 
-                $datos = (new ConsultaWms($pdoWms))->stockDetallePorProducto($itemCode);
+                $datos = (new ConsultaWms($pdoWms, codigoEmpresaWms($pdo)))->stockDetallePorProducto($itemCode);
                 echo json_encode(['status' => 'success', 'data' => $datos]);
             } catch (Throwable $e) {
                 error_log('[MRP][detalle_stock] ' . $e->getMessage());
                 echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al cargar el detalle de stock.']);
+            }
+            exit;
+
+        case 'detalle_comprometido':
+
+            // Detalle del "Comprometido": líneas de ODV abiertas del producto (SAP, bodega 010),
+            // desde la SAP de la empresa activa.
+            try {
+                require_once __DIR__ . '/../config/conexion_sqlserver.php';   // $pdoSqlsrv (SAP)
+                require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
+
+                $itemCode = trim($_GET['itemcode'] ?? '');
+                if ($itemCode === '') {
+                    echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+                    exit;
+                }
+
+                $datos = (new ConsultaSap($pdoSqlsrv))->comprometidoVentasPorProducto($itemCode);
+                echo json_encode(['status' => 'success', 'data' => $datos]);
+            } catch (Throwable $e) {
+                error_log('[MRP][detalle_comprometido] ' . $e->getMessage());
+                echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al cargar el comprometido de ventas.']);
+            }
+            exit;
+
+        case 'detalle_en_pedido':
+
+            // Detalle de "En Pedido": líneas de OC abiertas del producto (SAP, bodega 010),
+            // desde la SAP de la empresa activa.
+            try {
+                require_once __DIR__ . '/../config/conexion_sqlserver.php';   // $pdoSqlsrv (SAP)
+                require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
+
+                $itemCode = trim($_GET['itemcode'] ?? '');
+                if ($itemCode === '') {
+                    echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+                    exit;
+                }
+
+                $datos = (new ConsultaSap($pdoSqlsrv))->enPedidoComprasPorProducto($itemCode);
+                echo json_encode(['status' => 'success', 'data' => $datos]);
+            } catch (Throwable $e) {
+                error_log('[MRP][detalle_en_pedido] ' . $e->getMessage());
+                echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al cargar las órdenes de compra.']);
+            }
+            exit;
+
+        case 'detalle_forecast':
+
+            // Detalle del forecast SEMANAL del producto (de la empresa activa, MySQL).
+            try {
+                $itemCode = trim($_GET['itemcode'] ?? '');
+                if ($itemCode === '') {
+                    echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+                    exit;
+                }
+
+                $model = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
+                $datos = $model->serieSemanalProducto($itemCode);
+                echo json_encode(['status' => 'success', 'data' => $datos]);
+            } catch (Throwable $e) {
+                error_log('[MRP][detalle_forecast] ' . $e->getMessage());
+                echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al cargar el forecast del producto.']);
+            }
+            exit;
+
+        case 'detalle_en_produccion':
+
+            // Detalle de "En Producción": órdenes de producción liberadas del producto (SAP),
+            // desde la SAP de la empresa activa.
+            try {
+                require_once __DIR__ . '/../config/conexion_sqlserver.php';   // $pdoSqlsrv (SAP)
+                require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
+
+                $itemCode = trim($_GET['itemcode'] ?? '');
+                if ($itemCode === '') {
+                    echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+                    exit;
+                }
+
+                $datos = (new ConsultaSap($pdoSqlsrv))->enProduccionPorProducto($itemCode);
+                echo json_encode(['status' => 'success', 'data' => $datos]);
+            } catch (Throwable $e) {
+                error_log('[MRP][detalle_en_produccion] ' . $e->getMessage());
+                echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al cargar las órdenes de producción.']);
             }
             exit;
 

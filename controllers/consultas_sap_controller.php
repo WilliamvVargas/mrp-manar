@@ -48,10 +48,11 @@ switch ($action) {
         // Consulta Stock: inventario en tiempo real por pallet/lote/ubicación desde el WMS
         // (SGL WMS / SQL Server), no desde SAP. Usa su propia conexión $pdoWms.
         try {
-            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms
+            require_once __DIR__ . '/../config/conexion.php';            // $pdo (MySQL, para empresa_wms)
+            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms + codigoEmpresaWms()
             require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
 
-            $model = new ConsultaWms($pdoWms);
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
             $datos = $model->stock();
 
             echo json_encode(['status' => 'success', 'data' => $datos]);
@@ -66,10 +67,11 @@ switch ($action) {
         // Consulta Stock por Producto: stock del WMS agregado por artículo (suma de todas las
         // líneas), excluyendo las vencidas. Usa la conexión $pdoWms.
         try {
-            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms
+            require_once __DIR__ . '/../config/conexion.php';            // $pdo (MySQL, para empresa_wms)
+            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms + codigoEmpresaWms()
             require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
 
-            $model = new ConsultaWms($pdoWms);
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
             $datos = $model->stockPorProducto();
 
             echo json_encode(['status' => 'success', 'data' => $datos]);

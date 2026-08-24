@@ -123,6 +123,24 @@
         }
 
         /**
+         * Serie semanal del forecast de UN producto (de la empresa activa), cronológica. Para
+         * el detalle del MRP: desglose semana a semana de la "Demanda (Forecast)".
+         *
+         * @return array Filas ['semana_inicio'=>'yyyy-mm-dd', 'iso_year'=>int, 'iso_week'=>int, 'demanda'=>float]
+         */
+        public function serieSemanalProducto($productoCodigo)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT semana_inicio, iso_year, iso_week, demanda_forecast AS demanda
+                 FROM forecast_x_producto
+                 WHERE empresa_id = ? AND producto_codigo = ?
+                 ORDER BY semana_inicio ASC"
+            );
+            $stmt->execute([$this->empresaId, $productoCodigo]);
+            return $stmt->fetchAll();
+        }
+
+        /**
          * Sub-familias distintas presentes en el forecast de la empresa (alfabético), para el filtro.
          *
          * @return string[]

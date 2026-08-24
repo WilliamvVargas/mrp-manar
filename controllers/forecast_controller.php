@@ -221,7 +221,7 @@ switch ($action) {
             // El "En Mano" (OnHand) se reemplaza por el stock VIGENTE del WMS (otra conexión).
             require_once __DIR__ . '/../config/conexion_wms.php';        // $pdoWms
             require_once __DIR__ . '/../models/consultas_wms_model.php'; // ConsultaWms
-            $stockWms = (new ConsultaWms($pdoWms))->stockPorProductoMap();
+            $stockWms = (new ConsultaWms($pdoWms, codigoEmpresaWms($pdo)))->stockPorProductoMap();
             foreach ($datos as &$fila) {
                 $fila['OnHand'] = $stockWms[trim($fila['ItemCode'])] ?? 0;
             }

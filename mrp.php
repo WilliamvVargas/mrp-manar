@@ -115,6 +115,34 @@
                             <i class="bi bi-boxes me-1"></i> Stock
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-comprometido-btn" data-bs-toggle="tab"
+                                data-bs-target="#tab-comprometido" type="button" role="tab"
+                                aria-controls="tab-comprometido" aria-selected="false">
+                            <i class="bi bi-cart-check me-1"></i> Comprometido
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-en-pedido-btn" data-bs-toggle="tab"
+                                data-bs-target="#tab-en-pedido" type="button" role="tab"
+                                aria-controls="tab-en-pedido" aria-selected="false">
+                            <i class="bi bi-truck me-1"></i> En Pedido
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-en-produccion-btn" data-bs-toggle="tab"
+                                data-bs-target="#tab-en-produccion" type="button" role="tab"
+                                aria-controls="tab-en-produccion" aria-selected="false">
+                            <i class="bi bi-gear-wide-connected me-1"></i> En Producción
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-forecast-btn" data-bs-toggle="tab"
+                                data-bs-target="#tab-forecast" type="button" role="tab"
+                                aria-controls="tab-forecast" aria-selected="false">
+                            <i class="bi bi-graph-up me-1"></i> Forecast Semanal
+                        </button>
+                    </li>
                 </ul>
                 <div class="tab-content border border-top-0 p-2">
                     <div class="tab-pane fade show active" id="tab-stock" role="tabpanel" aria-labelledby="tab-stock-btn">
@@ -134,6 +162,82 @@
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-mrp-stock"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-comprometido" role="tabpanel" aria-labelledby="tab-comprometido-btn">
+                        <div id="mrp-comprometido-estado" class="text-center text-muted py-3">Cargando...</div>
+                        <div class="table-responsive small" id="mrp-comprometido-wrap" style="display:none;">
+                            <table class="table table-sm table-hover align-middle mb-0" style="width:100%">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Orden Venta</th>
+                                        <th class="text-center">Fecha</th>
+                                        <th class="text-center">Fecha Entrega</th>
+                                        <th>Cliente</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th class="text-end">Pendiente</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-mrp-comprometido"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-en-pedido" role="tabpanel" aria-labelledby="tab-en-pedido-btn">
+                        <div id="mrp-en-pedido-estado" class="text-center text-muted py-3">Cargando...</div>
+                        <div class="table-responsive small" id="mrp-en-pedido-wrap" style="display:none;">
+                            <table class="table table-sm table-hover align-middle mb-0" style="width:100%">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Orden Compra</th>
+                                        <th class="text-center">Fecha</th>
+                                        <th class="text-center">Fecha Entrega</th>
+                                        <th class="text-center">Almacén</th>
+                                        <th>Proveedor</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th class="text-end">Pendiente</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-mrp-en-pedido"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-en-produccion" role="tabpanel" aria-labelledby="tab-en-produccion-btn">
+                        <div id="mrp-en-produccion-estado" class="text-center text-muted py-3">Cargando...</div>
+                        <div class="table-responsive small" id="mrp-en-produccion-wrap" style="display:none;">
+                            <table class="table table-sm table-hover align-middle mb-0" style="width:100%">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Orden Producción</th>
+                                        <th class="text-center">Fecha</th>
+                                        <th class="text-center">Fecha Entrega</th>
+                                        <th class="text-end">Planificada</th>
+                                        <th class="text-end">Completada</th>
+                                        <th class="text-end">Pendiente</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-mrp-en-produccion"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-forecast" role="tabpanel" aria-labelledby="tab-forecast-btn">
+                        <div id="mrp-forecast-estado" class="text-center text-muted py-3">Cargando...</div>
+                        <div class="table-responsive small" id="mrp-forecast-wrap" style="display:none;">
+                            <table class="table table-sm table-hover align-middle mb-0" style="width:100%">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th class="text-center">Semana ISO</th>
+                                        <th class="text-center">Inicio semana</th>
+                                        <th class="text-end">Demanda (Forecast)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-mrp-forecast"></tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td colspan="2" class="text-end">Total (52 semanas):</td>
+                                        <td class="text-end" id="mrp-forecast-total">—</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </div>

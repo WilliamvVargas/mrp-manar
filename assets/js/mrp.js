@@ -242,13 +242,212 @@ $(document).ready(function() {
         });
     }
 
-    // Botón "Ver detalle": toma la fila del DataTable, llena el resumen y carga la pestaña Stock.
+    // Pestaña "Comprometido": líneas de ODV abiertas del producto (SAP, bodega 010).
+    function cargarDetalleComprometido(cod) {
+        const $estado = $('#mrp-comprometido-estado');
+        const $wrap   = $('#mrp-comprometido-wrap');
+        const $tbody  = $('#tabla-mrp-comprometido');
+
+        $estado.text('Cargando...').show();
+        $wrap.hide();
+        $tbody.empty();
+
+        $.ajax({
+            url: 'controllers/mrp_controller.php?action=detalle_comprometido',
+            type: 'GET',
+            data: { itemcode: cod },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $estado.text(res.message || 'No se pudo cargar el comprometido.').show();
+                    return;
+                }
+                const filas = res.data || [];
+                if (!filas.length) {
+                    $estado.text('Sin ventas comprometidas para este producto.').show();
+                    return;
+                }
+                let html = '';
+                filas.forEach(function(r) {
+                    const cliente = (r.CodCliente ? textoDet(r.CodCliente) + ' — ' : '') + textoDet(r.Cliente);
+                    html += '<tr>'
+                         + '<td>' + textoDet(r.OrdenVenta) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.Fecha) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.FechaEntrega) + '</td>'
+                         + '<td>' + cliente + '</td>'
+                         + '<td class="text-end">' + formatearEntero(r.Cantidad) + '</td>'
+                         + '<td class="text-end">' + formatearEntero(r.Pendiente) + '</td>'
+                         + '</tr>';
+                });
+                $tbody.html(html);
+                $estado.hide();
+                $wrap.show();
+            },
+            error: function() {
+                $estado.text('Error al cargar el comprometido.').show();
+            }
+        });
+    }
+
+    // Pestaña "En Pedido": líneas de OC abiertas del producto (SAP, bodega 010).
+    function cargarDetalleEnPedido(cod) {
+        const $estado = $('#mrp-en-pedido-estado');
+        const $wrap   = $('#mrp-en-pedido-wrap');
+        const $tbody  = $('#tabla-mrp-en-pedido');
+
+        $estado.text('Cargando...').show();
+        $wrap.hide();
+        $tbody.empty();
+
+        $.ajax({
+            url: 'controllers/mrp_controller.php?action=detalle_en_pedido',
+            type: 'GET',
+            data: { itemcode: cod },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $estado.text(res.message || 'No se pudo cargar las órdenes de compra.').show();
+                    return;
+                }
+                const filas = res.data || [];
+                if (!filas.length) {
+                    $estado.text('Sin órdenes de compra abiertas para este producto.').show();
+                    return;
+                }
+                let html = '';
+                filas.forEach(function(r) {
+                    const proveedor = (r.CodProveedor ? textoDet(r.CodProveedor) + ' — ' : '') + textoDet(r.Proveedor);
+                    // IMP01 = importación en tránsito; se resalta para distinguirla de la bodega local.
+                    const almacen = (String(r.Almacen).toUpperCase() === 'IMP01')
+                        ? '<span class="badge bg-info text-dark">IMP01</span>'
+                        : textoDet(r.Almacen);
+                    html += '<tr>'
+                         + '<td>' + textoDet(r.OrdenCompra) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.Fecha) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.FechaEntrega) + '</td>'
+                         + '<td class="text-center">' + almacen + '</td>'
+                         + '<td>' + proveedor + '</td>'
+                         + '<td class="text-end">' + formatearEntero(r.Cantidad) + '</td>'
+                         + '<td class="text-end">' + formatearEntero(r.Pendiente) + '</td>'
+                         + '</tr>';
+                });
+                $tbody.html(html);
+                $estado.hide();
+                $wrap.show();
+            },
+            error: function() {
+                $estado.text('Error al cargar las órdenes de compra.').show();
+            }
+        });
+    }
+
+    // Pestaña "En Producción": órdenes de producción liberadas del producto (SAP, OWOR).
+    function cargarDetalleEnProduccion(cod) {
+        const $estado = $('#mrp-en-produccion-estado');
+        const $wrap   = $('#mrp-en-produccion-wrap');
+        const $tbody  = $('#tabla-mrp-en-produccion');
+
+        $estado.text('Cargando...').show();
+        $wrap.hide();
+        $tbody.empty();
+
+        $.ajax({
+            url: 'controllers/mrp_controller.php?action=detalle_en_produccion',
+            type: 'GET',
+            data: { itemcode: cod },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $estado.text(res.message || 'No se pudo cargar las órdenes de producción.').show();
+                    return;
+                }
+                const filas = res.data || [];
+                if (!filas.length) {
+                    $estado.text('Sin órdenes de producción liberadas para este producto.').show();
+                    return;
+                }
+                let html = '';
+                filas.forEach(function(r) {
+                    html += '<tr>'
+                         + '<td>' + textoDet(r.OrdenProduccion) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.Fecha) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.FechaEntrega) + '</td>'
+                         + '<td class="text-end">' + formatearEntero(r.Planificada) + '</td>'
+                         + '<td class="text-end">' + formatearEntero(r.Completada) + '</td>'
+                         + '<td class="text-end">' + formatearEntero(r.Pendiente) + '</td>'
+                         + '</tr>';
+                });
+                $tbody.html(html);
+                $estado.hide();
+                $wrap.show();
+            },
+            error: function() {
+                $estado.text('Error al cargar las órdenes de producción.').show();
+            }
+        });
+    }
+
+    // Pestaña "Forecast Semanal": serie semana a semana del producto (forecast_x_producto).
+    function cargarDetalleForecast(cod) {
+        const $estado = $('#mrp-forecast-estado');
+        const $wrap   = $('#mrp-forecast-wrap');
+        const $tbody  = $('#tabla-mrp-forecast');
+
+        $estado.text('Cargando...').show();
+        $wrap.hide();
+        $tbody.empty();
+        $('#mrp-forecast-total').text('—');
+
+        $.ajax({
+            url: 'controllers/mrp_controller.php?action=detalle_forecast',
+            type: 'GET',
+            data: { itemcode: cod },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $estado.text(res.message || 'No se pudo cargar el forecast.').show();
+                    return;
+                }
+                const filas = res.data || [];
+                if (!filas.length) {
+                    $estado.text('Sin forecast para este producto.').show();
+                    return;
+                }
+                let html = '', total = 0;
+                filas.forEach(function(r) {
+                    const dem = parseFloat(r.demanda) || 0;
+                    total += dem;
+                    const semanaIso = r.iso_year + '-W' + String(r.iso_week).padStart(2, '0');
+                    html += '<tr>'
+                         + '<td class="text-center">' + textoDet(semanaIso) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.semana_inicio) + '</td>'
+                         + '<td class="text-end">' + formatearEntero(dem) + '</td>'
+                         + '</tr>';
+                });
+                $tbody.html(html);
+                $('#mrp-forecast-total').text(formatearEntero(total));
+                $estado.hide();
+                $wrap.show();
+            },
+            error: function() {
+                $estado.text('Error al cargar el forecast.').show();
+            }
+        });
+    }
+
+    // Botón "Ver detalle": toma la fila del DataTable, llena el resumen y carga las pestañas.
     $('#tabla-consulta-mrp tbody').on('click', '.btn-mrp-detalle', function() {
         const f = tabla ? tabla.row($(this).closest('tr')).data() : null;
         if (!f) { return; }
         $('#mrp-detalle-titulo').text('— ' + (f.producto_codigo || '') + ' · ' + (f.producto_nombre || ''));
         $('#tabla-mrp-detalle').html(filasDetalleMrp(f));
+        // Siempre inicia en la pestaña Stock al abrir un producto nuevo.
+        bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-stock-btn')).show();
         cargarDetalleStock(f.producto_codigo);
+        cargarDetalleComprometido(f.producto_codigo);
+        cargarDetalleEnPedido(f.producto_codigo);
+        cargarDetalleEnProduccion(f.producto_codigo);
+        cargarDetalleForecast(f.producto_codigo);
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMrpDetalle')).show();
     });
 

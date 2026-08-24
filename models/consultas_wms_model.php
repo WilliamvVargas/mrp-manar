@@ -9,9 +9,14 @@
         /** @var PDO Conexión al WMS (SGL WMS). */
         private $pdo;
 
-        public function __construct(PDO $pdo)
+        /** @var int Código de empresa del WMS (Cod_Emp) de la empresa activa. Distintas
+         *   empresas comparten el WMS separadas por Cod_Emp (Manar=1, Molderil=2, ...). */
+        private $empresaWms;
+
+        public function __construct(PDO $pdo, $empresaWms = 1)
         {
-            $this->pdo = $pdo;
+            $this->pdo        = $pdo;
+            $this->empresaWms = (int) $empresaWms;
         }
 
         /**
@@ -84,7 +89,7 @@
                 ) FV
 
                 WHERE
-                    T1.Cod_Emp        IN ('1')
+                    T1.Cod_Emp        IN (?)
                     AND T3.PltTipoPallet = ''
                     AND T3.PltIngOPck    = 'I'
 
@@ -105,7 +110,10 @@
                     CAST(T0.PltDtlDateTime AS DATE)
             ";
 
-            return $this->pdo->query($sql)->fetchAll();
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$this->empresaWms]);
+
+            return $stmt->fetchAll();
         }
 
         /**
@@ -147,7 +155,7 @@
                 ) FV
 
                 WHERE
-                    T1.Cod_Emp        IN ('1')
+                    T1.Cod_Emp        IN (?)
                     AND T3.PltTipoPallet = ''
                     AND T3.PltIngOPck    = 'I'
                     AND FV.FechaVencimientoCorregida >= CAST(GETDATE() AS DATE)
@@ -160,7 +168,10 @@
                     T1.GrpCod
             ";
 
-            return $this->pdo->query($sql)->fetchAll();
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$this->empresaWms]);
+
+            return $stmt->fetchAll();
         }
 
         /**
@@ -241,7 +252,7 @@
                 ) FV
 
                 WHERE
-                    T1.Cod_Emp        IN ('1')
+                    T1.Cod_Emp        IN (?)
                     AND T3.PltTipoPallet = ''
                     AND T3.PltIngOPck    = 'I'
                     AND LTRIM(RTRIM(T1.GrpCod)) = ?
@@ -260,7 +271,7 @@
             ";
 
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([trim($itemCode)]);
+            $stmt->execute([$this->empresaWms, trim($itemCode)]);
 
             return $stmt->fetchAll();
         }
@@ -295,7 +306,7 @@
                 ) FV
 
                 WHERE
-                    T1.Cod_Emp        IN ('1')
+                    T1.Cod_Emp        IN (?)
                     AND T3.PltTipoPallet = ''
                     AND T3.PltIngOPck    = 'I'
                     AND FV.FechaVencimientoCorregida >= CAST(GETDATE() AS DATE)
@@ -304,7 +315,10 @@
                     T1.GrpCod
             ";
 
-            return $this->pdo->query($sql)->fetchAll();
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$this->empresaWms]);
+
+            return $stmt->fetchAll();
         }
     }
 ?>

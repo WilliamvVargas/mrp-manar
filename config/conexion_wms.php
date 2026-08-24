@@ -30,4 +30,32 @@
         error_log('[WMS] ' . $e->getMessage());
         die('Error de conexión al WMS.');
     }
+
+    /**
+     * Código de empresa del WMS (Cod_Emp) de la empresa activa. El WMS separa empresas por
+     * Cod_Emp (Manar=1, Molderil=2, ...), guardado en empresas.empresa_wms. Se pasa a
+     * ConsultaWms para acotar las consultas a la empresa activa.
+     *
+     * @param PDO         $pdoMysql  Conexión MySQL (donde vive la tabla empresas).
+     * @param string|null $empresaId Empresa a resolver ('' / null = la activa de la sesión).
+     * @return int Cod_Emp (por defecto 1 = Manar si no se puede resolver).
+     */
+    if (!function_exists('codigoEmpresaWms')) {
+        function codigoEmpresaWms(PDO $pdoMysql, $empresaId = null)
+        {
+            $empresaId = $empresaId ?: ($_SESSION['empresa_id'] ?? null);
+            if (empty($empresaId)) {
+                return 1;
+            }
+            try {
+                $st = $pdoMysql->prepare("SELECT empresa_wms FROM empresas WHERE id = ?");
+                $st->execute([$empresaId]);
+                $v = $st->fetchColumn();
+                return ($v !== false && $v !== null && $v !== '') ? (int) $v : 1;
+            } catch (Throwable $e) {
+                error_log('[WMS] codigoEmpresaWms: ' . $e->getMessage());
+                return 1;
+            }
+        }
+    }
 ?>
