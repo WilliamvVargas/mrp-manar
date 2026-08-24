@@ -16,6 +16,7 @@ $(document).ready(function() {
         extra: function(d) {
             d.familia     = $('#filtro-familia').val();       // '' = todas
             d.sub_familia = $('#filtro-sub-familia').val();   // '' = todas
+            d.calidad     = $('#filtro-calidad').val();       // '' = todas
         },
         // Orden por defecto: Código Producto ascendente.
         orden: [[0, 'asc']],
@@ -24,6 +25,7 @@ $(document).ready(function() {
             { data: 'producto_nombre',  render: $.fn.dataTable.render.text() },
             { data: 'familia',          render: $.fn.dataTable.render.text() },
             { data: 'sub_familia',      render: $.fn.dataTable.render.text() },
+            { data: 'version',          className: 'text-center', render: $.fn.dataTable.render.text() },
             {
                 // Cálculo Forecast: insumos aplicados en el cálculo del forecast del producto.
                 // Extensible: hoy solo "Presupuesto"; a futuro se agregan más factores (uno por línea).
@@ -40,9 +42,24 @@ $(document).ready(function() {
                     return 'Presupuesto: ' + icono(Number(row.usa_presupuesto) === 1);
                 }
             },
+            {
+                // Calidad del registro (Alta/Media/Baja): respaldo de datos + confiabilidad
+                // del pronóstico (historia + MAPE + método). El tooltip muestra las semanas de historia.
+                data: 'calidad',
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(d, type, row) {
+                    const cal = d || '';
+                    if (!cal) { return '<span class="text-muted">—</span>'; }
+                    const color = { 'Alta': 'success', 'Media': 'warning', 'Baja': 'danger' }[cal] || 'secondary';
+                    const sem   = (row.semanas_historia !== null && row.semanas_historia !== undefined) ? row.semanas_historia : '';
+                    const title = (sem !== '') ? ' title="' + sem + ' semanas de historia"' : '';
+                    return '<span class="badge bg-' + color + '"' + title + '>' + cal + '</span>';
+                }
+            },
             { data: 'total_forecast',   className: 'text-end', render: formatearEntero },
             { data: 'forecast_sig_semana', className: 'text-end', render: formatearEntero },
-            { data: null, orderable: false, searchable: false, className: 'text-end', render: function() { return ''; } }, // Cantidad Ajustada (placeholder, sin origen)
             {
                 // Acciones: botones "Gráfico producto" y "Parámetros MRP" (por producto).
                 data: null,
@@ -78,7 +95,7 @@ $(document).ready(function() {
     });
 
     // Recargar la tabla al cambiar el filtro de Familia o Sub-Familia.
-    $('#filtro-familia, #filtro-sub-familia').on('change', function() {
+    $('#filtro-familia, #filtro-sub-familia, #filtro-calidad').on('change', function() {
         tablaConsulta.ajax.reload();
     });
 
@@ -86,7 +103,7 @@ $(document).ready(function() {
     inicializarBotonLimpiar({
         boton:  '#btn-limpiar-filtros',
         tabla:  tablaConsulta,
-        campos: ['#consulta-forecast', '#filtro-familia', '#filtro-sub-familia'],
+        campos: ['#consulta-forecast', '#filtro-familia', '#filtro-sub-familia', '#filtro-calidad'],
         delay:  250
     });
 
@@ -254,115 +271,6 @@ $(document).ready(function() {
                           + 'Error al cargar los parámetros MRP.</td></tr>');
             }
         });
-    });
-
-    // ============================================================
-    //  Listado "Parámetros MRP" (botón del header): DataTable dentro de un modal con todos
-    //  los productos de la bodega 010 (misma consulta, sin filtro por producto).
-    // ============================================================
-
-    let tablaMrpLista = null; // instancia DataTable (se reconstruye en cada apertura)
-
-    const renderTxt = function(d) { return (d === null || d === undefined) ? '' : $('<div>').text(d).html(); };
-    const renderCant = function(d) { return formatearCantidad(d); };   // cantidades en unidades (entero)
-    const renderDias = function(d) {                                    // cantidad + " días" (vacío si no hay dato)
-        const v = formatearCantidad(d);
-        return v === '' ? '' : v + ' días';
-    };
-
-    // Al terminar de abrirse el modal (ancho final ya disponible), carga y arma el DataTable.
-    $('#modalForecastParametrosMrpLista').on('shown.bs.modal', function() {
-        const $estado = $('#fc-mrp-lista-estado');
-        const $wrap   = $('#fc-mrp-lista-wrap');
-
-        // Usa el mismo filtro que la consulta principal (código o nombre de producto).
-        const filtroConsulta = $('#consulta-forecast').val() || '';
-
-        $estado.text('Cargando...').show();
-        $wrap.hide();
-
-        $.ajax({
-            url: 'controllers/forecast_controller.php?action=parametros_mrp_todos',
-            type: 'GET',
-            dataType: 'json',
-            success: function(res) {
-                if (res.status !== 'success') {
-                    $estado.text(res.message || 'No se pudo cargar la consulta.').show();
-                    return;
-                }
-
-                const filas = res.data || [];
-
-                // Reinicia la tabla previa antes de recargar los datos.
-                if (tablaMrpLista) {
-                    tablaMrpLista.destroy();
-                    $('#tabla-parametros-mrp-lista tbody').empty();
-                }
-
-                $estado.hide();
-                $wrap.show();
-
-                tablaMrpLista = $('#tabla-parametros-mrp-lista').DataTable({
-                    data: filas,
-                    // Sin el buscador por defecto ('f'): se usa el input propio #consulta-mrp-lista.
-                    dom: "<'row align-items-center'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-end'i>>" +
-                         "<'row'<'col-sm-12'tr>>" +
-                         "<'row'<'col-sm-12'p>>",
-                    autoWidth: false,
-                    scrollX: true,
-                    search: { search: filtroConsulta },   // hereda el filtro de la consulta principal
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-                    columns: [
-                        { data: 'ItemCode',   render: renderTxt },
-                        { data: 'ItemName',   render: renderTxt },
-                        { data: 'Familia',    render: renderTxt },
-                        { data: 'SubFamilia', render: renderTxt },
-                        { data: 'MinOrdrQty', className: 'text-end', render: renderCant },
-                        { data: 'OrdrMulti',  className: 'text-end', render: renderCant },
-                        { data: 'MinStock',   className: 'text-end', render: renderCant },
-                        { data: 'MaxStock',   className: 'text-end', render: renderCant },
-                        { data: 'MinOrder',   className: 'text-end', render: renderCant },
-                        { data: 'OnHand',        className: 'text-end', render: renderCant },
-                        { data: 'CompVentas',    className: 'text-end', render: renderCant },
-                        { data: 'CompProduccion',className: 'text-end', render: renderCant },
-                        { data: 'EnPedido',      className: 'text-end', render: renderCant },
-                        { data: 'EnProduccion',  className: 'text-end', render: renderCant },
-
-                        // Campos de negocio (UDF de OITM).
-                        { data: 'StatusArticulo',   render: renderTxt },
-                        { data: 'Origen',           render: renderTxt },
-                        { data: 'MarcaPropia',      render: renderTxt },
-                        { data: 'ArticuloNuevo',    render: renderTxt },
-                        { data: 'ECommerce',        render: renderTxt },
-                        { data: 'Campana',          render: renderTxt },
-                        { data: 'Gramaje',          className: 'text-end', render: renderCant },
-                        { data: 'UnidCaja',         className: 'text-end', render: renderCant },
-                        { data: 'UnidEmbProv',      render: renderTxt },
-                        { data: 'Kilos',            className: 'text-end', render: renderCant },
-                        { data: 'Moneda',           render: renderTxt },
-                        { data: 'ProveedorNegocio', render: renderTxt },
-                        { data: 'ProveedorNombre',  render: renderTxt },
-                        { data: 'LeadTimeNegocio',  className: 'text-end', render: renderDias }
-                    ]
-                });
-
-                // Refleja en el input propio el filtro heredado de la consulta principal.
-                $('#consulta-mrp-lista').val(filtroConsulta);
-
-                // La tabla se construyó dentro del modal: recalcula el ancho de columnas.
-                tablaMrpLista.columns.adjust();
-            },
-            error: function() {
-                $estado.text('Error al cargar la consulta.').show();
-            }
-        });
-    });
-
-    // Buscador propio del modal (reemplaza al buscador por defecto del DataTable).
-    $('#consulta-mrp-lista').on('keyup input', function() {
-        if (tablaMrpLista) {
-            tablaMrpLista.search(this.value).draw();
-        }
     });
 
 });

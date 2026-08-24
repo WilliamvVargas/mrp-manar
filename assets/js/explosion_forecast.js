@@ -2,9 +2,9 @@ $(document).ready(function() {
 
     // ============================================================
     //  Explosión de Forecast — corre el pipeline paso a paso y marca ✓/✗.
+    //  Usa el presupuesto de la empresa activa y la VERSIÓN elegida en el modal.
     // ============================================================
 
-    const URL   = 'controllers/explosion_forecast_controller.php?action=explosion_paso&paso=';
     const $lis  = $('#explosion-pasos li');
     const total = $lis.length;
     let corriendo = false;
@@ -16,6 +16,15 @@ $(document).ready(function() {
         err:  '<i class="bi bi-x-circle-fill text-danger"></i>'
     };
 
+    // URL de un paso, con la versión de presupuesto elegida (el controlador toma la empresa
+    // activa de la sesión).
+    function urlPaso(i) {
+        const version = $('#explosion-version').val() || '';
+        return 'controllers/explosion_forecast_controller.php?action=explosion_paso'
+             + '&paso='    + i
+             + '&version=' + encodeURIComponent(version);
+    }
+
     function setEstado($li, estado, detalle) {
         const $e = $li.find('.paso-estado');
         $e.html(ICONOS[estado] || ICONOS.pend);
@@ -26,6 +35,11 @@ $(document).ready(function() {
         corriendo = false;
         $('#btn-explosion-ejecutar').prop('disabled', false).html('<i class="bi bi-play-fill"></i> Volver a ejecutar');
         if (exito) {
+            // Refresca la tabla del Forecast para mostrar los registros recién calculados
+            // (se recupera la instancia por su id; conserva la página actual con reload(null,false)).
+            if ($.fn.dataTable && $.fn.dataTable.isDataTable('#tabla-consulta-forecast')) {
+                $('#tabla-consulta-forecast').DataTable().ajax.reload(null, false);
+            }
             mostrarMensajeFormulario('#modal-mensajes-explosion', 'Éxito', 'La explosión de forecast se completó correctamente.', 'success');
         } else {
             const msg = labelFallo
@@ -41,7 +55,7 @@ $(document).ready(function() {
         const $li = $lis.eq(i);
         setEstado($li, 'run');
 
-        $.ajax({ url: URL + i, type: 'GET', dataType: 'json' })
+        $.ajax({ url: urlPaso(i), type: 'GET', dataType: 'json' })
             .done(function(res) {
                 if (res && res.status === 'success' && res.ok) {
                     setEstado($li, 'ok');
@@ -59,16 +73,30 @@ $(document).ready(function() {
 
     function ejecutar() {
         if (corriendo) { return; }
+
+        // Debe haber una versión de presupuesto elegida (la empresa la valida el servidor).
+        const version = $('#explosion-version').val() || '';
+        if (version === '') {
+            mostrarMensajeFormulario('#modal-mensajes-explosion', 'Atención',
+                'Selecciona una versión de presupuesto para ejecutar la explosión.', 'warning');
+            return;
+        }
+
         corriendo = true;
         $('#btn-explosion-ejecutar').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status"></span> Ejecutando...');
-        mostrarMensajeFormulario('#modal-mensajes-explosion', 'Procesando', 'Ejecutando el pipeline, puede tardar ~1 minuto...', 'info');
+        mostrarMensajeFormulario('#modal-mensajes-explosion', 'Procesando',
+            'Ejecutando el pipeline con la versión ' + version + ', puede tardar ~1 minuto...', 'info');
         $lis.each(function() { setEstado($(this), 'pend'); });
         correrPaso(0);
     }
 
-    // Al abrir el modal se ejecuta automáticamente.
-    $('#modalExplosionForecast').on('shown.bs.modal', function() { ejecutar(); });
+    // Al abrir el modal se deja en estado inicial (no arranca solo: el usuario elige versión).
+    $('#modalExplosionForecast').on('shown.bs.modal', function() {
+        if (corriendo) { return; }
+        $('#modal-mensajes-explosion').empty();
+        $lis.each(function() { setEstado($(this), 'pend'); });
+    });
 
-    // Botón para volver a ejecutar.
+    // Botón Ejecutar / Volver a ejecutar.
     $('#btn-explosion-ejecutar').on('click', ejecutar);
 });

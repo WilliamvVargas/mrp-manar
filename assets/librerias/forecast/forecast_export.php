@@ -33,11 +33,35 @@ if (PHP_SAPI !== 'cli' && !in_array($ip, ['127.0.0.1', '::1'], true)) {
 }
 set_time_limit(0);
 
-require_once __DIR__ . '/../../../config/conexion.php';
-require_once __DIR__ . '/../../../config/conexion_sqlserver.php';
+require_once __DIR__ . '/../../../config/conexion.php';                    // $pdo (MySQL)
+require_once __DIR__ . '/../../../config/conexion_sqlserver_factory.php';  // conectarSap()
 require_once __DIR__ . '/../../../models/consultas_sap_model.php';
 
 const HORIZONTE = 52;   // semanas a pronosticar
+
+// Contexto del presupuesto: empresa activa + versión. Lo pasa el controlador de la
+// Explosión de Forecast para NO mezclar el presupuesto de todas las empresas/versiones.
+//   CLI:  php forecast_export.php <empresa_id> <version>
+//   HTTP: ?empresa_id=...&version=...
+// Si no se pasan (ejecución suelta de depuración), se usa TODO el presupuesto (legacy).
+if (PHP_SAPI === 'cli') {
+    $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
+    $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
+} else {
+    $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
+    $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
+}
+
+// Conexión SAP de la EMPRESA (no la por defecto). En CLI no hay sesión, así que la demanda
+// real DEBE salir de la SAP de la empresa recibida; si no, el forecast de otra empresa se
+// calcularía con los productos de la empresa por defecto (Manar).
+try {
+    $pdoSqlsrv = conectarSap($pdo, $EMPRESA_ID);
+} catch (Throwable $e) {
+    error_log('[FORECAST export SAP] ' . $e->getMessage());
+    echo 'ERROR: no se pudo conectar a SAP de la empresa. ' . $e->getMessage() . "\n";
+    exit(1);
+}
 
 function claveGrupo($f, $s) { return mb_strtoupper(trim((string) $f)) . '||' . mb_strtoupper(trim((string) $s)); }
 
@@ -95,13 +119,23 @@ foreach ($ventas as $r) {
 echo "Grupos: " . count($gruposInfo) . "\n";
 
 // ---- 2) Presupuesto por grupo/MES (MySQL) ---------------------------------
+// Se acota a la empresa + versión recibidas (si vienen). Así el forecast usa SOLO el
+// presupuesto de esa empresa/versión, sin mezclar el resto.
+$condPres = ['familia IS NOT NULL', 'sub_familia IS NOT NULL', 'venta IS NOT NULL'];
+$parPres  = [];
+if ($EMPRESA_ID !== null)   { $condPres[] = 'empresa_id = ?'; $parPres[] = $EMPRESA_ID; }
+if ($VERSION_PRES !== null) { $condPres[] = 'version = ?';    $parPres[] = $VERSION_PRES; }
+echo 'Presupuesto: empresa=' . ($EMPRESA_ID ?? '(todas)') . ' | version=' . ($VERSION_PRES ?? '(todas)') . "\n";
+
 $presGrupoMes = [];
-$rows = $pdo->query("
+$stPres = $pdo->prepare("
     SELECT anio, mes, TRIM(familia) fam, TRIM(sub_familia) sub, SUM(venta) p
     FROM presupuestos
-    WHERE familia IS NOT NULL AND sub_familia IS NOT NULL AND venta IS NOT NULL
+    WHERE " . implode(' AND ', $condPres) . "
     GROUP BY anio, mes, TRIM(familia), TRIM(sub_familia)
-")->fetchAll();
+");
+$stPres->execute($parPres);
+$rows = $stPres->fetchAll();
 foreach ($rows as $pr) {
     $key = claveGrupo($pr['fam'], $pr['sub']);
     $presGrupoMes[$key][sprintf('%04d-%02d', $pr['anio'], $pr['mes'])] = (float) $pr['p'];

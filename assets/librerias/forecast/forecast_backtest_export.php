@@ -22,11 +22,32 @@ if (PHP_SAPI !== 'cli' && !in_array($ip, ['127.0.0.1', '::1'], true)) {
 }
 set_time_limit(0);
 
-require_once __DIR__ . '/../../../config/conexion.php';
-require_once __DIR__ . '/../../../config/conexion_sqlserver.php';
+require_once __DIR__ . '/../../../config/conexion.php';                    // $pdo (MySQL)
+require_once __DIR__ . '/../../../config/conexion_sqlserver_factory.php';  // conectarSap()
 require_once __DIR__ . '/../../../models/consultas_sap_model.php';
 
 const OCULTOS = 52; // semanas a ocultar y evaluar
+
+// Contexto del presupuesto (igual que forecast_export.php): empresa activa + versión, para
+// no mezclar el presupuesto de todas las empresas/versiones. Lo pasa el controlador.
+//   CLI:  php forecast_backtest_export.php <empresa_id> <version>   |   HTTP: ?empresa_id=&version=
+if (PHP_SAPI === 'cli') {
+    $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
+    $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
+} else {
+    $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
+    $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
+}
+
+// Conexión SAP de la EMPRESA recibida (no la por defecto): en CLI no hay sesión. Ver
+// forecast_export.php para el detalle del porqué.
+try {
+    $pdoSqlsrv = conectarSap($pdo, $EMPRESA_ID);
+} catch (Throwable $e) {
+    error_log('[FORECAST backtest export SAP] ' . $e->getMessage());
+    echo 'ERROR: no se pudo conectar a SAP de la empresa. ' . $e->getMessage() . "\n";
+    exit(1);
+}
 
 function claveGrupo($f, $s) { return mb_strtoupper(trim((string) $f)) . '||' . mb_strtoupper(trim((string) $s)); }
 
@@ -100,11 +121,21 @@ foreach ($ventas as $r) {
 }
 
 // ---- Presupuesto por grupo/MES (MySQL) ------------------------------------
+// Acotado a la empresa + versión recibidas (si vienen), igual que forecast_export.php.
+$condPres = ['familia IS NOT NULL', 'sub_familia IS NOT NULL', 'venta IS NOT NULL'];
+$parPres  = [];
+if ($EMPRESA_ID !== null)   { $condPres[] = 'empresa_id = ?'; $parPres[] = $EMPRESA_ID; }
+if ($VERSION_PRES !== null) { $condPres[] = 'version = ?';    $parPres[] = $VERSION_PRES; }
+echo 'Presupuesto: empresa=' . ($EMPRESA_ID ?? '(todas)') . ' | version=' . ($VERSION_PRES ?? '(todas)') . "\n";
+
 $presGrupoMes = [];
-foreach ($pdo->query("
+$stPres = $pdo->prepare("
     SELECT anio, mes, TRIM(familia) fam, TRIM(sub_familia) sub, SUM(venta) p
-    FROM presupuestos WHERE familia IS NOT NULL AND sub_familia IS NOT NULL AND venta IS NOT NULL
-    GROUP BY anio, mes, TRIM(familia), TRIM(sub_familia)")->fetchAll() as $pr) {
+    FROM presupuestos
+    WHERE " . implode(' AND ', $condPres) . "
+    GROUP BY anio, mes, TRIM(familia), TRIM(sub_familia)");
+$stPres->execute($parPres);
+foreach ($stPres->fetchAll() as $pr) {
     $presGrupoMes[claveGrupo($pr['fam'], $pr['sub'])][sprintf('%04d-%02d', $pr['anio'], $pr['mes'])] = (float) $pr['p'];
 }
 

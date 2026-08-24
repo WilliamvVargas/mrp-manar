@@ -36,10 +36,11 @@ switch ($action) {
         // Filtros de la tabla.
         $familia    = trim($_GET['familia'] ?? '');       // '' = todas
         $subFamilia = trim($_GET['sub_familia'] ?? '');   // '' = todas
+        $calidad    = trim($_GET['calidad'] ?? '');       // '' = todas (Alta/Media/Baja)
 
         // Ordenamiento multi-columna (índice de DataTables -> nombre lógico de la vista agrupada).
         // Índice 4 ("Cálculo Forecast") es placeholder sin orden: null mantiene alineados los índices.
-        $columnas = ['producto_codigo', 'producto_nombre', 'familia', 'sub_familia', null, 'total_forecast', 'forecast_sig_semana'];
+        $columnas = ['producto_codigo', 'producto_nombre', 'familia', 'sub_familia', 'version', null, null, 'total_forecast', 'forecast_sig_semana'];
         $ordenes  = [];
         if (isset($_GET['order']) && is_array($_GET['order'])) {
             foreach ($_GET['order'] as $o) {
@@ -51,10 +52,10 @@ switch ($action) {
         }
 
         try {
-            $forecastModel  = new Forecast($pdo);
+            $forecastModel  = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
             $totalRegistros = $forecastModel->contarTodos();
-            $totalFiltrados = $forecastModel->contarFiltrados($consulta, $familia, $subFamilia);
-            $datos          = $forecastModel->listarPagina($consulta, $familia, $subFamilia, $ordenes, $inicio, $longitud);
+            $totalFiltrados = $forecastModel->contarFiltrados($consulta, $familia, $subFamilia, $calidad);
+            $datos          = $forecastModel->listarPagina($consulta, $familia, $subFamilia, $calidad, $ordenes, $inicio, $longitud);
 
             echo json_encode([
                 'draw'            => $draw,
@@ -78,7 +79,7 @@ switch ($action) {
 
         // Valores para los filtros de Familia y Sub-Familia.
         try {
-            $forecastModel = new Forecast($pdo);
+            $forecastModel = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
             echo json_encode([
                 'status'       => 'success',
                 'familias'     => $forecastModel->familiasDisponibles(),
@@ -145,14 +146,20 @@ switch ($action) {
             $forecast = [];
             $detalle  = [];
             try {
+                // Ajustes manuales por semana (tabla independiente que sobrevive a las re-proyecciones).
+                require_once __DIR__ . '/../models/forecast_ajuste_model.php';
+                $mapaAjustes = (new ForecastAjuste($pdo, $_SESSION['empresa_id'] ?? null))->mapaPorProducto($itemCode);
+
                 $st = $pdo->prepare("
                     SELECT semana_inicio, demanda_forecast AS df
-                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY semana_inicio
+                    FROM forecast_x_producto
+                    WHERE producto_codigo = ? AND empresa_id = ? ORDER BY semana_inicio
                 ");
-                $st->execute([$itemCode]);
+                $st->execute([$itemCode, $_SESSION['empresa_id'] ?? null]);
                 foreach ($st->fetchAll() as $r) {
                     $sem = (string) $r['semana_inicio'];   // lunes ISO
                     $df  = (float) $r['df'];
+                    $ts  = strtotime($sem);
                     $forecast[] = [
                         'ym'                => $sem,       // clave temporal del gráfico (lunes)
                         'DemandaForecast'   => $df,
@@ -161,8 +168,11 @@ switch ($action) {
                     $detalle[] = [
                         'semana'            => $sem,
                         'tipo'              => 'Forecast',
-                        'demanda_forecast'  => $df,
                         'demanda_historica' => null,
+                        'demanda_forecast'  => $df,
+                        'iso_year'          => (int) date('o', $ts),   // año ISO (para guardar el ajuste)
+                        'iso_week'          => (int) date('W', $ts),   // semana ISO
+                        'cantidad_ajustada' => $mapaAjustes[$sem] ?? null,
                     ];
                 }
 
@@ -170,8 +180,8 @@ switch ($action) {
                     $detalle[] = [
                         'semana'            => $h['FechaDocumento'],
                         'tipo'              => 'Histórico',
-                        'demanda_forecast'  => null,
                         'demanda_historica' => ($h['Demanda'] !== null) ? (float) $h['Demanda'] : null,
+                        'demanda_forecast'  => null,
                     ];
                 }
 
@@ -224,29 +234,52 @@ switch ($action) {
         }
         exit;
 
-    case 'parametros_mrp_todos':
+    case 'guardar_ajuste':
 
-        // Parámetros para MRP de TODOS los productos (bodega 010) desde SAP / SQL Server (CLPRDMANAR).
-        require_once __DIR__ . '/../config/conexion_sqlserver.php';
-        require_once __DIR__ . '/../models/consultas_sap_model.php';
+        // Guarda (upsert) la Cantidad Ajustada MANUAL de una semana del forecast de un producto.
+        // POST: auth.php ya validó sesión + CSRF. Se acota a la empresa activa.
+        require_once __DIR__ . '/../models/forecast_ajuste_model.php';
+
+        if (empty($_SESSION['empresa_id'])) {
+            echo json_encode(['status' => 'error', 'message' => 'No hay una empresa activa.']);
+            exit;
+        }
+
+        $itemCode = trim($_POST['itemcode'] ?? '');
+        $isoYear  = (int) ($_POST['iso_year'] ?? 0);
+        $isoWeek  = (int) ($_POST['iso_week'] ?? 0);
+        $semana   = trim($_POST['semana_inicio'] ?? '');
+        $cantRaw  = trim((string) ($_POST['cantidad'] ?? ''));
+
+        if ($itemCode === '' || $isoYear <= 0 || $isoWeek <= 0 || $isoWeek > 53
+            || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $semana)) {
+            echo json_encode(['status' => 'error', 'message' => 'Datos de la semana incompletos o inválidos.']);
+            exit;
+        }
+
+        // Cantidad: entero de 0 al máximo permitido por la columna.
+        if (!preg_match('/^\d+$/', $cantRaw)) {
+            echo json_encode(['status' => 'error', 'message' => 'La cantidad debe ser un número entero mayor o igual a 0.']);
+            exit;
+        }
+        $cantidad = (int) $cantRaw;
+        if ($cantidad < 0 || $cantidad > ForecastAjuste::MAX_CANTIDAD) {
+            echo json_encode(['status' => 'error', 'message' => 'La cantidad está fuera del rango permitido.']);
+            exit;
+        }
 
         try {
-            $model = new ConsultaSap($pdoSqlsrv);
-            $datos = $model->parametrosMrp();
+            $ajusteModel = new ForecastAjuste($pdo, $_SESSION['empresa_id']);
+            $ajusteModel->guardar($itemCode, $isoYear, $isoWeek, $semana, $cantidad, $_SESSION['usuario_id'] ?? null);
 
-            // El "En Mano" (OnHand) se reemplaza por el stock VIGENTE del WMS (otra conexión).
-            require_once __DIR__ . '/../config/conexion_wms.php';        // $pdoWms
-            require_once __DIR__ . '/../models/consultas_wms_model.php'; // ConsultaWms
-            $stockWms = (new ConsultaWms($pdoWms))->stockPorProductoMap();
-            foreach ($datos as &$fila) {
-                $fila['OnHand'] = $stockWms[trim($fila['ItemCode'])] ?? 0;
-            }
-            unset($fila);
-
-            echo json_encode(['status' => 'success', 'data' => $datos]);
-        } catch (PDOException $e) {
-            error_log('[FORECAST][parametros_mrp_todos] ' . $e->getMessage());
-            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener los parámetros MRP.']);
+            echo json_encode([
+                'status'   => 'success',
+                'cantidad' => $cantidad,
+                'message'  => 'Cantidad ajustada guardada.',
+            ]);
+        } catch (Throwable $e) {
+            error_log('[FORECAST][guardar_ajuste] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'No se pudo guardar la cantidad ajustada.']);
         }
         exit;
 

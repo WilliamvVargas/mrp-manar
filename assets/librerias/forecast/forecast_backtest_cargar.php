@@ -27,6 +27,17 @@ require_once __DIR__ . '/../../../config/conexion.php';
 const FACTOR_MIN = 0.25;
 const FACTOR_MAX = 4.0;
 
+// Empresa activa + versión: el backtest se guarda estampado por empresa y el factor solo se
+// aplica a las filas de forecast_x_producto de esa empresa.
+//   CLI:  php forecast_backtest_cargar.php <empresa_id> <version>   |   HTTP: ?empresa_id=&version=
+if (PHP_SAPI === 'cli') {
+    $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
+    $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
+} else {
+    $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
+    $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
+}
+
 function leerCsv($ruta) {
     $filas = [];
     if (($fh = fopen($ruta, 'r')) === false) { return $filas; }
@@ -60,12 +71,17 @@ try {
     }
 
     // ---- Métricas por grupo ---------------------------------------------
-    $pdo->exec("TRUNCATE TABLE forecast_backtest");
+    // Se reemplaza SOLO el backtest de la empresa activa (no toda la tabla), para conservar
+    // el de otras empresas. <=> es igualdad null-safe (ejecución suelta sin empresa -> NULL).
+    $delBt = $pdo->prepare("DELETE FROM forecast_backtest WHERE empresa_id <=> ?");
+    $delBt->execute([$EMPRESA_ID]);
+
     $ins = $pdo->prepare("
         INSERT INTO forecast_backtest
-            (familia, sub_familia, metodo, semanas_evaluadas, desde, hasta,
+            (empresa_id, version_presupuesto,
+             familia, sub_familia, metodo, semanas_evaluadas, desde, hasta,
              suma_real, suma_forecast, factor, bias_pct, mape)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     ");
 
     $pdo->beginTransaction();
@@ -89,6 +105,7 @@ try {
         $mape   = count($ape) ? array_sum($ape) / count($ape) * 100 : null;
 
         $ins->execute([
+            $EMPRESA_ID, $VERSION_PRES,
             $g[0], $g[1], $metodo[$id] ?? '', $n, $semanas[0], $semanas[count($semanas) - 1],
             round($sumR, 4), round($sumF, 4), round($factor, 6),
             round($bias, 4), $mape !== null ? round($mape, 4) : null,
@@ -106,15 +123,41 @@ try {
                       ADD COLUMN factor decimal(10,6) NULL AFTER metodo,
                       ADD COLUMN demanda_forecast_corr decimal(15,4) NULL AFTER factor");
     }
-    // baseline (grupos sin backtest): factor 1
-    $pdo->exec("UPDATE forecast_x_producto SET factor = 1, demanda_forecast_corr = demanda_forecast");
-    // aplica el factor del backtest por grupo
-    $pdo->exec("
+    // baseline (grupos sin backtest): factor 1. Solo la empresa activa (no pisa otras).
+    $st = $pdo->prepare("UPDATE forecast_x_producto SET factor = 1, demanda_forecast_corr = demanda_forecast WHERE empresa_id <=> ?");
+    $st->execute([$EMPRESA_ID]);
+    // aplica el factor del backtest por grupo (empatando por empresa, no global)
+    $st = $pdo->prepare("
         UPDATE forecast_x_producto f
-        JOIN forecast_backtest b ON f.familia = b.familia AND f.sub_familia = b.sub_familia
+        JOIN forecast_backtest b
+          ON f.familia = b.familia AND f.sub_familia = b.sub_familia
+         AND f.empresa_id <=> b.empresa_id
         SET f.factor = b.factor,
             f.demanda_forecast_corr = ROUND(f.demanda_forecast * b.factor)
+        WHERE f.empresa_id <=> ?
     ");
+    $st->execute([$EMPRESA_ID]);
+
+    // ---- Calidad del registro -------------------------------------------
+    // Score (0–7) = 2×historia + mape + método, y de ahí Alta/Media/Baja. Mide cuánta data
+    // y confiabilidad respaldan cada forecast. LEFT JOIN: los grupos sin backtest -> mape NULL
+    // (score de mape 0). Ver la fórmula documentada en el mantenedor de Forecast.
+    $scoreExpr =
+        "( (CASE WHEN f.semanas_historia >= 52 THEN 2 WHEN f.semanas_historia >= 12 THEN 1 ELSE 0 END) * 2"
+      . " + (CASE WHEN b.mape IS NULL THEN 0 WHEN b.mape < 30 THEN 2 WHEN b.mape < 60 THEN 1 ELSE 0 END)"
+      . " + (CASE WHEN f.metodo = 'prophet' THEN 1 ELSE 0 END) )";
+    $stCal = $pdo->prepare("
+        UPDATE forecast_x_producto f
+        LEFT JOIN forecast_backtest b
+          ON f.familia = b.familia AND f.sub_familia = b.sub_familia AND f.empresa_id <=> b.empresa_id
+        SET f.calidad = CASE
+            WHEN $scoreExpr >= 5 THEN 'Alta'
+            WHEN $scoreExpr >= 3 THEN 'Media'
+            ELSE 'Baja'
+        END
+        WHERE f.empresa_id <=> ?
+    ");
+    $stCal->execute([$EMPRESA_ID]);
 
     // ---- Reporte --------------------------------------------------------
     echo "Grupos evaluados: $filas\n\n";
@@ -132,7 +175,9 @@ try {
            . number_format($x['factor'], 3) . "\n";
     }
 
-    $tot = $pdo->query("SELECT ROUND(SUM(demanda_forecast)) d, ROUND(SUM(demanda_forecast_corr)) c FROM forecast_x_producto")->fetch();
+    $tot = $pdo->prepare("SELECT ROUND(SUM(demanda_forecast)) d, ROUND(SUM(demanda_forecast_corr)) c FROM forecast_x_producto WHERE empresa_id <=> ?");
+    $tot->execute([$EMPRESA_ID]);
+    $tot = $tot->fetch();
     echo "\nforecast_x_producto -> demanda total: " . number_format((float) $tot['d'])
        . "  |  corregida (con factor): " . number_format((float) $tot['c']) . "\n";
     echo "\nListo.\n";

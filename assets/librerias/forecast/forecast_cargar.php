@@ -36,6 +36,18 @@ require_once __DIR__ . '/../../../config/conexion.php'; // $pdo (MySQL)
 const ALFA    = 0.96;   // decaimiento semanal (~equivale al 0.85 mensual: vida media ~4 meses)
 const VENTANA = 52;     // semanas hacia atrás para la participación
 
+// Contexto: empresa activa + versión del presupuesto con la que se calcula. Lo pasa el
+// controlador de la Explosión. El forecast se guarda ESTAMPADO por empresa/versión, y solo
+// se reemplazan las filas de esa empresa (no toda la tabla).
+//   CLI:  php forecast_cargar.php <empresa_id> <version>   |   HTTP: ?empresa_id=&version=
+if (PHP_SAPI === 'cli') {
+    $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
+    $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
+} else {
+    $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
+    $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
+}
+
 // Índice de semana relativo a un lunes de referencia (DST-safe: usa días de calendario).
 function semAIdx($mondayYmd) {
     static $ref = null;
@@ -104,13 +116,19 @@ try {
        . " | grupos con presupuesto: " . count($presGrupoSem) . "\n";
 
     // ---- Insertar --------------------------------------------------------
-    $pdo->exec("TRUNCATE TABLE forecast_x_producto");
+    // Se reemplaza SOLO el forecast de la empresa activa (no toda la tabla), para no pisar
+    // el de otras empresas. <=> es la igualdad null-safe (ejecución suelta sin empresa -> NULL).
+    $del = $pdo->prepare("DELETE FROM forecast_x_producto WHERE empresa_id <=> ?");
+    $del->execute([$EMPRESA_ID]);
+
     $ins = $pdo->prepare("
         INSERT INTO forecast_x_producto
-            (iso_year, iso_week, semana_inicio, familia, sub_familia, producto_codigo, producto_nombre,
+            (empresa_id, version_presupuesto,
+             iso_year, iso_week, semana_inicio, familia, sub_familia, producto_codigo, producto_nombre,
              demanda_forecast, forecast_grupo, forecast_grupo_min, forecast_grupo_max,
-             participacion, metodo, presupuesto_grupo, venta_presupuestada, usa_presupuesto)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             participacion, metodo, presupuesto_grupo, venta_presupuestada, usa_presupuesto,
+             semanas_historia)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ");
 
     $pdo->beginTransaction();
@@ -119,7 +137,9 @@ try {
         if (empty($prod[$id]) || empty($fc[$id])) { continue; }
 
         // Participación: tasa ponderada (52 semanas hasta la última real) por producto ACTIVO.
-        $rates = []; $nombres = [];
+        // semanas_historia = nº de semanas con venta real del producto (toda su historia): mide
+        // la CANTIDAD de datos que respalda su forecast (insumo de la calidad del registro).
+        $rates = []; $nombres = []; $semHist = [];
         foreach ($prod[$id] as $cod => $info) {
             if (isset($activo[$cod]) && !$activo[$cod]) { $inactivosExcluidos++; continue; } // inactivo en SAP -> fuera
 
@@ -134,11 +154,15 @@ try {
             $rate = $np / $peso;
             if ($rate <= 0) { continue; } // sin ventas recientes -> discontinuado
             $rates[$cod] = $rate; $nombres[$cod] = $info['nombre'];
+            $semHist[$cod] = count($info['semanas']);   // semanas con venta real (historia del producto)
         }
         $suma = array_sum($rates);
         if ($suma <= 0) { continue; }
         $gruposUsados++;
         $flag = $usaPres[$id] ?? 0;
+        // La versión de presupuesto solo aplica si el grupo se pronosticó CON presupuesto
+        // (flag=1). Si no lo usó, la fila no tiene versión (queda NULL -> en blanco en la UI).
+        $versionRow = ($flag === 1) ? $VERSION_PRES : null;
 
         foreach ($fc[$id] as $sem => $f) {
             $ts   = strtotime($sem);
@@ -154,6 +178,7 @@ try {
                 // Venta presupuestada del producto = participacion × presupuesto de la semana ($).
                 $ventaPres = ($presGrupo !== null) ? $presGrupo * $part : null;
                 $ins->execute([
+                    $EMPRESA_ID, $versionRow,
                     $isoY, $isoW, $sem, $g[0], $g[1], $cod, $nombres[$cod],
                     round($demF), // unidades enteras (>= 0.5 sube)
                     round($f['yhat'], 4),
@@ -164,6 +189,7 @@ try {
                     ($presGrupo !== null) ? round($presGrupo, 2) : null,
                     ($ventaPres !== null) ? round($ventaPres, 2) : null,
                     $flag,
+                    $semHist[$cod] ?? 0,
                 ]);
                 $filas++;
             }
@@ -174,19 +200,24 @@ try {
     // ---- Resumen y muestra ----------------------------------------------
     echo "Grupos usados: $gruposUsados | Filas insertadas: $filas | Productos inactivos excluidos: $inactivosExcluidos\n\n";
 
-    $tot = $pdo->query("SELECT COUNT(*) n, SUM(demanda_forecast) d FROM forecast_x_producto")->fetch();
+    $tot = $pdo->prepare("SELECT COUNT(*) n, SUM(demanda_forecast) d FROM forecast_x_producto WHERE empresa_id <=> ?");
+    $tot->execute([$EMPRESA_ID]);
+    $tot = $tot->fetch();
+    echo "Empresa: " . ($EMPRESA_ID ?? '(sin empresa)') . " | versión: " . ($VERSION_PRES ?? '(sin versión)') . "\n";
     echo "TOTAL: {$tot['n']} filas | demanda_forecast total: " . number_format((float) $tot['d'], 0) . "\n\n";
 
     echo "Muestra (primera semana de forecast, top demanda):\n";
     echo str_pad('Semana', 12) . str_pad('Familia', 16) . str_pad('SubFamilia', 16)
        . str_pad('Producto', 13) . str_pad('Dem.Fc', 9) . str_pad('Particip.', 11) . str_pad('Método', 10) . "Pres.\n";
     echo str_repeat('-', 96) . "\n";
-    $q = $pdo->query("
+    $q = $pdo->prepare("
         SELECT semana_inicio, familia, sub_familia, producto_codigo, demanda_forecast, participacion, metodo, usa_presupuesto
         FROM forecast_x_producto
-        WHERE semana_inicio = (SELECT MIN(semana_inicio) FROM forecast_x_producto)
+        WHERE empresa_id <=> ?
+          AND semana_inicio = (SELECT MIN(semana_inicio) FROM forecast_x_producto WHERE empresa_id <=> ?)
         ORDER BY demanda_forecast DESC LIMIT 15
     ");
+    $q->execute([$EMPRESA_ID, $EMPRESA_ID]);
     foreach ($q->fetchAll() as $m) {
         echo str_pad($m['semana_inicio'], 12)
            . str_pad(mb_substr($m['familia'], 0, 15), 16) . str_pad(mb_substr($m['sub_familia'], 0, 15), 16)

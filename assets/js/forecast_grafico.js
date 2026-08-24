@@ -48,6 +48,7 @@ $(document).ready(function() {
     }
 
     let serieGraficoActual = null; // última serie cargada (para redibujar al mostrar el modal)
+    let productoActual     = null; // { codigo, nombre } del producto abierto (para el ajuste manual)
     let mesResaltado       = null; // año-mes del registro abierto (se remarca en el forecast)
     let modalGraficoShown  = false; // true cuando el modal terminó de abrirse (ancho final)
     let graficoDibujado    = false; // true tras el primer dibujo (evita dibujar dos veces)
@@ -306,15 +307,17 @@ $(document).ready(function() {
     }
 
     // Resumen "Producto seleccionado": datos del producto (la vista es agregada, sin mes puntual).
-    function renderResumen(d) {
+    // sel: tabla destino (por defecto la del gráfico; el modal de ajuste reutiliza la MISMA info).
+    function renderResumen(d, sel) {
+        sel = sel || '#tabla-resumen-grafico-forecast';
         const ths = ['Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Total Forecast (52 semanas)', 'Forecast Semana Siguiente'];
         const tds = [
             esc(d.codigo), esc(d.nombre), esc(d.familia), esc(d.subfamilia),
             '<span class="fw-bold">' + esc(formatearNumero(d.total, 0)) + '</span>',
             '<span class="fw-bold">' + esc(formatearNumero(d.sig, 0)) + '</span>'
         ];
-        $('#tabla-resumen-grafico-forecast thead').html('<tr>' + ths.map(function(t) { return '<th>' + t + '</th>'; }).join('') + '</tr>');
-        $('#tabla-resumen-grafico-forecast tbody').html('<tr>' + tds.map(function(t, i) {
+        $(sel + ' thead').html('<tr>' + ths.map(function(t) { return '<th>' + t + '</th>'; }).join('') + '</tr>');
+        $(sel + ' tbody').html('<tr>' + tds.map(function(t, i) {
             return '<td class="' + (i >= 4 ? 'text-end' : '') + '">' + t + '</td>';
         }).join('') + '</tr>');
     }
@@ -325,20 +328,36 @@ $(document).ready(function() {
         const $tb   = $('#tabla-detalle-grafico-forecast tbody');
 
         if (!detalle || !detalle.length) {
-            $tb.html('<tr><td colspan="4" class="text-center text-muted py-3">Sin filas en el rango de fechas seleccionado.</td></tr>');
+            $tb.html('<tr><td colspan="6" class="text-center text-muted py-3">Sin filas en el rango de fechas seleccionado.</td></tr>');
             $wrap.show();
             return;
         }
 
         const guion = '<span class="text-muted">—</span>';
         $tb.html(detalle.map(function(d) {
-            const df = (d.demanda_forecast  === null || d.demanda_forecast  === undefined) ? guion : formatearNumero(d.demanda_forecast, 0);
             const dh = (d.demanda_historica === null || d.demanda_historica === undefined) ? guion : formatearNumero(d.demanda_historica, 0);
+            const df = (d.demanda_forecast  === null || d.demanda_forecast  === undefined) ? guion : formatearNumero(d.demanda_forecast, 0);
+
+            // Solo las semanas de FORECAST (futuras) son ajustables (traen iso_week).
+            const esForecast = (d.iso_week !== null && d.iso_week !== undefined);
+            let ca = '', acc = '';
+            if (esForecast) {
+                ca = (d.cantidad_ajustada === null || d.cantidad_ajustada === undefined) ? guion : formatearNumero(d.cantidad_ajustada, 0);
+                acc = '<button type="button" class="btn btn-sm btn-outline-secondary btn-ajustar-cantidad"'
+                    + ' data-semana="'   + esc(d.semana)   + '"'
+                    + ' data-isoyear="'  + esc(d.iso_year) + '"'
+                    + ' data-isoweek="'  + esc(d.iso_week) + '"'
+                    + ' data-cantidad="' + ((d.cantidad_ajustada === null || d.cantidad_ajustada === undefined) ? '' : esc(d.cantidad_ajustada)) + '"'
+                    + ' title="Ingresar cantidad ajustada"><i class="bi bi-pencil"></i></button>';
+            }
+
             return '<tr>'
                  + '<td title="' + esc(d.semana) + '">' + esc(etiquetaSemana(String(d.semana), true)) + '</td>'
                  + '<td>' + esc(d.tipo || 'Forecast') + '</td>'
-                 + '<td class="text-end">' + df + '</td>'
                  + '<td class="text-end">' + dh + '</td>'
+                 + '<td class="text-end">' + df + '</td>'
+                 + '<td class="text-end">' + ca + '</td>'
+                 + '<td class="text-center">' + acc + '</td>'
                  + '</tr>';
         }).join(''));
         $wrap.show();
@@ -367,6 +386,8 @@ $(document).ready(function() {
             sig:        b.data('sig')
         };
         if (reg.codigo === undefined || reg.codigo === '') { return; }
+
+        productoActual = reg;   // datos completos del producto (para el resumen del modal de ajuste)
 
         const $estado = $('#fc-grafico-estado');
         const $canvas = $('#fc-grafico-canvas');
@@ -450,5 +471,88 @@ $(document).ready(function() {
             cuandoChartsListo(redibujarConFiltro);
         }
     }, 200));
+
+    // ============================================================
+    //  Cantidad Ajustada MANUAL por semana (columna Acciones del detalle).
+    //  Abre un modal con un entero (0..máx); guarda en forecast_ajustes (upsert).
+    // ============================================================
+
+    // Botón de la columna Acciones: abre el modal prellenado con el ajuste actual de la semana.
+    $('#tabla-detalle-grafico-forecast tbody').on('click', '.btn-ajustar-cantidad', function() {
+        if (!productoActual) { return; }
+        const b = $(this);
+
+        $('#fc-ajuste-itemcode').val(productoActual.codigo);
+        $('#fc-ajuste-iso-year').val(b.data('isoyear'));
+        $('#fc-ajuste-iso-week').val(b.data('isoweek'));
+        $('#fc-ajuste-semana-inicio').val(b.data('semana'));
+
+        $('#fc-ajuste-semana-txt').val(etiquetaSemana(String(b.data('semana')), true));
+
+        const actual = b.data('cantidad');
+        $('#fc-ajuste-cantidad').val((actual === '' || actual === undefined || actual === null) ? '' : actual).removeClass('is-invalid');
+        $('#modal-mensajes-ajuste').empty();
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalForecastAjuste')).show();
+    });
+
+    // Guarda el ajuste (upsert) y actualiza la celda en memoria sin recargar todo.
+    $('#form-forecast-ajuste').on('submit', function(e) {
+        e.preventDefault();
+
+        const $cant = $('#fc-ajuste-cantidad');
+        const val   = String($cant.val()).trim();
+
+        // Validación cliente: entero >= 0 (el servidor revalida).
+        if (!/^\d+$/.test(val)) {
+            $cant.addClass('is-invalid');
+            mostrarMensajeFormulario('#modal-mensajes-ajuste', 'Atención', 'Ingresa un número entero mayor o igual a 0.', 'danger');
+            return;
+        }
+        $cant.removeClass('is-invalid');
+
+        const $btn = $('#btn-guardar-ajuste');
+        setBtnLoading($btn, 'Guardando...');
+
+        $.ajax({
+            url: 'controllers/forecast_controller.php?action=guardar_ajuste',
+            type: 'POST',
+            data: new FormData(this),   // incluye csrf_token y los ocultos
+            processData: false,
+            contentType: false,
+            dataType: 'json'
+        }).done(function(res) {
+            resetBtnLoading($btn);
+            if (res.status === 'success') {
+                // Refleja el nuevo valor en el detalle en memoria y re-renderiza.
+                const sem = $('#fc-ajuste-semana-inicio').val();
+                if (detalleForecastActual) {
+                    detalleForecastActual.forEach(function(d) {
+                        if (String(d.semana) === sem && (d.iso_week !== null && d.iso_week !== undefined)) {
+                            d.cantidad_ajustada = res.cantidad;
+                        }
+                    });
+                }
+                renderDetalleFiltrado();
+                bootstrap.Modal.getInstance(document.getElementById('modalForecastAjuste')).hide();
+            } else {
+                mostrarMensajeFormulario('#modal-mensajes-ajuste', 'Atención', res.message || 'No se pudo guardar.', 'danger');
+            }
+        }).fail(function(jqXHR, textStatus) {
+            resetBtnLoading($btn);
+            manejarErrorAjax(jqXHR, textStatus, '#modal-mensajes-ajuste');
+        });
+    });
+
+    // Modales apilados: el ajuste abre SOBRE el modal del gráfico. Bootstrap deja el nuevo
+    // backdrop por debajo del modal de abajo, así que no lo oscurece. Subimos el z-index del
+    // modal de ajuste (por encima de todo) y el de su backdrop (por encima del modal del gráfico).
+    document.getElementById('modalForecastAjuste').addEventListener('show.bs.modal', function() {
+        this.style.zIndex = 1070;
+        setTimeout(function() {
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length) { backdrops[backdrops.length - 1].style.zIndex = 1060; }
+        }, 0);
+    });
 
 });

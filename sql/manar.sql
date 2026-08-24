@@ -336,6 +336,32 @@ CREATE TABLE `forecast` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `forecast_ajustes`
+--   Ajustes MANUALES de cantidad por producto/semana. Tabla independiente: la explosión
+--   de forecast NO la toca, así el ajuste sobrevive a las re-proyecciones.
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `forecast_ajustes` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `empresa_id` varchar(36) DEFAULT NULL,
+  `producto_codigo` varchar(50) NOT NULL,
+  `iso_year` smallint(4) unsigned NOT NULL,
+  `iso_week` tinyint(2) unsigned NOT NULL,
+  `semana_inicio` date NOT NULL,
+  `cantidad_ajustada` int(10) unsigned NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` varchar(36) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updated_by` varchar(36) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_fa_empresa_producto_semana` (`empresa_id`,`producto_codigo`,`iso_year`,`iso_week`),
+  KEY `idx_fa_empresa_producto` (`empresa_id`,`producto_codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `forecast_backtest`
 --
 
@@ -343,6 +369,8 @@ CREATE TABLE `forecast` (
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `forecast_backtest` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `empresa_id` varchar(36) DEFAULT NULL,
+  `version_presupuesto` varchar(10) DEFAULT NULL,
   `familia` varchar(100) DEFAULT NULL,
   `sub_familia` varchar(100) DEFAULT NULL,
   `metodo` varchar(20) DEFAULT NULL,
@@ -356,8 +384,9 @@ CREATE TABLE `forecast_backtest` (
   `mape` decimal(10,4) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_bt_grupo` (`familia`,`sub_familia`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  UNIQUE KEY `uq_bt_empresa_grupo` (`empresa_id`,`familia`,`sub_familia`),
+  KEY `idx_bt_empresa` (`empresa_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -368,6 +397,8 @@ CREATE TABLE `forecast_backtest` (
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `forecast_x_producto` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `empresa_id` varchar(36) DEFAULT NULL,
+  `version_presupuesto` varchar(10) DEFAULT NULL,
   `iso_year` smallint(4) unsigned NOT NULL,
   `iso_week` tinyint(2) unsigned NOT NULL,
   `semana_inicio` date NOT NULL,
@@ -386,13 +417,16 @@ CREATE TABLE `forecast_x_producto` (
   `presupuesto_grupo` decimal(15,2) DEFAULT NULL,
   `venta_presupuestada` decimal(15,2) DEFAULT NULL,
   `usa_presupuesto` tinyint(1) NOT NULL DEFAULT 0,
+  `semanas_historia` smallint(5) unsigned DEFAULT NULL,
+  `calidad` varchar(10) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_fxp_semana_producto` (`iso_year`,`iso_week`,`producto_codigo`),
+  UNIQUE KEY `uq_fxp_empresa_semana_producto` (`empresa_id`,`iso_year`,`iso_week`,`producto_codigo`),
+  KEY `idx_fxp_empresa` (`empresa_id`),
   KEY `idx_fxp_semana` (`semana_inicio`),
   KEY `idx_fxp_grupo` (`familia`,`sub_familia`),
   KEY `idx_fxp_producto` (`producto_codigo`)
-) ENGINE=InnoDB AUTO_INCREMENT=9621 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

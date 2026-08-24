@@ -30,7 +30,7 @@
 
             // Opciones de los filtros Familia / Sub-Familia (presentes en el forecast).
             try {
-                $model = new Forecast($pdo);
+                $model = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
                 echo json_encode([
                     'familias'     => $model->familiasDisponibles(),
                     'sub_familias' => $model->subFamiliasDisponibles(),
@@ -50,9 +50,9 @@
                 require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
                 require_once __DIR__ . '/../models/consultas_wms_model.php';  // ConsultaWms
 
-                // 1) Base: todos los productos con forecast (MySQL).
-                $forecastModel = new Forecast($pdo);
-                $base = $forecastModel->listarPagina('', '', '', [], 0, -1);
+                // 1) Base: todos los productos con forecast (MySQL) de la empresa activa.
+                $forecastModel = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
+                $base = $forecastModel->listarPagina('', '', '', '', [], 0, -1);
 
                 // Serie semanal del forecast por producto (ordenada), para sumar el horizonte del
                 // lead time. Guarda la semana (lunes ISO) y la demanda de cada punto.

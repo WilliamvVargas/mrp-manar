@@ -13,9 +13,48 @@
         /** @var PDO */
         private $pdo;
 
+        /** @var array|null Cache de columnas de OITM (para tolerar UDFs ausentes entre empresas). */
+        private $oitmCols = null;
+
         public function __construct(PDO $pdo)
         {
             $this->pdo = $pdo;
+        }
+
+        /**
+         * ¿Existe la columna $col en la tabla OITM de la SAP conectada? Distintas empresas
+         * comparten casi el mismo esquema B1, pero alguna UDF puede faltar (p. ej. U_Campana
+         * no existe en todas). Se cachea la lista de columnas. Si no se puede inspeccionar,
+         * asume que existe (mantiene el comportamiento previo).
+         */
+        private function oitmTieneColumna($col)
+        {
+            if ($this->oitmCols === null) {
+                try {
+                    $this->oitmCols = [];
+                    foreach ($this->pdo->query("SELECT name FROM sys.columns WHERE object_id = OBJECT_ID('OITM')")->fetchAll(PDO::FETCH_COLUMN) as $c) {
+                        $this->oitmCols[$c] = true;
+                    }
+                } catch (Throwable $e) {
+                    $this->oitmCols = null;
+                    return true;
+                }
+            }
+            return isset($this->oitmCols[$col]);
+        }
+
+        /**
+         * Column list de Parámetros MRP tolerante a UDFs ausentes: si la empresa no tiene
+         * `U_Campana`, la sustituye por NULL para que la consulta no falle (Invalid column name).
+         * Si más adelante otra empresa carece de otra UDF, se añade aquí la misma sustitución.
+         */
+        private function columnasMrpSeguras()
+        {
+            $cols = self::COLUMNAS_PARAMETROS_MRP;
+            if (!$this->oitmTieneColumna('U_Campana')) {
+                $cols = str_replace('T0.U_Campana', 'NULL', $cols);
+            }
+            return $cols;
         }
 
         /**
@@ -378,8 +417,8 @@
                 FROM OINV T0
                 INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
                 LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                 WHERE T0.CANCELED = 'N' $filtroFecha
 
                 UNION ALL
@@ -407,8 +446,8 @@
                 FROM ORIN T0
                 INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
                 LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                 WHERE T0.CANCELED = 'N' $filtroFecha
 
                 ORDER BY FechaDocumento, TipoDoc, NumDoc, Linea
@@ -475,8 +514,8 @@
                     FROM OINV T0
                     INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                     WHERE T0.CANCELED = 'N'
                       AND UF.Descr IS NOT NULL
                       AND US.Descr IS NOT NULL $filtroFecha
@@ -497,8 +536,8 @@
                     FROM ORIN T0
                     INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                     WHERE T0.CANCELED = 'N'
                       AND UF.Descr IS NOT NULL
                       AND US.Descr IS NOT NULL $filtroFecha
@@ -559,8 +598,8 @@
                     FROM OINV T0
                     INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                     WHERE T0.CANCELED = 'N'
                       AND UF.Descr IS NOT NULL
                       AND US.Descr IS NOT NULL $filtroFecha
@@ -577,8 +616,8 @@
                     FROM ORIN T0
                     INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                     WHERE T0.CANCELED = 'N'
                       AND UF.Descr IS NOT NULL
                       AND US.Descr IS NOT NULL $filtroFecha
@@ -699,8 +738,8 @@
                     FROM OINV T0
                     INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                     WHERE T0.CANCELED = 'N'
                       AND UF.Descr IS NOT NULL
                       AND US.Descr IS NOT NULL $filtroFecha
@@ -717,8 +756,8 @@
                     FROM ORIN T0
                     INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
                     LEFT JOIN OITM IT ON IT.ItemCode = T1.ItemCode
-                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = 8 AND UF.FldValue = IT.U_Familia
-                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = 9 AND US.FldValue = IT.U_SubFamilia
+                    LEFT JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                    LEFT JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
                     WHERE T0.CANCELED = 'N'
                       AND UF.Descr IS NOT NULL
                       AND US.Descr IS NOT NULL $filtroFecha
@@ -831,14 +870,14 @@
         {
             $sql = "
                 SELECT
-                    " . self::COLUMNAS_PARAMETROS_MRP . "
+                    " . $this->columnasMrpSeguras() . "
                 FROM OITM T0
                 INNER JOIN OITW T1 ON T0.ItemCode = T1.ItemCode
-                LEFT  JOIN UFD1 UF  ON UF.TableID  = 'OITM' AND UF.FieldID  = 8  AND UF.FldValue  = T0.U_Familia
-                LEFT  JOIN UFD1 US  ON US.TableID  = 'OITM' AND US.FieldID  = 9  AND US.FldValue  = T0.U_SubFamilia
-                LEFT  JOIN UFD1 UO  ON UO.TableID  = 'OITM' AND UO.FieldID  = 7  AND UO.FldValue  = T0.U_Origin
-                LEFT  JOIN UFD1 UMP ON UMP.TableID = 'OITM' AND UMP.FieldID = 12 AND UMP.FldValue = T0.U_MPropia
-                LEFT  JOIN UFD1 UEC ON UEC.TableID = 'OITM' AND UEC.FieldID = 15 AND UEC.FldValue = T0.U_ECommerce
+                LEFT  JOIN UFD1 UF  ON UF.TableID  = 'OITM' AND UF.FieldID  = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia')  AND UF.FldValue  = T0.U_Familia
+                LEFT  JOIN UFD1 US  ON US.TableID  = 'OITM' AND US.FieldID  = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia')  AND US.FldValue  = T0.U_SubFamilia
+                LEFT  JOIN UFD1 UO  ON UO.TableID  = 'OITM' AND UO.FieldID  = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Origin')  AND UO.FldValue  = T0.U_Origin
+                LEFT  JOIN UFD1 UMP ON UMP.TableID = 'OITM' AND UMP.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'MPropia') AND UMP.FldValue = T0.U_MPropia
+                LEFT  JOIN UFD1 UEC ON UEC.TableID = 'OITM' AND UEC.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'ECommerce') AND UEC.FldValue = T0.U_ECommerce
                 LEFT  JOIN [@PROVEEDORES] PV ON LTRIM(RTRIM(PV.Code)) = LTRIM(RTRIM(T0.U_NX_Proveedor))
                 WHERE T1.WhsCode = '010' AND T0.ItemCode = ?
                 ORDER BY T0.ItemCode, T1.WhsCode
@@ -860,14 +899,14 @@
         {
             $sql = "
                 SELECT
-                    " . self::COLUMNAS_PARAMETROS_MRP . "
+                    " . $this->columnasMrpSeguras() . "
                 FROM OITM T0
                 INNER JOIN OITW T1 ON T0.ItemCode = T1.ItemCode
-                LEFT  JOIN UFD1 UF  ON UF.TableID  = 'OITM' AND UF.FieldID  = 8  AND UF.FldValue  = T0.U_Familia
-                LEFT  JOIN UFD1 US  ON US.TableID  = 'OITM' AND US.FieldID  = 9  AND US.FldValue  = T0.U_SubFamilia
-                LEFT  JOIN UFD1 UO  ON UO.TableID  = 'OITM' AND UO.FieldID  = 7  AND UO.FldValue  = T0.U_Origin
-                LEFT  JOIN UFD1 UMP ON UMP.TableID = 'OITM' AND UMP.FieldID = 12 AND UMP.FldValue = T0.U_MPropia
-                LEFT  JOIN UFD1 UEC ON UEC.TableID = 'OITM' AND UEC.FieldID = 15 AND UEC.FldValue = T0.U_ECommerce
+                LEFT  JOIN UFD1 UF  ON UF.TableID  = 'OITM' AND UF.FieldID  = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia')  AND UF.FldValue  = T0.U_Familia
+                LEFT  JOIN UFD1 US  ON US.TableID  = 'OITM' AND US.FieldID  = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia')  AND US.FldValue  = T0.U_SubFamilia
+                LEFT  JOIN UFD1 UO  ON UO.TableID  = 'OITM' AND UO.FieldID  = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Origin')  AND UO.FldValue  = T0.U_Origin
+                LEFT  JOIN UFD1 UMP ON UMP.TableID = 'OITM' AND UMP.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'MPropia') AND UMP.FldValue = T0.U_MPropia
+                LEFT  JOIN UFD1 UEC ON UEC.TableID = 'OITM' AND UEC.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'ECommerce') AND UEC.FldValue = T0.U_ECommerce
                 LEFT  JOIN [@PROVEEDORES] PV ON LTRIM(RTRIM(PV.Code)) = LTRIM(RTRIM(T0.U_NX_Proveedor))
                 WHERE T1.WhsCode = '010'
                 ORDER BY T0.ItemCode, T1.WhsCode

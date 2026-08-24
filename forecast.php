@@ -18,11 +18,11 @@
 
 <?php include 'includes/navbar.php'; ?>
 
-<div class="container">
+<div class="container-fluid">
     <div id="alert-container"></div>
 </div>
 
-<div class="container">
+<div class="container-fluid">
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Forecast'); ?></h5>
@@ -30,10 +30,6 @@
                 <button class="btn btn-primary btn-sm" type="button" id="btn-explosion-forecast"
                         data-bs-toggle="modal" data-bs-target="#modalExplosionForecast">
                     <i class="bi bi-diagram-3"></i> Explosión de Forecast
-                </button>
-                <button class="btn btn-danger btn-sm" type="button" id="btn-parametros-mrp-lista"
-                        data-bs-toggle="modal" data-bs-target="#modalForecastParametrosMrpLista">
-                    <i class="bi bi-sliders"></i> Parámetros MRP
                 </button>
             </div>
         </div>
@@ -64,6 +60,15 @@
                             <option value="">Todas</option>
                         </select>
                     </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="filtro-calidad">Calidad</label>
+                        <select class="form-select form-select-sm" id="filtro-calidad">
+                            <option value="">Todas</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Media">Media</option>
+                            <option value="Baja">Baja</option>
+                        </select>
+                    </div>
                     <div class="col-md-auto d-flex align-items-end">
                         <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros">
                             <i class="bi bi-eraser me-1"></i> Limpiar
@@ -76,13 +81,14 @@
                         <tr>
                             <th style="width: 9%">Código Producto</th>
                             <th style="width: 18%">Nombre Producto</th>
-                            <th style="width: 12%">Familia</th>
-                            <th style="width: 12%">Sub-Familia</th>
-                            <th style="width: 11%">Cálculo Forecast</th>
-                            <th style="width: 10%" class="text-end">Total Forecast (52 semanas)</th>
-                            <th style="width: 10%" class="text-end">Forecast Semana Siguiente</th>
-                            <th style="width: 10%" class="text-end">Cantidad Ajustada</th>
-                            <th style="width: 8%" class="text-center">Acciones</th>
+                            <th style="width: 11%">Familia</th>
+                            <th style="width: 11%">Sub-Familia</th>
+                            <th style="width: 8%">Versión</th>
+                            <th style="width: 9%">Cálculo Forecast</th>
+                            <th style="width: 7%" class="text-center">Calidad</th>
+                            <th style="width: 11%" class="text-end">Total Forecast (52 semanas)</th>
+                            <th style="width: 11%" class="text-end">Forecast Semana Siguiente</th>
+                            <th style="width: 10%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -95,8 +101,8 @@
 
 <?php
     include 'modals/modal_forecast_grafico.php';
+    include 'modals/modal_forecast_ajuste.php';
     include 'modals/modal_forecast_parametros_mrp.php';
-    include 'modals/modal_forecast_parametros_mrp_lista.php';
     include 'modals/modal_forecast_explosion.php';
 ?>
 

@@ -218,9 +218,10 @@ switch ($action) {
 
                 $st = $pdo->prepare("
                     SELECT semana_inicio, demanda_forecast AS df
-                    FROM forecast_x_producto WHERE producto_codigo = ? ORDER BY semana_inicio
+                    FROM forecast_x_producto
+                    WHERE producto_codigo = ? AND empresa_id = ? ORDER BY semana_inicio
                 ");
-                $st->execute([$itemCode]);
+                $st->execute([$itemCode, $_SESSION['empresa_id'] ?? null]);
                 foreach ($st->fetchAll() as $r) {
                     $forecast[] = [
                         'ym'              => (string) $r['semana_inicio'],   // lunes ISO

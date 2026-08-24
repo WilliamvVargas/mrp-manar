@@ -34,19 +34,37 @@ $py = $rootB . '\\assets\\librerias\\python\\venv\\Scripts\\python.exe';
 $fp = $rootF . '/assets/librerias/python/forecast_prophet.py';
 $pru = $rootF . '/assets/librerias/forecast/';
 
+// Contexto del presupuesto para el forecast: empresa activa (de la sesión) + versión
+// (elegida en el modal). Se inyecta SOLO a los dos scripts que leen el presupuesto, para
+// que el pronóstico use esa empresa/versión y no mezcle el resto. escapeshellarg protege
+// los argumentos en la línea de comandos.
+$empresaId   = $_SESSION['empresa_id'] ?? '';
+$versionPres = trim($_GET['version'] ?? '');
+$argsPres    = ' ' . escapeshellarg($empresaId) . ' ' . escapeshellarg($versionPres);
+
 // Pasos del pipeline (mismo orden que la lista del modal).
 $pasos = [
-    ['label' => 'Exportar series por grupo (SAP + presupuesto)', 'cmd' => $php . ' ' . $pru . 'forecast_export.php 2>&1'],
+    ['label' => 'Exportar series por grupo (SAP + presupuesto)', 'cmd' => $php . ' ' . $pru . 'forecast_export.php' . $argsPres . ' 2>&1'],
     ['label' => 'Entrenar Prophet',                              'cmd' => $py . ' ' . $fp . ' 2>&1'],
-    ['label' => 'Fabricar forecast por producto',    'cmd' => $php . ' ' . $pru . 'forecast_cargar.php 2>&1'],
-    ['label' => 'Exportar datos del backtest',                   'cmd' => $php . ' ' . $pru . 'forecast_backtest_export.php 2>&1'],
+    ['label' => 'Fabricar forecast por producto',    'cmd' => $php . ' ' . $pru . 'forecast_cargar.php' . $argsPres . ' 2>&1'],
+    ['label' => 'Exportar datos del backtest',                   'cmd' => $php . ' ' . $pru . 'forecast_backtest_export.php' . $argsPres . ' 2>&1'],
     ['label' => 'Prophet backtest (validación)',                 'cmd' => $py . ' ' . $fp . ' backtest 2>&1'],
-    ['label' => 'Calcular factor y demanda corregida',           'cmd' => $php . ' ' . $pru . 'forecast_backtest_cargar.php 2>&1'],
+    ['label' => 'Calcular factor y demanda corregida',           'cmd' => $php . ' ' . $pru . 'forecast_backtest_cargar.php' . $argsPres . ' 2>&1'],
 ];
 
 switch ($action) {
 
     case 'explosion_paso':
+
+        // El forecast se calcula para el presupuesto de una empresa + versión concretas.
+        if ($empresaId === '') {
+            echo json_encode(['status' => 'error', 'message' => 'No hay una empresa activa.']);
+            exit;
+        }
+        if ($versionPres === '') {
+            echo json_encode(['status' => 'error', 'message' => 'No se indicó la versión del presupuesto a usar.']);
+            exit;
+        }
 
         $i = (int) ($_GET['paso'] ?? -1);
         if (!isset($pasos[$i])) {
