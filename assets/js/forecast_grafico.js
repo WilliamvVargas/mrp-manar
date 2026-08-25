@@ -401,6 +401,7 @@ $(document).ready(function() {
         $('#fc-grafico-filtros').hide();
         $('#fc-grafico-detalle-wrap').hide();
         $('#tabla-detalle-grafico-forecast tbody').empty();
+        $('#fc-ia-resumen').val('');   // limpia el resumen IA del producto anterior
         $estado.text('Cargando...').show();
         $canvas.hide().empty();
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalForecastGrafico')).show();
@@ -451,6 +452,38 @@ $(document).ready(function() {
             },
             error: function() {
                 $estado.text('Error al cargar el gráfico.').show();
+            }
+        });
+    });
+
+    // Resumen del forecast por IA (Ollama). Bajo demanda: puede tardar unos segundos en CPU.
+    $('#fc-ia-generar').on('click', function() {
+        if (!productoActual || !productoActual.codigo) { return; }
+
+        const $btn = $(this);
+        const $txt = $('#fc-ia-resumen');
+        const htmlOriginal = $btn.html();
+
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Generando...');
+        $txt.val('Generando resumen con IA... (puede tardar unos segundos)');
+
+        $.ajax({
+            url: 'controllers/forecast_controller.php?action=describir_grafico',
+            type: 'GET',
+            data: { itemcode: productoActual.codigo },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success') {
+                    $txt.val(res.resumen);
+                } else {
+                    $txt.val('No se pudo generar el resumen: ' + (res.message || 'error desconocido.'));
+                }
+            },
+            error: function() {
+                $txt.val('Error al llamar al servicio de IA.');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(htmlOriginal);
             }
         });
     });

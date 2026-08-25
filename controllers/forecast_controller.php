@@ -22,6 +22,26 @@ function fcSemIdx($mondayYmd) {
     return (int) round((strtotime($mondayYmd . ' 12:00:00') - strtotime('2020-01-06 12:00:00')) / 604800);
 }
 
+/**
+ * Arma el prompt (en español) para que la IA describa el forecast de un producto a partir de
+ * los "hechos" ya calculados. Le da contexto de qué significan los datos y le prohíbe inventar.
+ */
+function promptResumenForecast(array $h) {
+    return
+        "Eres un analista de demanda. A partir de estos datos del PRONÓSTICO (forecast) semanal " .
+        "de un producto, redacta un RESUMEN en ESPAÑOL de 2 a 4 frases, en prosa (sin viñetas), " .
+        "claro para alguien de negocio (no técnico).\n" .
+        "IMPORTANTE: son cantidades PRONOSTICADAS a FUTURO, NO ventas reales. Usa lenguaje de " .
+        "expectativa (se proyecta, se espera, se estima), nunca en pasado (evita 'se vendió').\n" .
+        "Explica: la magnitud esperada (total y promedio por semana), la TENDENCIA, y algún pico " .
+        "relevante. Menciona brevemente la confianza si la calidad es baja. NO inventes cifras: " .
+        "usa SOLO los valores dados. Responde SIEMPRE en español.\n\n" .
+        "Notas de contexto: las unidades son cantidades del producto; el horizonte es de " .
+        "'semanas_forecast' semanas (semanal, por lunes ISO); 'usa_presupuesto' indica si el " .
+        "presupuesto se usó como apoyo del cálculo; 'calidad' resume la confiabilidad.\n\n" .
+        "Datos (JSON):\n" . json_encode($h, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+}
+
 switch ($action) {
 
     case 'listar':
@@ -199,6 +219,46 @@ switch ($action) {
         } catch (PDOException $e) {
             error_log('[FORECAST] ' . $e->getMessage());
             echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al obtener la demanda del producto.']);
+        }
+        exit;
+
+    case 'describir_grafico':
+
+        // Resumen en lenguaje natural (IA local / Ollama) del forecast del producto.
+        $itemCode = trim($_GET['itemcode'] ?? '');
+        if ($itemCode === '') {
+            echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+            exit;
+        }
+        if (empty($_SESSION['empresa_id'])) {
+            echo json_encode(['status' => 'error', 'message' => 'No hay una empresa activa seleccionada.']);
+            exit;
+        }
+
+        try {
+            $model  = new Forecast($pdo, $_SESSION['empresa_id']);
+            $hechos = $model->hechosForecastProducto($itemCode);
+            if (!$hechos) {
+                echo json_encode(['status' => 'error', 'message' => 'Este producto no tiene forecast para la empresa activa.']);
+                exit;
+            }
+
+            // Cuántas semanas tienen ajuste manual (contexto extra para la descripción).
+            require_once __DIR__ . '/../models/forecast_ajuste_model.php';
+            $ajustes = (new ForecastAjuste($pdo, $_SESSION['empresa_id']))->mapaPorProducto($itemCode);
+            $hechos['semanas_con_ajuste_manual'] = is_array($ajustes) ? count($ajustes) : 0;
+
+            require_once __DIR__ . '/../includes/ia_cliente.php';
+            $r = iaGenerarTexto(promptResumenForecast($hechos));
+
+            if (!$r['ok']) {
+                echo json_encode(['status' => 'error', 'message' => $r['error']]);
+                exit;
+            }
+            echo json_encode(['status' => 'success', 'resumen' => $r['texto']]);
+        } catch (Throwable $e) {
+            error_log('[FORECAST][describir] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al generar el resumen.']);
         }
         exit;
 

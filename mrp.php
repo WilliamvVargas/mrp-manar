@@ -25,6 +25,14 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'MRP'); ?></h5>
+            <!-- Recalcular Pronóstico: deshabilitado por ahora (funcionalidad pendiente). -->
+            <button type="button"
+                    class="btn btn-primary btn-sm"
+                    id="btn-recalcular-pronostico"
+                    title="Próximamente"
+                    disabled>
+                <i class="bi bi-arrow-repeat me-1"></i> Recalcular Pronóstico
+            </button>
         </div>
         <div class="card-body">
             <div class="table-responsive">

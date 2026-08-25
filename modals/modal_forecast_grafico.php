@@ -52,6 +52,18 @@
                 <!-- Lienzo del gráfico (Google Charts). -->
                 <div id="fc-grafico-canvas" style="width:100%; min-height:420px;"></div>
 
+                <!-- Resumen del forecast por IA (Ollama local). Se genera bajo demanda con el botón. -->
+                <div id="fc-ia-wrap" class="mt-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-bold small text-muted mb-0"><i class="bi bi-robot me-1"></i>Resumen del forecast (IA)</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="fc-ia-generar">
+                            <i class="bi bi-stars me-1"></i>Generar resumen
+                        </button>
+                    </div>
+                    <textarea class="form-control form-control-sm" id="fc-ia-resumen" rows="3" readonly
+                              placeholder="Pulsa «Generar resumen» para describir el forecast de este producto con IA."></textarea>
+                </div>
+
                 <!-- Detalle semana a semana del forecast del producto (bajo el gráfico); lo llena el JS. -->
                 <div id="fc-grafico-detalle-wrap" class="mt-4" style="display:none;">
                     <h6 class="fw-bold small text-muted mb-2"><i class="bi bi-table me-1"></i>Detalle del forecast por semana</h6>

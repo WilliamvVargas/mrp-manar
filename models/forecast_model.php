@@ -141,6 +141,74 @@
         }
 
         /**
+         * "Hechos" del forecast de UN producto (empresa activa), resumidos: sirven de insumo
+         * para generar una descripción en lenguaje natural con IA. Solo datos derivados de
+         * forecast_x_producto (sin inventar nada).
+         *
+         * @return array|null Null si el producto no tiene forecast.
+         */
+        public function hechosForecastProducto($productoCodigo)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT producto_nombre, familia, sub_familia, semana_inicio, demanda_forecast,
+                        usa_presupuesto, metodo, calidad, semanas_historia
+                 FROM forecast_x_producto
+                 WHERE empresa_id = ? AND producto_codigo = ?
+                 ORDER BY semana_inicio ASC"
+            );
+            $stmt->execute([$this->empresaId, $productoCodigo]);
+            $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (!$filas) { return null; }
+
+            $n = count($filas);
+            $total = 0.0; $max = null; $maxSem = null; $min = null;
+            foreach ($filas as $f) {
+                $v = (float) $f['demanda_forecast'];
+                $total += $v;
+                if ($max === null || $v > $max) { $max = $v; $maxSem = $f['semana_inicio']; }
+                if ($min === null || $v < $min) { $min = $v; }
+            }
+
+            // Tendencia: promedio de la primera mitad vs. la segunda (umbral ±8%).
+            $mitad = intdiv($n, 2);
+            $s1 = 0.0; $c1 = 0; $s2 = 0.0; $c2 = 0;
+            foreach ($filas as $i => $f) {
+                $v = (float) $f['demanda_forecast'];
+                if ($i < $mitad) { $s1 += $v; $c1++; } else { $s2 += $v; $c2++; }
+            }
+            $a1 = $c1 ? $s1 / $c1 : 0.0;
+            $a2 = $c2 ? $s2 / $c2 : 0.0;
+            $tendencia = 'plana';
+            if ($a1 > 0) {
+                $chg = ($a2 - $a1) / $a1;
+                if ($chg > 0.08)      { $tendencia = 'creciente'; }
+                elseif ($chg < -0.08) { $tendencia = 'decreciente'; }
+            }
+
+            $primero = $filas[0];
+            $ultimo  = $filas[$n - 1];
+            return [
+                'producto'          => $productoCodigo,
+                'nombre'            => $primero['producto_nombre'],
+                'familia'           => $primero['familia'],
+                'sub_familia'       => $primero['sub_familia'],
+                'semanas_forecast'  => $n,
+                'desde'             => $primero['semana_inicio'],
+                'hasta'             => $ultimo['semana_inicio'],
+                'total_unidades'    => (int) round($total),
+                'promedio_semanal'  => round($n ? $total / $n : 0, 1),
+                'proxima_semana'    => ['fecha' => $primero['semana_inicio'], 'unidades' => (int) round((float) $primero['demanda_forecast'])],
+                'semana_pico'       => ['fecha' => $maxSem, 'unidades' => (int) round((float) $max)],
+                'minimo_semanal'    => (int) round((float) $min),
+                'tendencia'         => $tendencia,
+                'usa_presupuesto'   => ((int) $primero['usa_presupuesto'] === 1),
+                'metodo'            => $primero['metodo'],
+                'calidad'           => $primero['calidad'],
+                'semanas_historia'  => (int) $primero['semanas_historia'],
+            ];
+        }
+
+        /**
          * Sub-familias distintas presentes en el forecast de la empresa (alfabético), para el filtro.
          *
          * @return string[]

@@ -50,4 +50,12 @@
   define('VENTAS_MAX_FILAS', 100000);      // Máximo de filas de datos a procesar
   define('VENTAS_MAX_PESO_MB', 25);        // Peso máximo del archivo .xlsx
 
+  //IA local (Ollama) — resúmenes en lenguaje natural del forecast
+  define('IA_PROVEEDOR', 'ollama');                 // 'ollama' (local) — dejado configurable a futuro
+  define('OLLAMA_URL',   'http://localhost:11434'); // servidor Ollama (mismo equipo)
+  define('OLLAMA_MODEL', 'qwen2.5:3b');             // modelo (más rápido en CPU; buen español)
+  define('IA_TIMEOUT_SEG', 120);                    // timeout amplio (CPU puede tardar)
+  define('OLLAMA_KEEP_ALIVE', '30m');               // mantiene el modelo cargado en RAM (evita recargas)
+  define('OLLAMA_NUM_PREDICT', 220);                // tope de tokens a generar (resumen corto)
+
 ?>
