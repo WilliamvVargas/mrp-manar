@@ -103,15 +103,17 @@ $(document).ready(function() {
                         { data: 'producto_nombre',  render: escaparTexto },
                         { data: 'familia',          render: escaparTexto },
                         { data: 'sub_familia',      render: escaparTexto },
+                        { data: 'proveedor',        render: escaparTexto },
                         { data: 'lead_time',        className: 'text-end',    render: renderNumero },
                         { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
                         { data: 'semana_desde',     className: 'text-center', render: renderSemanas },
+                        { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'stock_wms',        className: 'text-end',    render: renderNumero },
                         { data: 'stock_por_vencer', className: 'text-end',    render: renderNumero },
-                        { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'comprometido',     className: 'text-end',    render: renderNumero },
                         { data: 'en_pedido',        className: 'text-end',    render: renderNumero },
                         { data: 'en_produccion',    className: 'text-end',    render: renderNumero },
+                        { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
                         {
                             data: null, orderable: false, searchable: false, className: 'text-center',
@@ -178,8 +180,9 @@ $(document).ready(function() {
              + filaDet('Nombre',      textoDet(f.producto_nombre))
              + filaDet('Familia',     textoDet(f.familia))
              + filaDet('Sub-Familia', textoDet(f.sub_familia))
+             + filaDet('Proveedor',   textoDet(f.proveedor))
              + seccionDet('Planificación')
-             + filaDet('Lead Time (días)',    numDet(f.lead_time))
+             + filaDet('Lead Time (semanas)', numDet(f.lead_time))
              + filaDet('Demanda (Forecast)',  numDet(f.demanda_forecast))
              + filaDet('Semana(s)',           semanas)
              + seccionDet('Disponibilidad')
@@ -190,6 +193,7 @@ $(document).ready(function() {
              + filaDet('Comprometido',   numDet(f.comprometido))
              + filaDet('En Pedido',      numDet(f.en_pedido))
              + filaDet('En Producción',  numDet(f.en_produccion))
+             + filaDet('Stock Teórico',  numDet(f.stock_teorico))
              + seccionDet('Resultado')
              + filaDet('Sugerido a Reponer', '<span class="fw-bold">' + numDet(f.sugerido) + '</span>');
     }

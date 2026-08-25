@@ -72,18 +72,20 @@
                     <thead class="table-dark">
                         <tr>
                             <th style="width: 8%">Código Producto</th>
-                            <th style="width: 16%">Nombre Producto</th>
-                            <th style="width: 10%">Familia</th>
-                            <th style="width: 10%">Sub-Familia</th>
-                            <th style="width: 6%"  class="text-end" title="Lead Time del producto (U_LeadTime), en días">Lead Time (d)</th>
+                            <th style="width: 14%">Nombre Producto</th>
+                            <th style="width: 9%">Familia</th>
+                            <th style="width: 9%">Sub-Familia</th>
+                            <th style="width: 11%">Proveedor</th>
+                            <th style="width: 6%"  class="text-end" title="Lead Time del producto (U_LeadTime), en semanas">Lead Time (sem)</th>
                             <th style="width: 8%"  class="text-end" title="Forecast sumado sobre las semanas del lead time">Demanda (Forecast)</th>
                             <th style="width: 11%" class="text-center" title="Semana(s) del forecast que cubre la demanda (ventana del lead time)">Semana(s)</th>
+                            <th style="width: 6%"  class="text-center" title="Días hasta el lote más próximo a vencer">Próx. Venc. (d)</th>
                             <th style="width: 7%"  class="text-end">Stock (WMS)</th>
                             <th style="width: 7%"  class="text-end" title="Stock vigente que vence dentro de 30 días">Stock ≤30d</th>
-                            <th style="width: 6%"  class="text-center" title="Días hasta el lote más próximo a vencer">Próx. Venc. (d)</th>
                             <th style="width: 7%"  class="text-end">Comprometido</th>
                             <th style="width: 7%"  class="text-end">En Pedido</th>
                             <th style="width: 7%"  class="text-end">En Producción</th>
+                            <th style="width: 7%"  class="text-end" title="Stock WMS + En Pedido + En Producción − Comprometido">Stock Teórico</th>
                             <th style="width: 8%"  class="text-end">Sugerido a Reponer</th>
                             <th style="width: 5%"  class="text-center">Acciones</th>
                         </tr>

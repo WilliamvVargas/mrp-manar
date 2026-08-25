@@ -1044,7 +1044,7 @@
          *   - EnPedido     = entradas por compra (OC pendiente): bodegas 010 + IMP01 (Importaciones),
          *                    porque las compras de importados se reciben en IMP01 antes de pasar a 010.
          *   - EnProduccion = entradas por producción (órdenes liberadas hacia 010).
-         * Solo artículos con ficha en la bodega 010. Incluye también LeadTime (U_LeadTime, en días).
+         * Solo artículos con ficha en la bodega 010. Incluye también LeadTime (U_LeadTime, en semanas).
          *
          * @return array Filas: ['ItemCode'=>..., 'LeadTime'=>..., 'Comprometido'=>..., 'EnPedido'=>..., 'EnProduccion'=>...].
          */
@@ -1054,6 +1054,8 @@
                 SELECT
                     T0.ItemCode,
                     T0.U_LeadTime AS LeadTime,
+                    -- Proveedor del negocio (UDF U_NX_Proveedor) resuelto a nombre en @PROVEEDORES.
+                    LTRIM(RTRIM(PV.Name)) AS Proveedor,
                     ISNULL((
                         SELECT SUM(r.OpenQty)
                         FROM RDR1 r INNER JOIN ORDR o ON o.DocEntry = r.DocEntry
@@ -1079,6 +1081,7 @@
                           AND w2.Warehouse = '010' AND w2.ItemCode = T0.ItemCode
                     ), 0) AS EnProduccion
                 FROM OITM T0
+                LEFT JOIN [@PROVEEDORES] PV ON LTRIM(RTRIM(PV.Code)) = LTRIM(RTRIM(T0.U_NX_Proveedor))
                 WHERE EXISTS (SELECT 1 FROM OITW t WHERE t.ItemCode = T0.ItemCode AND t.WhsCode = '010')
             ";
 

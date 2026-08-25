@@ -87,10 +87,10 @@
                     $enPedido     = (float) ($abast[$cod]['EnPedido'] ?? 0);
                     $enProduccion = (float) ($abast[$cod]['EnProduccion'] ?? 0);
 
-                    // Lead time (U_LeadTime, días). Cobertura = semanas que abarca el lead time,
-                    // redondeando hacia arriba; fallback de 1 semana si no hay lead time (0/vacío).
-                    $leadDias = (int) ($abast[$cod]['LeadTime'] ?? 0);
-                    $semanas  = ($leadDias > 0) ? (int) ceil($leadDias / 7) : 1;
+                    // Lead time (U_LeadTime) EN SEMANAS. La cobertura es directamente ese número
+                    // de semanas; fallback de 1 semana si no hay lead time (0/vacío).
+                    $leadSemanas = (int) ($abast[$cod]['LeadTime'] ?? 0);
+                    $semanas     = ($leadSemanas > 0) ? $leadSemanas : 1;
 
                     // Demanda a cubrir = forecast de las próximas 'semanas' semanas (ventana del
                     // lead time). Se guarda también el rango de semanas que abarca.
@@ -98,6 +98,10 @@
                     $demandaFc   = array_sum(array_column($ventana, 'demanda'));
                     $semanaDesde = $ventana ? $ventana[0]['semana'] : '';
                     $semanaHasta = $ventana ? $ventana[count($ventana) - 1]['semana'] : '';
+
+                    // Stock teórico: disponibilidad neta = stock actual + lo que viene en camino
+                    // (en pedido + en producción) − lo comprometido a clientes.
+                    $stockTeorico = $stock + $enPedido + $enProduccion - $comprometido;
 
                     // Sugerido a reponer: cubrir la demanda del lead time + lo comprometido,
                     // descontando el stock disponible y lo que ya viene en camino.
@@ -109,7 +113,8 @@
                         'producto_nombre'  => $b['producto_nombre'],
                         'familia'          => $b['familia'],
                         'sub_familia'      => $b['sub_familia'],
-                        'lead_time'        => $leadDias,
+                        'proveedor'        => $abast[$cod]['Proveedor'] ?? null,
+                        'lead_time'        => $leadSemanas,
                         'demanda_forecast' => round($demandaFc),
                         'semana_desde'     => $semanaDesde,
                         'semana_hasta'     => $semanaHasta,
@@ -119,6 +124,7 @@
                         'comprometido'     => round($comprometido),
                         'en_pedido'        => round($enPedido),
                         'en_produccion'    => round($enProduccion),
+                        'stock_teorico'    => round($stockTeorico),
                         'sugerido'         => round($sugerido),
                     ];
                 }
