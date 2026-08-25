@@ -17,52 +17,7 @@
 <div class="container">
     <div class="row">
         <div class="col-md-4">
-            <div class="card">
-                <div class="card-body d-flex justify-content-center">
-                    <img src="assets/img/perfil-placeholder.png" class="card-img-top img-fluid w-50" alt="Usuario">
-                </div>
-                <div class="card-body text-center">
-                    <h5><?= htmlspecialchars($_SESSION['usuario_nombre']) ?></h5>
-                    <button type="button" 
-                            class="btn btn-info mt-3" 
-                            data-bs-toggle="modal" 
-                            data-bs-target="#miModal">
-                        Ver Detalles
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="modal fade" id="miModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Información del Perfil</h5>
-                <button type="button" 
-                        class="btn-close" 
-                        data-bs-dismiss="modal" 
-                        aria-label="Close">
-                </button>
-            </div>
-            <div class="modal-body">
-                <p>Este es un ejemplo de modal cargado dinámicamente.</p>
-                <div class="text-center">
-                    <img src="assets/img/perfil-placeholder.png" class="img-thumbnail" style="width: 150px;" alt="Logo">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" 
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal">
-                    Cerrar</button>
-                <button type="button" 
-                        class="btn btn-primary"
-                         id="btnGuardar">
-                    Guardar Cambios
-                </button>
-            </div>
         </div>
     </div>
 </div>
