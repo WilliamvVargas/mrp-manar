@@ -76,6 +76,13 @@
                     $abast[trim($r['ItemCode'])] = $r;
                 }
 
+                // Horizonte de planificación (en semanas): el usuario elige cuántas semanas de
+                // forecast se acumulan para la demanda. Reemplaza al lead time como ventana.
+                // (El lead time se considerará a futuro.) Se valida contra la lista permitida.
+                $horizontesValidos = [1, 2, 3, 4, 8, 13, 26, 52];
+                $horizonte = (int) ($_GET['horizonte'] ?? 4);
+                if (!in_array($horizonte, $horizontesValidos, true)) { $horizonte = 4; }
+
                 // 4) Merge + sugerido a reponer.
                 $data = [];
                 foreach ($base as $b) {
@@ -87,14 +94,13 @@
                     $enPedido     = (float) ($abast[$cod]['EnPedido'] ?? 0);
                     $enProduccion = (float) ($abast[$cod]['EnProduccion'] ?? 0);
 
-                    // Lead time (U_LeadTime) EN SEMANAS. La cobertura es directamente ese número
-                    // de semanas; fallback de 1 semana si no hay lead time (0/vacío).
+                    // Lead time (U_LeadTime) EN SEMANAS. Informativo por ahora (columna); la
+                    // ventana de demanda la define el Horizonte, no el lead time.
                     $leadSemanas = (int) ($abast[$cod]['LeadTime'] ?? 0);
-                    $semanas     = ($leadSemanas > 0) ? $leadSemanas : 1;
 
-                    // Demanda a cubrir = forecast de las próximas 'semanas' semanas (ventana del
-                    // lead time). Se guarda también el rango de semanas que abarca.
-                    $ventana     = array_slice($serie[$cod] ?? [], 0, $semanas);
+                    // Demanda a cubrir = forecast de las próximas 'horizonte' semanas. Se guarda
+                    // también el rango de semanas que abarca.
+                    $ventana     = array_slice($serie[$cod] ?? [], 0, $horizonte);
                     $demandaFc   = array_sum(array_column($ventana, 'demanda'));
                     $semanaDesde = $ventana ? $ventana[0]['semana'] : '';
                     $semanaHasta = $ventana ? $ventana[count($ventana) - 1]['semana'] : '';

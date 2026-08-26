@@ -71,9 +71,11 @@ $(document).ready(function() {
 
     // Carga los datos del MRP (una sola vez; DataTable pagina/busca/ordena client-side).
     function cargarMrp() {
+        const horizonte = $('#mrp-horizonte').val() || '4';
         $.ajax({
             url: 'controllers/mrp_controller.php?action=listar',
             type: 'GET',
+            data: { horizonte: horizonte },
             dataType: 'json',
             success: function(res) {
                 if (res.status !== 'success') {
@@ -97,7 +99,7 @@ $(document).ready(function() {
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
                     // Por defecto: mayor "Sugerido a Reponer" primero (lo más urgente arriba).
-                    order: [[13, 'desc']],
+                    order: [[14, 'desc']],
                     columns: [
                         { data: 'producto_codigo',  render: escaparTexto },
                         { data: 'producto_nombre',  render: escaparTexto },
@@ -106,7 +108,6 @@ $(document).ready(function() {
                         { data: 'proveedor',        render: escaparTexto },
                         { data: 'lead_time',        className: 'text-end',    render: renderNumero },
                         { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
-                        { data: 'semana_desde',     className: 'text-center', render: renderSemanas },
                         { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'stock_wms',        className: 'text-end',    render: renderNumero },
                         { data: 'stock_por_vencer', className: 'text-end',    render: renderNumero },
@@ -148,6 +149,9 @@ $(document).ready(function() {
     });
 
     $('#filtro-familia, #filtro-sub-familia').on('change', aplicarFiltros);
+
+    // Cambiar el Horizonte recalcula la demanda/sugerido en el backend (recarga los datos).
+    $('#mrp-horizonte').on('change', cargarMrp);
 
     // Botón "Limpiar": vacía filtros y buscador, y redibuja sin filtros.
     $('#btn-limpiar-filtros').on('click', function() {

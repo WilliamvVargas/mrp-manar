@@ -61,6 +61,19 @@
                             <option value="">Todas</option>
                         </select>
                     </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="mrp-horizonte">Horizonte</label>
+                        <select class="form-select form-select-sm" id="mrp-horizonte" title="Semanas a proyectar a futuro">
+                            <option value="1">1 Semana</option>
+                            <option value="2">2 Semanas</option>
+                            <option value="3">3 Semanas</option>
+                            <option value="4" selected>1 Mes</option>
+                            <option value="8">2 Meses</option>
+                            <option value="13">3 Meses</option>
+                            <option value="26">6 Meses</option>
+                            <option value="52">1 Año</option>
+                        </select>
+                    </div>
                     <div class="col-md-auto d-flex align-items-end">
                         <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros">
                             <i class="bi bi-eraser me-1"></i> Limpiar
@@ -77,8 +90,7 @@
                             <th style="width: 9%">Sub-Familia</th>
                             <th style="width: 11%">Proveedor</th>
                             <th style="width: 6%"  class="text-end" title="Lead Time del producto (U_LeadTime), en semanas">Lead Time (sem)</th>
-                            <th style="width: 8%"  class="text-end" title="Forecast sumado sobre las semanas del lead time">Demanda (Forecast)</th>
-                            <th style="width: 11%" class="text-center" title="Semana(s) del forecast que cubre la demanda (ventana del lead time)">Semana(s)</th>
+                            <th style="width: 8%"  class="text-end" title="Forecast sumado sobre el horizonte seleccionado">Demanda (Forecast)</th>
                             <th style="width: 6%"  class="text-center" title="Días hasta el lote más próximo a vencer">Próx. Venc. (d)</th>
                             <th style="width: 7%"  class="text-end">Stock (WMS)</th>
                             <th style="width: 7%"  class="text-end" title="Stock vigente que vence dentro de 30 días">Stock ≤30d</th>

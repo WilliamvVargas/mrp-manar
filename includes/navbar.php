@@ -58,7 +58,7 @@
             <?php if ($empresaActiva && !empty($empresaActiva['logo'])): ?>
                 <!-- Contenedor de tamaño fijo; el logo se escala dentro manteniendo su proporción. -->
                 <span class="d-inline-flex align-items-center justify-content-center bg-white rounded"
-                      style="width: 170px; height: 44px; padding: 4px;">
+                      style="width: 113px; height: 29px; padding: 4px;">
                     <img src="assets/img/empresas/<?= htmlspecialchars(rawurlencode($empresaActiva['logo'])) ?>"
                          alt="<?= htmlspecialchars($empresaActiva['nombre']) ?>"
                          style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;">
