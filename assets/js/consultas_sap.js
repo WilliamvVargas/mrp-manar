@@ -76,7 +76,7 @@ $(document).ready(function() {
             titulo: '<i class="bi bi-search me-2"></i>Consulta ODV - Órdenes de Venta',
             columnas: [
                 { data: 'OrdenVenta',                    title: 'Orden Venta',     className: 'text-center', render: renderNumero },
-                { data: 'FechaOV',                       title: 'Fecha OV',        className: 'text-center', render: renderFecha },
+                { data: 'FechaOV',                       title: 'Fecha Creación',  className: 'text-center', render: renderFecha },
                 { data: 'CodCliente',                    title: 'Cód. Cliente',    render: renderTexto },
                 { data: 'Cliente',                       title: 'Cliente',         render: renderTexto },
                 { data: 'LineaOV',                       title: 'Línea',           className: 'text-center', render: renderNumero },
@@ -86,7 +86,8 @@ $(document).ready(function() {
                 { data: 'CantidadOrdenada',              title: 'Cant. Ordenada',  className: 'text-end', render: renderCantidad },
                 { data: 'CantidadPendienteDespacho',     title: 'Cant. Pendiente', className: 'text-end', render: renderCantidad },
                 { data: 'EntregaRelacionada',            title: 'Entrega',         className: 'text-center', render: renderNumero },
-                { data: 'CantidadDespachadaRelacionada', title: 'Cant. Despachada',className: 'text-end', render: renderCantidad }
+                { data: 'CantidadDespachadaRelacionada', title: 'Cant. Despachada',className: 'text-end', render: renderCantidad },
+                { data: 'FechaEntregaOV',                title: 'Fecha Entrega',   className: 'text-center', render: renderFecha }
             ]
         },
         oc: {
@@ -94,7 +95,7 @@ $(document).ready(function() {
             titulo: '<i class="bi bi-search me-2"></i>Consulta OC - Órdenes de Compra',
             columnas: [
                 { data: 'OrdenCompra',                  title: 'Orden Compra',    className: 'text-center', render: renderNumero },
-                { data: 'FechaOC',                      title: 'Fecha OC',        className: 'text-center', render: renderFecha },
+                { data: 'FechaOC',                      title: 'Fecha Creación',  className: 'text-center', render: renderFecha },
                 { data: 'CodProveedor',                 title: 'Cód. Proveedor',  render: renderTexto },
                 { data: 'Proveedor',                    title: 'Proveedor',       render: renderTexto },
                 { data: 'LineaOC',                      title: 'Línea',           className: 'text-center', render: renderNumero },
@@ -104,7 +105,8 @@ $(document).ready(function() {
                 { data: 'CantidadOrdenada',             title: 'Cant. Ordenada',  className: 'text-end', render: renderCantidad },
                 { data: 'CantidadPendienteRecepcion',   title: 'Cant. Pendiente', className: 'text-end', render: renderCantidad },
                 { data: 'EntradaMercanciaRelacionada',  title: 'Entrada Merc.',   className: 'text-center', render: renderNumero },
-                { data: 'CantidadRecibidaRelacionada',  title: 'Cant. Recibida',  className: 'text-end', render: renderCantidad }
+                { data: 'CantidadRecibidaRelacionada',  title: 'Cant. Recibida',  className: 'text-end', render: renderCantidad },
+                { data: 'FechaRecepcionOC',             title: 'Fecha Recepción', className: 'text-center', render: renderFecha }
             ]
         },
         facs_ncs: {

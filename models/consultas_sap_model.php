@@ -89,7 +89,7 @@
                     ISNULL((
                         SELECT SUM(r.OpenQty)
                         FROM RDR1 r INNER JOIN ORDR o ON o.DocEntry = r.DocEntry
-                        WHERE o.CANCELED = 'N' AND r.LineStatus = 'O' AND r.OpenQty > 0
+                        WHERE o.CANCELED = 'N' AND o.DocStatus = 'O' AND r.LineStatus = 'O' AND r.OpenQty > 0
                           AND r.WhsCode = '010' AND r.ItemCode = T0.ItemCode
                     ), 0) AS CompVentas,
 
@@ -105,7 +105,7 @@
                     ISNULL((
                         SELECT SUM(p.OpenQty)
                         FROM POR1 p INNER JOIN OPOR o ON o.DocEntry = p.DocEntry
-                        WHERE o.CANCELED = 'N' AND p.LineStatus = 'O' AND p.OpenQty > 0
+                        WHERE o.CANCELED = 'N' AND o.DocStatus = 'O' AND p.LineStatus = 'O' AND p.OpenQty > 0
                           AND p.WhsCode = '010' AND p.ItemCode = T0.ItemCode
                     ), 0) AS EnPedido,
 
@@ -145,6 +145,7 @@
                 SELECT
                     ORDR.DocNum        AS OrdenVenta,
                     ORDR.DocDate       AS FechaOV,
+                    ORDR.DocDueDate    AS FechaEntregaOV,
                     ORDR.CardCode      AS CodCliente,
                     ORDR.CardName      AS Cliente,
 
@@ -178,6 +179,7 @@
 
                 WHERE
                     ORDR.CANCELED = 'N'
+                    AND ORDR.DocStatus = 'O'   -- cabecera abierta: si la OV está cerrada, sus líneas no se consideran
                     AND RDR1.LineStatus = 'O'
                     AND RDR1.OpenQty > 0
 
@@ -213,6 +215,7 @@
                 INNER JOIN RDR1 ON ORDR.DocEntry = RDR1.DocEntry
                 WHERE
                     ORDR.CANCELED       = 'N'
+                    AND ORDR.DocStatus  = 'O'   -- cabecera abierta: si la OV está cerrada, sus líneas no se consideran
                     AND RDR1.LineStatus = 'O'
                     AND RDR1.OpenQty    > 0
                     AND RDR1.WhsCode    = '010'
@@ -251,6 +254,7 @@
                 INNER JOIN POR1 ON OPOR.DocEntry = POR1.DocEntry
                 WHERE
                     OPOR.CANCELED       = 'N'
+                    AND OPOR.DocStatus  = 'O'   -- cabecera abierta: si la OC está cerrada, sus líneas no se consideran
                     AND POR1.LineStatus = 'O'
                     AND POR1.OpenQty    > 0
                     AND POR1.WhsCode    IN ('010', 'IMP01')
@@ -311,6 +315,7 @@
                 SELECT
                     OPOR.DocNum        AS OrdenCompra,
                     OPOR.DocDate       AS FechaOC,
+                    OPOR.DocDueDate    AS FechaRecepcionOC,
                     OPOR.CardCode      AS CodProveedor,
                     OPOR.CardName      AS Proveedor,
 
@@ -344,6 +349,7 @@
 
                 WHERE
                     OPOR.CANCELED = 'N'
+                    AND OPOR.DocStatus = 'O'   -- cabecera abierta: si la OC está cerrada, sus líneas no se consideran
                     AND POR1.LineStatus = 'O'
                     AND POR1.OpenQty > 0
 
@@ -1059,7 +1065,7 @@
                     ISNULL((
                         SELECT SUM(r.OpenQty)
                         FROM RDR1 r INNER JOIN ORDR o ON o.DocEntry = r.DocEntry
-                        WHERE o.CANCELED = 'N' AND r.LineStatus = 'O' AND r.OpenQty > 0
+                        WHERE o.CANCELED = 'N' AND o.DocStatus = 'O' AND r.LineStatus = 'O' AND r.OpenQty > 0
                           AND r.WhsCode = '010' AND r.ItemCode = T0.ItemCode
                     ), 0)
                     + ISNULL((
@@ -1071,7 +1077,7 @@
                     ISNULL((
                         SELECT SUM(p.OpenQty)
                         FROM POR1 p INNER JOIN OPOR op ON op.DocEntry = p.DocEntry
-                        WHERE op.CANCELED = 'N' AND p.LineStatus = 'O' AND p.OpenQty > 0
+                        WHERE op.CANCELED = 'N' AND op.DocStatus = 'O' AND p.LineStatus = 'O' AND p.OpenQty > 0
                           AND p.WhsCode IN ('010', 'IMP01') AND p.ItemCode = T0.ItemCode
                     ), 0) AS EnPedido,
                     ISNULL((
