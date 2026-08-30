@@ -101,13 +101,21 @@
                           AND c.Warehouse = '010' AND c.ItemCode = T0.ItemCode
                     ), 0) AS CompProduccion,
 
-                    -- En Pedido = pendiente de recepción de OC (compras) en bodega 010.
-                    ISNULL((
+                    -- En Pedido = pendiente de recepción de OC (compras) + Facturas de Reserva de
+                    -- proveedor (OPCH.isIns='Y'), en bodegas 010 e IMP01 (importaciones en tránsito).
+                    -- Alineado con el cálculo del MRP (abastecimientoPorProducto).
+                    (ISNULL((
                         SELECT SUM(p.OpenQty)
                         FROM POR1 p INNER JOIN OPOR o ON o.DocEntry = p.DocEntry
                         WHERE o.CANCELED = 'N' AND o.DocStatus = 'O' AND p.LineStatus = 'O' AND p.OpenQty > 0
-                          AND p.WhsCode = '010' AND p.ItemCode = T0.ItemCode
-                    ), 0) AS EnPedido,
+                          AND p.WhsCode IN ('010', 'IMP01') AND p.ItemCode = T0.ItemCode
+                    ), 0)
+                    + ISNULL((
+                        SELECT SUM(pi.OpenQty)
+                        FROM PCH1 pi INNER JOIN OPCH oi ON oi.DocEntry = pi.DocEntry
+                        WHERE oi.isIns = 'Y' AND oi.CANCELED = 'N' AND oi.DocStatus = 'O' AND pi.OpenQty > 0
+                          AND pi.WhsCode IN ('010', 'IMP01') AND pi.ItemCode = T0.ItemCode
+                    ), 0)) AS EnPedido,
 
                     -- En Producción = pendiente de órdenes de producción LIBERADAS (Status 'R') a bodega 010.
                     ISNULL((
@@ -242,28 +250,62 @@
         {
             $sql = "
                 SELECT
-                    OPOR.DocNum                             AS OrdenCompra,
-                    CONVERT(char(10), OPOR.DocDate, 126)    AS Fecha,
-                    CONVERT(char(10), OPOR.DocDueDate, 126) AS FechaEntrega,
-                    LTRIM(RTRIM(POR1.WhsCode))              AS Almacen,
-                    LTRIM(RTRIM(OPOR.CardCode))             AS CodProveedor,
-                    LTRIM(RTRIM(OPOR.CardName))             AS Proveedor,
-                    POR1.Quantity                           AS Cantidad,
-                    POR1.OpenQty                            AS Pendiente
-                FROM OPOR
-                INNER JOIN POR1 ON OPOR.DocEntry = POR1.DocEntry
-                WHERE
-                    OPOR.CANCELED       = 'N'
-                    AND OPOR.DocStatus  = 'O'   -- cabecera abierta: si la OC está cerrada, sus líneas no se consideran
-                    AND POR1.LineStatus = 'O'
-                    AND POR1.OpenQty    > 0
-                    AND POR1.WhsCode    IN ('010', 'IMP01')
-                    AND POR1.ItemCode   = ?
-                ORDER BY OPOR.DocDueDate ASC, OPOR.DocNum
+                    X.TipoDoc, X.OrdenCompra, X.Fecha, X.FechaEntrega,
+                    X.Almacen, X.CodProveedor, X.Proveedor, X.Cantidad, X.Pendiente
+                FROM (
+
+                    -- Órdenes de Compra pendientes de recepción.
+                    SELECT
+                        1                  AS OrdenTipo,
+                        'Orden de Compra'  AS TipoDoc,
+                        OPOR.DocNum                             AS OrdenCompra,
+                        CONVERT(char(10), OPOR.DocDate, 126)    AS Fecha,
+                        CONVERT(char(10), OPOR.DocDueDate, 126) AS FechaEntrega,
+                        LTRIM(RTRIM(POR1.WhsCode))              AS Almacen,
+                        LTRIM(RTRIM(OPOR.CardCode))             AS CodProveedor,
+                        LTRIM(RTRIM(OPOR.CardName))             AS Proveedor,
+                        POR1.Quantity                           AS Cantidad,
+                        POR1.OpenQty                            AS Pendiente
+                    FROM OPOR
+                    INNER JOIN POR1 ON OPOR.DocEntry = POR1.DocEntry
+                    WHERE
+                        OPOR.CANCELED       = 'N'
+                        AND OPOR.DocStatus  = 'O'
+                        AND POR1.LineStatus = 'O'
+                        AND POR1.OpenQty    > 0
+                        AND POR1.WhsCode    IN ('010', 'IMP01')
+                        AND POR1.ItemCode   = ?
+
+                    UNION ALL
+
+                    -- Facturas de Reserva de proveedor (OPCH.isIns='Y') pendientes de recepción.
+                    SELECT
+                        2                     AS OrdenTipo,
+                        'Factura de Reserva'  AS TipoDoc,
+                        OPCH.DocNum                             AS OrdenCompra,
+                        CONVERT(char(10), OPCH.DocDate, 126)    AS Fecha,
+                        CONVERT(char(10), OPCH.DocDueDate, 126) AS FechaEntrega,
+                        LTRIM(RTRIM(PCH1.WhsCode))              AS Almacen,
+                        LTRIM(RTRIM(OPCH.CardCode))             AS CodProveedor,
+                        LTRIM(RTRIM(OPCH.CardName))             AS Proveedor,
+                        PCH1.Quantity                           AS Cantidad,
+                        PCH1.OpenQty                            AS Pendiente
+                    FROM OPCH
+                    INNER JOIN PCH1 ON OPCH.DocEntry = PCH1.DocEntry
+                    WHERE
+                        OPCH.isIns          = 'Y'
+                        AND OPCH.CANCELED   = 'N'
+                        AND OPCH.DocStatus  = 'O'
+                        AND PCH1.OpenQty    > 0
+                        AND PCH1.WhsCode    IN ('010', 'IMP01')
+                        AND PCH1.ItemCode   = ?
+
+                ) X
+                ORDER BY X.OrdenTipo, X.FechaEntrega ASC, X.OrdenCompra
             ";
 
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([trim($itemCode)]);
+            $stmt->execute([trim($itemCode), trim($itemCode)]);
 
             return $stmt->fetchAll();
         }
@@ -303,9 +345,14 @@
         }
 
         /**
-         * Órdenes de Compra (OC) con líneas abiertas y su entrada de mercancía
-         * relacionada (si existe). Solo documentos no anulados, líneas abiertas y
-         * con cantidad pendiente de recepción.
+         * Órdenes de Compra (OC) y Facturas de Reserva de proveedor (OPCH.isIns='Y'),
+         * ambas con líneas abiertas y su entrada de mercancía relacionada (si existe).
+         * Solo documentos no anulados, cabecera abierta, líneas con cantidad pendiente
+         * de recepción. La columna TipoDoc distingue el origen de cada línea.
+         *
+         * La Factura de Reserva de proveedor es una factura de compra emitida ANTES de
+         * recibir la mercadería: representa stock comprado que aún viene en camino, igual
+         * que una OC pendiente (por eso se lista junto a las OC).
          *
          * @return array Lista de filas (arreglos asociativos).
          */
@@ -313,49 +360,89 @@
         {
             $sql = "
                 SELECT
-                    OPOR.DocNum        AS OrdenCompra,
-                    OPOR.DocDate       AS FechaOC,
-                    OPOR.DocDueDate    AS FechaRecepcionOC,
-                    OPOR.CardCode      AS CodProveedor,
-                    OPOR.CardName      AS Proveedor,
+                    X.TipoDoc, X.OrdenCompra, X.FechaOC, X.FechaRecepcionOC,
+                    X.CodProveedor, X.Proveedor, X.LineaOC, X.CodArticulo, X.Articulo,
+                    X.Almacen, X.CantidadOrdenada, X.CantidadPendienteRecepcion,
+                    X.EntradaMercanciaRelacionada, X.CantidadRecibidaRelacionada,
+                    X.OC_DocEntry, X.OC_LineNum, X.Entrada_DocEntry, X.Entrada_LineNum
+                FROM (
 
-                    POR1.LineNum       AS LineaOC,
-                    POR1.ItemCode      AS CodArticulo,
-                    POR1.Dscription    AS Articulo,
-                    POR1.WhsCode       AS Almacen,
+                    -- Órdenes de Compra (OPOR/POR1), entrada de mercancía por BaseType 22.
+                    SELECT
+                        1                  AS OrdenTipo,
+                        'Orden de Compra'  AS TipoDoc,
+                        OPOR.DocNum        AS OrdenCompra,
+                        OPOR.DocDate       AS FechaOC,
+                        OPOR.DocDueDate    AS FechaRecepcionOC,
+                        OPOR.CardCode      AS CodProveedor,
+                        OPOR.CardName      AS Proveedor,
+                        POR1.LineNum       AS LineaOC,
+                        POR1.ItemCode      AS CodArticulo,
+                        POR1.Dscription    AS Articulo,
+                        POR1.WhsCode       AS Almacen,
+                        POR1.Quantity      AS CantidadOrdenada,
+                        POR1.OpenQty       AS CantidadPendienteRecepcion,
+                        OPDN.DocNum        AS EntradaMercanciaRelacionada,
+                        PDN1.Quantity      AS CantidadRecibidaRelacionada,
+                        POR1.DocEntry      AS OC_DocEntry,
+                        POR1.LineNum       AS OC_LineNum,
+                        PDN1.DocEntry      AS Entrada_DocEntry,
+                        PDN1.LineNum       AS Entrada_LineNum
+                    FROM OPOR
+                    INNER JOIN POR1
+                        ON OPOR.DocEntry = POR1.DocEntry
+                    LEFT JOIN PDN1
+                        ON PDN1.BaseType  = 22
+                       AND PDN1.BaseEntry = POR1.DocEntry
+                       AND PDN1.BaseLine  = POR1.LineNum
+                    LEFT JOIN OPDN
+                        ON OPDN.DocEntry = PDN1.DocEntry
+                    WHERE
+                        OPOR.CANCELED = 'N'
+                        AND OPOR.DocStatus = 'O'
+                        AND POR1.LineStatus = 'O'
+                        AND POR1.OpenQty > 0
 
-                    POR1.Quantity      AS CantidadOrdenada,
-                    POR1.OpenQty       AS CantidadPendienteRecepcion,
+                    UNION ALL
 
-                    OPDN.DocNum        AS EntradaMercanciaRelacionada,
-                    PDN1.Quantity      AS CantidadRecibidaRelacionada,
+                    -- Facturas de Reserva de proveedor (OPCH/PCH1, isIns='Y'), entrada por BaseType 18.
+                    SELECT
+                        2                     AS OrdenTipo,
+                        'Factura de Reserva'  AS TipoDoc,
+                        OPCH.DocNum        AS OrdenCompra,
+                        OPCH.DocDate       AS FechaOC,
+                        OPCH.DocDueDate    AS FechaRecepcionOC,
+                        OPCH.CardCode      AS CodProveedor,
+                        OPCH.CardName      AS Proveedor,
+                        PCH1.LineNum       AS LineaOC,
+                        PCH1.ItemCode      AS CodArticulo,
+                        PCH1.Dscription    AS Articulo,
+                        PCH1.WhsCode       AS Almacen,
+                        PCH1.Quantity      AS CantidadOrdenada,
+                        PCH1.OpenQty       AS CantidadPendienteRecepcion,
+                        OPDN.DocNum        AS EntradaMercanciaRelacionada,
+                        PDN1.Quantity      AS CantidadRecibidaRelacionada,
+                        PCH1.DocEntry      AS OC_DocEntry,
+                        PCH1.LineNum       AS OC_LineNum,
+                        PDN1.DocEntry      AS Entrada_DocEntry,
+                        PDN1.LineNum       AS Entrada_LineNum
+                    FROM OPCH
+                    INNER JOIN PCH1
+                        ON OPCH.DocEntry = PCH1.DocEntry
+                    LEFT JOIN PDN1
+                        ON PDN1.BaseType  = 18
+                       AND PDN1.BaseEntry = PCH1.DocEntry
+                       AND PDN1.BaseLine  = PCH1.LineNum
+                    LEFT JOIN OPDN
+                        ON OPDN.DocEntry = PDN1.DocEntry
+                    WHERE
+                        OPCH.isIns = 'Y'
+                        AND OPCH.CANCELED = 'N'
+                        AND OPCH.DocStatus = 'O'
+                        AND PCH1.OpenQty > 0
 
-                    POR1.DocEntry      AS OC_DocEntry,
-                    POR1.LineNum       AS OC_LineNum,
-                    PDN1.DocEntry      AS Entrada_DocEntry,
-                    PDN1.LineNum       AS Entrada_LineNum
-
-                FROM OPOR
-                INNER JOIN POR1
-                    ON OPOR.DocEntry = POR1.DocEntry
-
-                LEFT JOIN PDN1
-                    ON PDN1.BaseType  = 22
-                   AND PDN1.BaseEntry = POR1.DocEntry
-                   AND PDN1.BaseLine  = POR1.LineNum
-
-                LEFT JOIN OPDN
-                    ON OPDN.DocEntry = PDN1.DocEntry
-
-                WHERE
-                    OPOR.CANCELED = 'N'
-                    AND OPOR.DocStatus = 'O'   -- cabecera abierta: si la OC está cerrada, sus líneas no se consideran
-                    AND POR1.LineStatus = 'O'
-                    AND POR1.OpenQty > 0
-
-                ORDER BY
-                    OPOR.DocNum,
-                    POR1.LineNum
+                ) X
+                ORDER BY X.OrdenTipo, X.OrdenCompra, X.LineaOC
             ";
 
             return $this->pdo->query($sql)->fetchAll();
@@ -1074,12 +1161,19 @@
                         WHERE w.Status = 'R' AND (c.PlannedQty - c.IssuedQty) > 0
                           AND c.Warehouse = '010' AND c.ItemCode = T0.ItemCode
                     ), 0) AS Comprometido,
-                    ISNULL((
+                    (ISNULL((
                         SELECT SUM(p.OpenQty)
                         FROM POR1 p INNER JOIN OPOR op ON op.DocEntry = p.DocEntry
                         WHERE op.CANCELED = 'N' AND op.DocStatus = 'O' AND p.LineStatus = 'O' AND p.OpenQty > 0
                           AND p.WhsCode IN ('010', 'IMP01') AND p.ItemCode = T0.ItemCode
-                    ), 0) AS EnPedido,
+                    ), 0)
+                    -- + Facturas de Reserva de proveedor (OPCH.isIns='Y'): compra facturada pendiente de recibir.
+                    + ISNULL((
+                        SELECT SUM(pi.OpenQty)
+                        FROM PCH1 pi INNER JOIN OPCH oi ON oi.DocEntry = pi.DocEntry
+                        WHERE oi.isIns = 'Y' AND oi.CANCELED = 'N' AND oi.DocStatus = 'O' AND pi.OpenQty > 0
+                          AND pi.WhsCode IN ('010', 'IMP01') AND pi.ItemCode = T0.ItemCode
+                    ), 0)) AS EnPedido,
                     ISNULL((
                         SELECT SUM(w2.PlannedQty - w2.CmpltQty)
                         FROM OWOR w2

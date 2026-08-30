@@ -94,7 +94,8 @@ $(document).ready(function() {
             url: 'controllers/consultas_sap_controller.php?action=oc',
             titulo: '<i class="bi bi-search me-2"></i>Consulta OC - Órdenes de Compra',
             columnas: [
-                { data: 'OrdenCompra',                  title: 'Orden Compra',    className: 'text-center', render: renderNumero },
+                { data: 'OrdenCompra',                  title: 'N° Documento',    className: 'text-center', render: renderNumero },
+                { data: 'TipoDoc',                      title: 'Tipo Doc.',       className: 'text-center', render: renderTexto },
                 { data: 'FechaOC',                      title: 'Fecha Creación',  className: 'text-center', render: renderFecha },
                 { data: 'CodProveedor',                 title: 'Cód. Proveedor',  render: renderTexto },
                 { data: 'Proveedor',                    title: 'Proveedor',       render: renderTexto },

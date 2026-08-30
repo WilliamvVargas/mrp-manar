@@ -211,7 +211,8 @@
                             <table class="table table-sm table-hover align-middle mb-0" style="width:100%">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>Orden Compra</th>
+                                        <th>N° Documento</th>
+                                        <th class="text-center">Tipo Doc.</th>
                                         <th class="text-center">Fecha</th>
                                         <th class="text-center">Fecha Entrega</th>
                                         <th class="text-center">Almacén</th>

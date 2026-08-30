@@ -329,8 +329,13 @@ $(document).ready(function() {
                     const almacen = (String(r.Almacen).toUpperCase() === 'IMP01')
                         ? '<span class="badge bg-info text-dark">IMP01</span>'
                         : textoDet(r.Almacen);
+                    // Distingue Factura de Reserva (compra facturada por recibir) de la OC normal.
+                    const tipoDoc = (r.TipoDoc === 'Factura de Reserva')
+                        ? '<span class="badge bg-warning text-dark">Factura de Reserva</span>'
+                        : textoDet(r.TipoDoc);
                     html += '<tr>'
                          + '<td>' + textoDet(r.OrdenCompra) + '</td>'
+                         + '<td class="text-center">' + tipoDoc + '</td>'
                          + '<td class="text-center">' + fmtFecha(r.Fecha) + '</td>'
                          + '<td class="text-center">' + fmtFecha(r.FechaEntrega) + '</td>'
                          + '<td class="text-center">' + almacen + '</td>'
