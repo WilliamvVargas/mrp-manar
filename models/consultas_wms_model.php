@@ -175,6 +175,60 @@
         }
 
         /**
+         * Stock VENCIDO agregado por producto (empresa Manar): idéntico a stockPorProducto()
+         * pero sumando SOLO las líneas cuya fecha de vencimiento corregida ya pasó (anterior
+         * a hoy). Es el complemento del stock vigente.
+         *
+         * @return array Lista de filas (arreglos asociativos).
+         */
+        public function stockVencidosPorProducto()
+        {
+            $sql = "
+                SELECT
+                    LTRIM(RTRIM(T1.GrpCod)) AS CodArticulo,
+                    LTRIM(RTRIM(T1.Artdsc)) AS Articulo,
+                    COUNT(*)                AS Lineas,
+                    SUM(ISNULL(T0.PltPUAQty, 0)) AS Cantidad
+
+                FROM PLTDTL T0
+                INNER JOIN GRPART T1
+                    ON  T0.ArtCod        = T1.GrpCod
+                    AND T0.PltDtlEmpresa = T1.Cod_Emp
+                INNER JOIN PLTCBC T3
+                    ON  T0.PltCod = T3.PltCod
+
+                CROSS APPLY (
+                    SELECT CASE
+                        WHEN T1.Cod_Emp = '2' AND T0.PltFArtVto <= '20200101'
+                             THEN CONVERT(DATE, '29991231')
+                        WHEN T1.Cod_Emp = '2'
+                             AND CAST(T0.PltDtlDateTime AS DATE) = CAST(T0.PltFArtVto AS DATE)
+                             THEN CONVERT(DATE, '29991231')
+                        ELSE CAST(T0.PltFArtVto AS DATE)
+                    END AS FechaVencimientoCorregida
+                ) FV
+
+                WHERE
+                    T1.Cod_Emp        IN (?)
+                    AND T3.PltTipoPallet = ''
+                    AND T3.PltIngOPck    = 'I'
+                    AND FV.FechaVencimientoCorregida < CAST(GETDATE() AS DATE)
+
+                GROUP BY
+                    T1.GrpCod,
+                    T1.Artdsc
+
+                ORDER BY
+                    T1.GrpCod
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$this->empresaWms]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
          * Igual que stockPorProducto() pero devuelto como mapa código_artículo => cantidad
          * (stock vigente del WMS). Útil para cruzar con datos de SAP en otra conexión.
          *

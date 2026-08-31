@@ -81,6 +81,49 @@ switch ($action) {
         }
         exit;
 
+    case 'stock_producto_vencidos':
+
+        // Consulta Stock por Producto Vencidos: stock del WMS agregado por artículo, sumando
+        // SOLO las líneas ya vencidas (complemento de stock_producto). Usa la conexión $pdoWms.
+        try {
+            require_once __DIR__ . '/../config/conexion.php';            // $pdo (MySQL, para empresa_wms)
+            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms + codigoEmpresaWms()
+            require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
+
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
+            $datos = $model->stockVencidosPorProducto();
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_WMS] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al ejecutar la consulta de Stock por Producto Vencidos (WMS).']);
+        }
+        exit;
+
+    case 'stock_detalle_producto':
+
+        // Detalle por pallet de UN producto (líneas del modal de las consultas Stock X Producto).
+        try {
+            require_once __DIR__ . '/../config/conexion.php';            // $pdo (MySQL, para empresa_wms)
+            require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms + codigoEmpresaWms()
+            require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
+
+            $itemCode = trim($_GET['itemcode'] ?? '');
+            if ($itemCode === '') {
+                echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+                exit;
+            }
+
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
+            $datos = $model->stockDetallePorProducto($itemCode);
+
+            echo json_encode(['status' => 'success', 'data' => $datos]);
+        } catch (PDOException $e) {
+            error_log('[CONSULTAS_WMS] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al cargar el detalle por pallet del producto (WMS).']);
+        }
+        exit;
+
     case 'facs_ncs':
 
         // Consulta Facturas y Notas de Crédito: resumen por cabecera (lectura desde SAP / SQL Server).

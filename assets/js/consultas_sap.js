@@ -219,7 +219,18 @@ $(document).ready(function() {
         },
         stock_producto: {
             url: 'controllers/consultas_sap_controller.php?action=stock_producto',
-            titulo: '<i class="bi bi-search me-2"></i>Consulta Stock por Producto - WMS (suma vigente, sin vencidos)',
+            titulo: '<i class="bi bi-search me-2"></i>Stock X Producto Disponible - WMS',
+            totales: ['Cantidad'],
+            columnas: [
+                { data: 'CodArticulo', title: 'Cód. Artículo', render: renderTexto },
+                { data: 'Articulo',    title: 'Artículo',      render: renderTexto },
+                { data: 'Lineas',      title: 'N° Líneas',     className: 'text-end', render: renderNumero },
+                { data: 'Cantidad',    title: 'Cantidad',      className: 'text-end', render: renderCantidad }
+            ]
+        },
+        stock_producto_vencidos: {
+            url: 'controllers/consultas_sap_controller.php?action=stock_producto_vencidos',
+            titulo: '<i class="bi bi-search me-2"></i>Stock Vencido',
             totales: ['Cantidad'],
             columnas: [
                 { data: 'CodArticulo', title: 'Cód. Artículo', render: renderTexto },
@@ -452,6 +463,10 @@ $(document).ready(function() {
 
     $('#btn-consulta-stock-producto').on('click', function() {
         cargarConsulta('stock_producto', $(this));
+    });
+
+    $('#btn-consulta-stock-producto-vencidos').on('click', function() {
+        cargarConsulta('stock_producto_vencidos', $(this));
     });
 
     $('#btn-consulta-facs-ncs').on('click', function() {
@@ -714,6 +729,68 @@ $(document).ready(function() {
         }).join('');
     }
 
+    // Consultas Stock X Producto que muestran, además del detalle, las líneas por pallet.
+    // El valor es el estado de vencimiento por el que se filtran las líneas (para que la
+    // suma de las líneas cuadre con la cantidad agregada de la consulta).
+    const LINEAS_PRODUCTO = {
+        stock_producto:          'Vigente',
+        stock_producto_vencidos: 'Vencido'
+    };
+
+    // Carga las líneas por pallet de un producto y las pinta en el modal de detalle,
+    // filtrando por estado de vencimiento (Vigente / Vencido).
+    function cargarLineasProducto(cod, estado) {
+        const $wrap   = $('#detalle-lineas-wrap');
+        const $estado = $('#detalle-lineas-estado');
+        const $tabla  = $('#detalle-lineas-tabla-wrap');
+        const $tbody  = $('#tabla-detalle-lineas');
+
+        $wrap.removeClass('d-none');
+        $estado.text('Cargando...').show();
+        $tabla.hide();
+        $tbody.empty();
+        $('#detalle-lineas-total').text('');
+
+        $.ajax({
+            url: 'controllers/consultas_sap_controller.php?action=stock_detalle_producto',
+            type: 'GET',
+            data: { itemcode: cod },
+            dataType: 'json',
+            success: function(res) {
+                if (res.status !== 'success') {
+                    $estado.text(res.message || 'No se pudieron cargar las líneas.').show();
+                    return;
+                }
+                const filas = (res.data || []).filter(function(r) { return r.Vencimiento === estado; });
+                if (!filas.length) {
+                    $estado.text('Sin líneas ' + estado.toLowerCase() + 's para este producto.').show();
+                    return;
+                }
+                let html = '', total = 0;
+                filas.forEach(function(r) {
+                    total += parseFloat(r.Cantidad) || 0;
+                    html += '<tr>'
+                         + '<td class="text-center">' + renderTexto(r.Lote) + '</td>'
+                         + '<td class="text-center">' + renderFecha(r.FIngreso) + '</td>'
+                         + '<td class="text-center">' + renderFecha(r.FVencimiento) + '</td>'
+                         + '<td class="text-end">'    + renderNumero(r.DiasParaVencer) + '</td>'
+                         + '<td class="text-center">' + renderTexto(r.Ubicacion) + '</td>'
+                         + '<td class="text-center">' + renderTexto(r.EstadoPallet) + '</td>'
+                         + '<td class="text-center">' + renderTexto(r.Vencimiento) + '</td>'
+                         + '<td class="text-end">'    + renderCantidad(r.Cantidad) + '</td>'
+                         + '</tr>';
+                });
+                $tbody.html(html);
+                $('#detalle-lineas-total').text(renderCantidad(total));
+                $estado.hide();
+                $tabla.show();
+            },
+            error: function() {
+                $estado.text('Error al cargar las líneas.').show();
+            }
+        });
+    }
+
     // Botón "Ver detalle": resuelve la fila por su índice y abre el modal.
     $('#tabla-consulta tbody').on('click', '.btn-ver-consulta', function() {
         const idx      = $(this).data('fila');
@@ -724,6 +801,14 @@ $(document).ready(function() {
             $tbody.html(filasDetalle(registro));
         } else {
             $tbody.html('<tr><td class="text-danger small">No se encontró el registro.</td></tr>');
+        }
+
+        // Solo las consultas Stock X Producto muestran las líneas por pallet; el resto oculta la sección.
+        const estadoLineas = registro ? LINEAS_PRODUCTO[claveActual] : undefined;
+        if (estadoLineas) {
+            cargarLineasProducto(registro.CodArticulo, estadoLineas);
+        } else {
+            $('#detalle-lineas-wrap').addClass('d-none');
         }
 
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConsultaSapDetalle')).show();

@@ -46,7 +46,10 @@
                     <i class="bi bi-search"></i> Consulta Stock
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-stock-producto">
-                    <i class="bi bi-search"></i> Consulta Stock x Producto
+                    <i class="bi bi-search"></i> Stock X Producto Disponible
+                </button>
+                <button class="btn btn-primary btn-sm" type="button" id="btn-consulta-stock-producto-vencidos">
+                    <i class="bi bi-search"></i> Stock Vencido
                 </button>
             </div>
         </div>
