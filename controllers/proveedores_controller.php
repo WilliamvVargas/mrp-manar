@@ -31,7 +31,7 @@
             $filtroPais = trim($_GET['pais'] ?? '');   // código ISO2 del país
 
             // Columna de orden (índice DataTables -> clave lógica).
-            $columnas = [0 => 'codigo', 1 => 'nombre', 2 => 'pais', 3 => 'direccion'];
+            $columnas = [0 => 'codigo', 1 => 'nombre', 2 => 'pais', 3 => 'direccion', 4 => 'lead_mediana'];
             $idxOrden = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : 1;
             $colOrden = $columnas[$idxOrden] ?? 'nombre';
             $dirOrden = (strtolower($_GET['order'][0]['dir'] ?? 'asc') === 'desc') ? -1 : 1;
@@ -40,23 +40,35 @@
                 require_once __DIR__ . '/../config/conexion_sqlserver.php';   // $pdoSqlsrv (SAP empresa activa)
                 require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
 
+                $sap = new ConsultaSap($pdoSqlsrv);
+
+                // Lead time real por proveedor (mapa por código normalizado).
+                $lead = [];
+                foreach ($sap->leadTimePorProveedor() as $l) {
+                    $lead[$l['norm']] = $l;
+                }
+
                 // Dedupe por CÓDIGO NORMALIZADO (sin guiones): en SAP el mismo proveedor a veces
                 // tiene dos CardCode que solo difieren en un guion (ej. 62379037P / 62379037-P).
                 // Cuando ambas variantes están activas, aparecería dos veces; se consolida en una.
                 $filas = [];
                 $vistosNorm = [];
-                foreach ((new ConsultaSap($pdoSqlsrv))->proveedoresOcrd() as $b) {
+                foreach ($sap->proveedoresOcrd() as $b) {
                     $cod  = trim($b['codigo']);
                     $norm = str_replace('-', '', $cod);
                     if (isset($vistosNorm[$norm])) { continue; }
                     $vistosNorm[$norm] = true;
 
+                    $lt = $lead[$norm] ?? null;
                     $filas[] = [
                         'codigo'          => $cod,
                         'nombre'          => $b['nombre'],
                         'pais_codigo'     => $b['pais_codigo'],
                         'pais'            => $b['pais'],
                         'direccion'       => $b['direccion'],
+                        'lead_mediana'    => $lt ? (int) round($lt['mediana'])  : null,
+                        'lead_promedio'   => $lt ? (int) round($lt['promedio']) : null,
+                        'lead_recep'      => $lt ? (int) $lt['recepciones']     : 0,
                         'modo_transporte' => '',   // aún no se registra; en blanco por ahora
                     ];
                 }
@@ -80,8 +92,17 @@
 
                 $totalFiltrados = count($filas);
 
-                // Orden en memoria por la columna elegida.
+                // Orden en memoria por la columna elegida. El lead time se ordena numéricamente
+                // y los proveedores SIN historial (null) quedan siempre al final.
                 usort($filas, function ($a, $b) use ($colOrden, $dirOrden) {
+                    if ($colOrden === 'lead_mediana') {
+                        $av = $a['lead_mediana'];
+                        $bv = $b['lead_mediana'];
+                        if ($av === null && $bv === null) { return 0; }
+                        if ($av === null) { return 1; }
+                        if ($bv === null) { return -1; }
+                        return $dirOrden * ($av <=> $bv);
+                    }
                     return $dirOrden * strcasecmp((string) $a[$colOrden], (string) $b[$colOrden]);
                 });
 
@@ -103,6 +124,27 @@
                     'data'            => [],
                     'error'           => 'Ocurrió un error al cargar los proveedores.',
                 ]);
+            }
+            exit;
+
+        case 'detalle_oc':
+
+            // Detalle de las recepciones de OC de un proveedor (modal del mantenedor).
+            try {
+                require_once __DIR__ . '/../config/conexion_sqlserver.php';   // $pdoSqlsrv
+                require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
+
+                $codigo = trim($_GET['codigo'] ?? '');
+                if ($codigo === '') {
+                    echo json_encode(['status' => 'error', 'message' => 'No se indicó el proveedor.']);
+                    exit;
+                }
+
+                $datos = (new ConsultaSap($pdoSqlsrv))->detalleOcProveedor($codigo);
+                echo json_encode(['status' => 'success', 'data' => $datos]);
+            } catch (Throwable $e) {
+                error_log('[PROVEEDORES][detalle_oc] ' . $e->getMessage());
+                echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al cargar el detalle de OC.']);
             }
             exit;
 

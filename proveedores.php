@@ -66,11 +66,13 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 12%">Código</th>
-                            <th style="width: 30%">Nombre</th>
-                            <th style="width: 12%" class="text-center">País</th>
-                            <th style="width: 30%">Dirección</th>
-                            <th style="width: 16%" class="text-center">Modo de Transporte</th>
+                            <th style="width: 10%">Código</th>
+                            <th style="width: 26%">Nombre</th>
+                            <th style="width: 11%" class="text-center">País</th>
+                            <th style="width: 25%">Dirección</th>
+                            <th style="width: 12%" class="text-center" title="Mediana de días entre la creación de la OC y la llegada a bodega (historial real)">Lead Time (días)</th>
+                            <th style="width: 13%" class="text-center">Modo de Transporte</th>
+                            <th style="width: 8%"  class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -80,6 +82,8 @@
         </div>
     </div>
 </div>
+
+<?php include 'modals/modal_proveedores_oc.php'; ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>

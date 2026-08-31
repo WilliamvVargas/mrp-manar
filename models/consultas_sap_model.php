@@ -1262,4 +1262,111 @@
 
             return $this->pdo->query($sql)->fetchAll();
         }
+
+        /**
+         * Lead time REAL por proveedor: días entre la creación de la OC (OPOR.DocDate) y la
+         * llegada a bodega (Entrada de Mercancía OPDN.DocDate). Cubre las DOS rutas de recepción:
+         *   - Directa:            OC -> GRPO            (PDN1.BaseType = 22)
+         *   - Vía Fact. Reserva:  OC -> OPCH -> GRPO    (PCH1.BaseType = 22 y PDN1.BaseType = 18)
+         * Se agrupa por CÓDIGO NORMALIZADO del proveedor (CardCode sin guiones), para consolidar
+         * las variantes duplicadas. Descarta diferencias negativas (recepción previa a la OC).
+         *
+         * @return array Filas ['norm','recepciones','promedio','mediana'].
+         */
+        public function leadTimePorProveedor()
+        {
+            $sql = "
+                WITH recep AS (
+                    SELECT REPLACE(LTRIM(RTRIM(o.CardCode)), '-', '') AS norm,
+                           DATEDIFF(day, o.DocDate, g.DocDate)        AS dias
+                    FROM OPOR o
+                    INNER JOIN POR1 p ON p.DocEntry = o.DocEntry
+                    INNER JOIN PDN1 d ON d.BaseType = 22 AND d.BaseEntry = p.DocEntry AND d.BaseLine = p.LineNum
+                    INNER JOIN OPDN g ON g.DocEntry = d.DocEntry
+                    WHERE o.CANCELED = 'N'
+
+                    UNION ALL
+
+                    SELECT REPLACE(LTRIM(RTRIM(o.CardCode)), '-', ''),
+                           DATEDIFF(day, o.DocDate, g.DocDate)
+                    FROM OPOR o
+                    INNER JOIN POR1 p  ON p.DocEntry = o.DocEntry
+                    INNER JOIN PCH1 pi ON pi.BaseType = 22 AND pi.BaseEntry = p.DocEntry AND pi.BaseLine = p.LineNum
+                    INNER JOIN PDN1 d  ON d.BaseType = 18 AND d.BaseEntry = pi.DocEntry AND d.BaseLine = pi.LineNum
+                    INNER JOIN OPDN g  ON g.DocEntry = d.DocEntry
+                    WHERE o.CANCELED = 'N'
+                ),
+                f AS (SELECT norm, dias FROM recep WHERE dias >= 0)
+                SELECT DISTINCT
+                    norm,
+                    COUNT(*)      OVER (PARTITION BY norm)                        AS recepciones,
+                    AVG(dias*1.0) OVER (PARTITION BY norm)                        AS promedio,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dias) OVER (PARTITION BY norm) AS mediana
+                FROM f
+            ";
+
+            return $this->pdo->query($sql)->fetchAll();
+        }
+
+        /**
+         * Detalle de las recepciones de OC de UN proveedor (por código normalizado, sin guiones):
+         * cada línea de OC recibida, con fecha de creación, fecha de llegada a bodega, días de
+         * lead time, la vía (Directa / Factura de Reserva) y el artículo. Es el detalle de la
+         * columna "Lead Time" del mantenedor de Proveedores.
+         *
+         * @param string $codigo CardCode del proveedor (se normaliza quitando guiones).
+         * @return array Filas ['OrdenCompra','FechaOC','FechaRecepcion','Dias','Via','CodArticulo','Articulo','Cantidad','Entrada'].
+         */
+        public function detalleOcProveedor($codigo)
+        {
+            $norm = str_replace('-', '', trim($codigo));
+
+            $sql = "
+                SELECT
+                    o.DocNum                             AS OrdenCompra,
+                    CONVERT(char(10), o.DocDate, 126)    AS FechaOC,
+                    CONVERT(char(10), g.DocDate, 126)    AS FechaRecepcion,
+                    DATEDIFF(day, o.DocDate, g.DocDate)  AS Dias,
+                    'Directa'                            AS Via,
+                    LTRIM(RTRIM(p.ItemCode))             AS CodArticulo,
+                    LTRIM(RTRIM(p.Dscription))           AS Articulo,
+                    d.Quantity                           AS Cantidad,
+                    g.DocNum                             AS Entrada
+                FROM OPOR o
+                INNER JOIN POR1 p ON p.DocEntry = o.DocEntry
+                INNER JOIN PDN1 d ON d.BaseType = 22 AND d.BaseEntry = p.DocEntry AND d.BaseLine = p.LineNum
+                INNER JOIN OPDN g ON g.DocEntry = d.DocEntry
+                WHERE o.CANCELED = 'N'
+                  AND REPLACE(LTRIM(RTRIM(o.CardCode)), '-', '') = ?
+                  AND DATEDIFF(day, o.DocDate, g.DocDate) >= 0
+
+                UNION ALL
+
+                SELECT
+                    o.DocNum,
+                    CONVERT(char(10), o.DocDate, 126),
+                    CONVERT(char(10), g.DocDate, 126),
+                    DATEDIFF(day, o.DocDate, g.DocDate),
+                    'Factura de Reserva',
+                    LTRIM(RTRIM(p.ItemCode)),
+                    LTRIM(RTRIM(p.Dscription)),
+                    d.Quantity,
+                    g.DocNum
+                FROM OPOR o
+                INNER JOIN POR1 p  ON p.DocEntry = o.DocEntry
+                INNER JOIN PCH1 pi ON pi.BaseType = 22 AND pi.BaseEntry = p.DocEntry AND pi.BaseLine = p.LineNum
+                INNER JOIN PDN1 d  ON d.BaseType = 18 AND d.BaseEntry = pi.DocEntry AND d.BaseLine = pi.LineNum
+                INNER JOIN OPDN g  ON g.DocEntry = d.DocEntry
+                WHERE o.CANCELED = 'N'
+                  AND REPLACE(LTRIM(RTRIM(o.CardCode)), '-', '') = ?
+                  AND DATEDIFF(day, o.DocDate, g.DocDate) >= 0
+
+                ORDER BY FechaOC DESC, OrdenCompra
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$norm, $norm]);
+
+            return $stmt->fetchAll();
+        }
     }
