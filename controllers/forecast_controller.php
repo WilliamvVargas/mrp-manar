@@ -137,9 +137,42 @@ switch ($action) {
                 $porSemana[$lun]['Neto']    += (float) $d['Neto'];
             }
             ksort($porSemana);
+
+            // Desglose de ventas por CLIENTE y semana (para el tooltip de "Venta Neta").
+            // [lunes][codCliente] => ['cliente'=>nombre, 'neto'=>$]
+            $cliPorSemana = [];
+            foreach ($model->ventasClienteDiariaProducto($itemCode) as $c) {
+                $lun = fcLunes($c['Fecha']);
+                $key = (string) $c['CodCliente'];
+                if (!isset($cliPorSemana[$lun][$key])) {
+                    $nombre = trim((string) $c['Cliente']) !== '' ? $c['Cliente'] : $c['CodCliente'];
+                    $cliPorSemana[$lun][$key] = ['cliente' => $nombre, 'neto' => 0.0, 'cantidad' => 0.0];
+                }
+                $cliPorSemana[$lun][$key]['neto']     += (float) $c['Neto'];
+                $cliPorSemana[$lun][$key]['cantidad'] += (float) $c['Cantidad'];
+            }
+
             $datos = [];
             foreach ($porSemana as $lun => $v) {
-                $datos[] = ['FechaDocumento' => $lun, 'Demanda' => $v['Demanda'], 'Neto' => $v['Neto']];
+                // Top 3 clientes de la semana, por dos criterios: por venta ($) para el tooltip de
+                // Venta Neta, y por unidades para el tooltip de Demanda Histórica.
+                $base = array_values($cliPorSemana[$lun] ?? []);
+
+                $porNeto = $base;
+                usort($porNeto, function ($a, $b) { return $b['neto'] <=> $a['neto']; });
+                $clientesVenta = array_slice($porNeto, 0, 3);
+
+                $porCantidad = $base;
+                usort($porCantidad, function ($a, $b) { return $b['cantidad'] <=> $a['cantidad']; });
+                $clientesDemanda = array_slice($porCantidad, 0, 3);
+
+                $datos[] = [
+                    'FechaDocumento'  => $lun,
+                    'Demanda'         => $v['Demanda'],
+                    'Neto'            => $v['Neto'],
+                    'Clientes'        => $clientesVenta,
+                    'ClientesDemanda' => $clientesDemanda,
+                ];
             }
 
             // Precio unitario realizado (neto/cantidad) ponderado a las últimas 52 semanas de venta

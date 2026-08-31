@@ -1062,6 +1062,55 @@
         }
 
         /**
+         * Ventas de un artículo POR CLIENTE y DÍA: facturas menos NC, agrupadas por día del
+         * documento y cliente. Sirve para el desglose por cliente del tooltip de "Venta Neta"
+         * del gráfico (el controlador agrega a semana ISO).
+         *
+         * @return array Filas: ['Fecha'=>'yyyy-MM-dd', 'CodCliente'=>..., 'Cliente'=>..., 'Neto'=>..., 'Cantidad'=>...].
+         */
+        public function ventasClienteDiariaProducto($itemCode)
+        {
+            $sql = "
+                SELECT
+                    X.Fecha,
+                    X.CodCliente,
+                    X.Cliente,
+                    SUM(X.TotalNeto) AS Neto,
+                    SUM(X.Cantidad)  AS Cantidad
+                FROM (
+                    SELECT
+                        CONVERT(char(10), T0.DocDate, 126) AS Fecha,
+                        LTRIM(RTRIM(T0.CardCode)) AS CodCliente,
+                        LTRIM(RTRIM(T0.CardName)) AS Cliente,
+                        T1.Quantity  AS Cantidad,
+                        T1.LineTotal AS TotalNeto
+                    FROM OINV T0
+                    INNER JOIN INV1 T1 ON T0.DocEntry = T1.DocEntry
+                    WHERE T0.CANCELED = 'N' AND T1.ItemCode = ?
+
+                    UNION ALL
+
+                    SELECT
+                        CONVERT(char(10), T0.DocDate, 126),
+                        LTRIM(RTRIM(T0.CardCode)),
+                        LTRIM(RTRIM(T0.CardName)),
+                        -T1.Quantity,
+                        -T1.LineTotal
+                    FROM ORIN T0
+                    INNER JOIN RIN1 T1 ON T0.DocEntry = T1.DocEntry
+                    WHERE T0.CANCELED = 'N' AND T1.ItemCode = ?
+                ) X
+                GROUP BY X.Fecha, X.CodCliente, X.Cliente
+                ORDER BY X.Fecha
+            ";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$itemCode, $itemCode]);
+
+            return $stmt->fetchAll();
+        }
+
+        /**
          * Parámetros para MRP de un producto en la bodega 010: maestro de ítem (OITM),
          * stock por bodega (OITW), nombre de bodega (OWHS) y proveedor predeterminado (OCRD).
          * Devuelve una fila por bodega (con WhsCode fijo en '010', típicamente una).

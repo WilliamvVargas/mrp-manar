@@ -122,6 +122,42 @@ $(document).ready(function() {
     // Convierte a número, o null si es null/undefined (para dejar huecos en blanco).
     function numOrNull(v) { return (v === null || v === undefined) ? null : (parseFloat(v) || 0); }
 
+    // Tooltip HTML de la serie "Venta Neta": monto de la semana + desglose por cliente.
+    function tooltipVentaNeta(d) {
+        if (d.Neto === null || d.Neto === undefined) { return null; }
+        let html = '<div style="padding:8px 10px; font-size:12px;">'
+                 + '<div style="font-weight:bold; margin-bottom:2px;">' + esc(etiquetaSemana(String(d.FechaDocumento), true)) + '</div>'
+                 + '<div>Venta Neta: <b>$' + esc(formatearNumero(d.Neto, 0)) + '</b></div>';
+        const cli = d.Clientes || [];
+        if (cli.length) {
+            html += '<hr style="margin:5px 0;">'
+                 +  '<div style="font-weight:bold; margin-bottom:2px;">Top 3 Clientes</div>';
+            cli.forEach(function(c, i) {
+                html += '<div style="white-space:nowrap;">' + (i + 1) + '. ' + esc(c.cliente)
+                     +  ': <b>$' + esc(formatearNumero(c.neto, 0)) + '</b></div>';
+            });
+        }
+        return html + '</div>';
+    }
+
+    // Tooltip HTML de la serie "Demanda Histórica": unidades de la semana + Top 3 clientes por unidades.
+    function tooltipDemandaHistorica(d) {
+        if (d.Demanda === null || d.Demanda === undefined) { return null; }
+        let html = '<div style="padding:8px 10px; font-size:12px;">'
+                 + '<div style="font-weight:bold; margin-bottom:2px;">' + esc(etiquetaSemana(String(d.FechaDocumento), true)) + '</div>'
+                 + '<div>Demanda Histórica: <b>' + esc(formatearNumero(d.Demanda, 0)) + '</b></div>';
+        const cli = d.ClientesDemanda || [];
+        if (cli.length) {
+            html += '<hr style="margin:5px 0;">'
+                 +  '<div style="font-weight:bold; margin-bottom:2px;">Top 3 Clientes</div>';
+            cli.forEach(function(c, i) {
+                html += '<div style="white-space:nowrap;">' + (i + 1) + '. ' + esc(c.cliente)
+                     +  ': <b>' + esc(formatearNumero(c.cantidad, 0)) + '</b></div>';
+            });
+        }
+        return html + '</div>';
+    }
+
     // Dibuja, sobre una línea de tiempo continua (historia + futuro):
     //   - Demanda histórica (barras azul) + Demanda forecast (barras morado)      -> eje de unidades
     //   - Venta neta real (línea roja)
@@ -152,8 +188,10 @@ $(document).ready(function() {
         // --- Series de UNIDADES (eje izquierdo) ---
         if (showHist) {
             data.addColumn('number', 'Demanda Histórica');
+            // Tooltip HTML propio: Demanda + Top 3 clientes de la semana por unidades.
+            data.addColumn({ type: 'string', role: 'tooltip', p: { html: true } });
             series[si++] = { type: 'bars', targetAxisIndex: ejeDem, color: '#0d6efd' }; // azul
-            pushers.push(function(d) { return [ numOrNull(d.Demanda) ]; });
+            pushers.push(function(d) { return [ numOrNull(d.Demanda), tooltipDemandaHistorica(d) ]; });
         }
         if (showFc) {
             data.addColumn('number', 'Demanda Forecast');
@@ -177,8 +215,10 @@ $(document).ready(function() {
         if (showVenta) {
             colsPesos.push(data.getNumberOfColumns());
             data.addColumn('number', 'Venta Neta');
+            // Tooltip HTML propio: Venta Neta + desglose de clientes de la semana.
+            data.addColumn({ type: 'string', role: 'tooltip', p: { html: true } });
             series[si++] = { type: 'line', targetAxisIndex: ejeVen, color: '#dc3545', lineWidth: 2, pointSize: 4 }; // roja
-            pushers.push(function(d) { return [ numOrNull(d.Neto) ]; });
+            pushers.push(function(d) { return [ numOrNull(d.Neto), tooltipVentaNeta(d) ]; });
         }
         if (showVal) {
             colsPesos.push(data.getNumberOfColumns());
@@ -214,7 +254,7 @@ $(document).ready(function() {
             chartArea: { left: 80, right: (ejeVen === 1 ? 120 : 80), top: 50, bottom: 90 },
             hAxis:     { title: 'Semana', slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 11 } },
             vAxes:     vAxes,
-            tooltip:   { trigger: 'focus' }
+            tooltip:   { trigger: 'focus', isHtml: true }
         };
 
         new google.visualization.ComboChart(document.getElementById('fc-grafico-canvas')).draw(data, opciones);
@@ -433,6 +473,8 @@ $(document).ready(function() {
                     mapa[h.FechaDocumento] = {
                         FechaDocumento: h.FechaDocumento,
                         Demanda: h.Demanda, Neto: h.Neto,
+                        Clientes: h.Clientes || [],
+                        ClientesDemanda: h.ClientesDemanda || [],
                         DemandaForecast: null, DemandaValorizada: null
                     };
                 });
