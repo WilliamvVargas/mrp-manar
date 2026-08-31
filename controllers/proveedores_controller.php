@@ -40,10 +40,19 @@
                 require_once __DIR__ . '/../config/conexion_sqlserver.php';   // $pdoSqlsrv (SAP empresa activa)
                 require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
 
+                // Dedupe por CÓDIGO NORMALIZADO (sin guiones): en SAP el mismo proveedor a veces
+                // tiene dos CardCode que solo difieren en un guion (ej. 62379037P / 62379037-P).
+                // Cuando ambas variantes están activas, aparecería dos veces; se consolida en una.
                 $filas = [];
+                $vistosNorm = [];
                 foreach ((new ConsultaSap($pdoSqlsrv))->proveedoresOcrd() as $b) {
+                    $cod  = trim($b['codigo']);
+                    $norm = str_replace('-', '', $cod);
+                    if (isset($vistosNorm[$norm])) { continue; }
+                    $vistosNorm[$norm] = true;
+
                     $filas[] = [
-                        'codigo'          => trim($b['codigo']),
+                        'codigo'          => $cod,
                         'nombre'          => $b['nombre'],
                         'pais_codigo'     => $b['pais_codigo'],
                         'pais'            => $b['pais'],
