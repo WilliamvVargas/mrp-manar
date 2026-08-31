@@ -1236,4 +1236,30 @@
 
             return $this->pdo->query($sql)->fetchAll();
         }
+
+        /**
+         * Socios de negocio PROVEEDORES (OCRD, CardType='S') activos, con su país y dirección.
+         * El país se resuelve del código ISO (OCRD.Country, ej. 'CL') a su nombre vía OCRY
+         * ('Chile'); si no hay coincidencia, se deja el código. Base del mantenedor de
+         * Proveedores. Solo tablas estándar -> sirve para cualquier empresa.
+         *
+         * @return array Filas ['codigo','nombre','pais_codigo','pais','direccion'].
+         */
+        public function proveedoresOcrd()
+        {
+            $sql = "
+                SELECT
+                    LTRIM(RTRIM(T0.CardCode))                     AS codigo,
+                    LTRIM(RTRIM(T0.CardName))                     AS nombre,
+                    LTRIM(RTRIM(ISNULL(T0.Country, '')))          AS pais_codigo,
+                    LTRIM(RTRIM(ISNULL(CY.Name, T0.Country)))     AS pais,
+                    LTRIM(RTRIM(ISNULL(T0.Address, '')))          AS direccion
+                FROM OCRD T0
+                LEFT JOIN OCRY CY ON CY.Code = T0.Country
+                WHERE T0.CardType = 'S' AND T0.validFor = 'Y'
+                ORDER BY T0.CardName
+            ";
+
+            return $this->pdo->query($sql)->fetchAll();
+        }
     }
