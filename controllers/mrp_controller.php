@@ -83,6 +83,10 @@
                 $horizonte = (int) ($_GET['horizonte'] ?? 4);
                 if (!in_array($horizonte, $horizontesValidos, true)) { $horizonte = 4; }
 
+                // El horizonte va desde la semana ACTUAL hacia adelante: el forecast puede tener
+                // semanas ya pasadas, que no deben contar para la reposición.
+                $lunesActual = date('Y-m-d', strtotime('monday this week'));
+
                 // 4) Merge + sugerido a reponer.
                 $data = [];
                 foreach ($base as $b) {
@@ -98,9 +102,13 @@
                     // ventana de demanda la define el Horizonte, no el lead time.
                     $leadSemanas = (int) ($abast[$cod]['LeadTime'] ?? 0);
 
-                    // Demanda a cubrir = forecast de las próximas 'horizonte' semanas. Se guarda
-                    // también el rango de semanas que abarca.
-                    $ventana     = array_slice($serie[$cod] ?? [], 0, $horizonte);
+                    // Demanda a cubrir = forecast de las próximas 'horizonte' semanas, contando
+                    // solo DESDE la semana actual (se descartan las semanas pasadas de la serie).
+                    $serieFutura = array_values(array_filter(
+                        $serie[$cod] ?? [],
+                        function ($w) use ($lunesActual) { return $w['semana'] >= $lunesActual; }
+                    ));
+                    $ventana     = array_slice($serieFutura, 0, $horizonte);
                     $demandaFc   = array_sum(array_column($ventana, 'demanda'));
                     $semanaDesde = $ventana ? $ventana[0]['semana'] : '';
                     $semanaHasta = $ventana ? $ventana[count($ventana) - 1]['semana'] : '';
