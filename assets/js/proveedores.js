@@ -31,13 +31,52 @@ $(document).ready(function() {
                 data: 'lead_mediana',
                 className: 'text-center',
                 render: function(mediana, type, fila) {
-                    if (type !== 'display') { return (mediana == null) ? -1 : mediana; }
+                    if (type !== 'display') { return (mediana == null) ? -1 : mediana; }   // ordena por días (crudo)
                     if (mediana == null) { return '<span class="text-muted">—</span>'; }
-                    const n = fila.lead_recep || 0;
-                    const prom = (fila.lead_promedio == null) ? '—' : fila.lead_promedio;
-                    return '<span title="Promedio: ' + prom + ' días · ' + n + ' recepciones">'
-                         + '<span class="fw-bold">' + mediana + '</span> d '
-                         + '<small class="text-muted">(n=' + n + ')</small></span>';
+                    // Días -> semanas con 1 decimal (estilo chileno: coma).
+                    const aSem = function(d) { return (d == null) ? '—' : (d / 7).toFixed(1).replace('.', ','); };
+                    // Tooltip: cómo se compone la mezcla (propio del proveedor + país×trimestre).
+                    const q = Math.floor(new Date().getMonth() / 3) + 1;
+                    const fuentes = { pais_trimestre: 'país×trimestre', pais: 'país', global: 'global importados' };
+                    const fp = fuentes[fila.lead_fuente] || fila.lead_fuente || '';
+                    let tip;
+                    if ((fila.lead_recep || 0) > 0 && fila.lead_prov != null) {
+                        const w = fila.lead_w || 0;
+                        tip = 'Mezcla: ' + w + '% propio (' + aSem(fila.lead_prov) + ' sem, n=' + fila.lead_recep + ')'
+                            + ' + ' + (100 - w) + '% país Q' + q + ' (' + aSem(fila.lead_pais) + ' sem, ' + fp + ')';
+                    } else {
+                        tip = 'Sin historia propia → país×trimestre Q' + q + ' (' + aSem(fila.lead_pais) + ' sem, fuente ' + fp + ')';
+                    }
+                    return '<span title="' + tip + '"><span class="fw-bold">' + aSem(mediana) + '</span></span>';
+                }
+            },
+            {
+                // Base del cálculo: explica en simple de dónde sale el lead time.
+                data: null,
+                className: 'text-center',
+                orderable: false,
+                searchable: false,
+                render: function(d, type, fila) {
+                    if (type !== 'display') { return ''; }
+                    if (fila.lead_mediana == null) { return '<span class="text-muted">—</span>'; }
+                    const w = fila.lead_w || 0;
+                    const hasOwn = (fila.lead_recep || 0) > 0;
+                    let txt, cls;
+                    if (hasOwn && w >= 60)      { txt = 'Historial propio'; cls = 'bg-success'; }
+                    else if (hasOwn && w >= 20) { txt = 'Proveedor + país';  cls = 'bg-info text-dark'; }
+                    else if (fila.lead_fuente === 'pais_trimestre') { txt = 'País y temporada'; cls = 'bg-primary'; }
+                    else if (fila.lead_fuente === 'pais')           { txt = 'País (anual)';     cls = 'bg-warning text-dark'; }
+                    else                                            { txt = 'Estimado';         cls = 'bg-secondary'; }
+                    return '<span class="badge ' + cls + '">' + txt + '</span>';
+                }
+            },
+            {
+                // Recepciones: N° de llegadas de OC que respaldan el lead time.
+                data: 'lead_recep',
+                className: 'text-center',
+                render: function(n, type, fila) {
+                    if (type !== 'display') { return n || 0; }
+                    return (fila.lead_mediana == null || !n) ? '<span class="text-muted">—</span>' : n;
                 }
             },
             {

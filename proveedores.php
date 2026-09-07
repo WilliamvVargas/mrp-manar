@@ -25,6 +25,10 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'Proveedores'); ?></h5>
+            <button type="button" class="btn btn-primary btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#modalLeadInfo">
+                <i class="bi bi-info-circle me-1"></i> Cálculo de Lead Time
+            </button>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -63,16 +67,18 @@
                     </div>
                 </div>
 
-                <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
+                <table class="table table-hover align-middle small" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 10%">Código</th>
-                            <th style="width: 26%">Nombre</th>
-                            <th style="width: 11%" class="text-center">País</th>
-                            <th style="width: 25%">Dirección</th>
-                            <th style="width: 12%" class="text-center" title="Mediana de días entre la creación de la OC y la llegada a bodega (historial real)">Lead Time (días)</th>
-                            <th style="width: 13%" class="text-center">Modo de Transporte</th>
-                            <th style="width: 8%"  class="text-center">Acciones</th>
+                            <th style="width: 8%">Código</th>
+                            <th style="width: 20%">Nombre</th>
+                            <th style="width: 9%"  class="text-center">País</th>
+                            <th style="width: 19%">Dirección</th>
+                            <th style="width: 8%"  class="text-center" title="Lead time real (semanas) del trimestre actual: mezcla de la historia propia del proveedor y el promedio de su país en la temporada.">Lead Time (semanas)</th>
+                            <th style="width: 13%" class="text-center" title="De dónde sale el lead time: historial propio del proveedor, promedio de su país en la temporada, o un estimado.">Base del cálculo</th>
+                            <th style="width: 7%"  class="text-center" title="N° de recepciones PROPIAS del proveedor (las que dan peso a su historia)">Recepciones</th>
+                            <th style="width: 8%"  class="text-center">Modo de Transporte</th>
+                            <th style="width: 6%"  class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -83,7 +89,10 @@
     </div>
 </div>
 
-<?php include 'modals/modal_proveedores_oc.php'; ?>
+<?php
+    include 'modals/modal_proveedores_oc.php';
+    include 'modals/modal_proveedores_leadtime.php';
+?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>

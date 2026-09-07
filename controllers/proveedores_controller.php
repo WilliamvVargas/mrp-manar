@@ -42,11 +42,15 @@
 
                 $sap = new ConsultaSap($pdoSqlsrv);
 
-                // Lead time real por proveedor (mapa por código normalizado).
-                $lead = [];
-                foreach ($sap->leadTimePorProveedor() as $l) {
-                    $lead[$l['norm']] = $l;
-                }
+                // Lead time = MEZCLA PONDERADA entre la historia PROPIA del proveedor y el
+                // país×trimestre (ancla robusta + estacionalidad). El peso de lo propio crece con
+                // la cantidad de recepciones del proveedor: w = n / (n + K). Sin historia propia
+                // (n=0 -> w=0) queda 100% país×trimestre.
+                $leadProv = [];   // mediana propia por código normalizado
+                foreach ($sap->leadTimePorProveedor() as $l) { $leadProv[$l['norm']] = $l; }
+                $refLead    = $sap->leadTimeEstacionalPorPais();
+                $trimActual = ConsultaSap::trimestreDeFecha(date('Y-m-d'));
+                $K_SUAVIZADO = 8;   // a mayor historia propia, más pesa el lead time del proveedor
 
                 // Dedupe por CÓDIGO NORMALIZADO (sin guiones): en SAP el mismo proveedor a veces
                 // tiene dos CardCode que solo difieren en un guion (ej. 62379037P / 62379037-P).
@@ -59,16 +63,35 @@
                     if (isset($vistosNorm[$norm])) { continue; }
                     $vistosNorm[$norm] = true;
 
-                    $lt = $lead[$norm] ?? null;
+                    // Componente país×trimestre (ancla) y componente propio del proveedor.
+                    $pais    = ConsultaSap::resolverLeadTime($refLead, $b['pais_codigo'], $trimActual);
+                    $prov    = $leadProv[$norm] ?? null;
+                    $nProv   = $prov ? (int) $prov['recepciones'] : 0;
+                    $medProv = ($prov && $prov['mediana'] !== null) ? (float) $prov['mediana'] : null;
+                    $medPais = $pais['mediana'];   // int|null
+
+                    // Mezcla ponderada. Sin historia propia (o sin país) queda el país×trimestre.
+                    if ($nProv > 0 && $medProv !== null && $medPais !== null) {
+                        $w    = $nProv / ($nProv + $K_SUAVIZADO);
+                        $lead = (int) round($w * $medProv + (1 - $w) * $medPais);
+                    } else {
+                        $w    = 0.0;
+                        $lead = $medPais;
+                    }
+
                     $filas[] = [
                         'codigo'          => $cod,
                         'nombre'          => $b['nombre'],
                         'pais_codigo'     => $b['pais_codigo'],
                         'pais'            => $b['pais'],
                         'direccion'       => $b['direccion'],
-                        'lead_mediana'    => $lt ? (int) round($lt['mediana'])  : null,
-                        'lead_promedio'   => $lt ? (int) round($lt['promedio']) : null,
-                        'lead_recep'      => $lt ? (int) $lt['recepciones']     : 0,
+                        'lead_mediana'    => $lead,                                        // días (mezcla)
+                        'lead_recep'      => $nProv,                                       // recepciones PROPIAS
+                        'lead_prov'       => $medProv !== null ? (int) round($medProv) : null,  // mediana propia
+                        'lead_pais'       => $medPais,                                     // país×trimestre
+                        'lead_pais_n'     => $pais['n'],
+                        'lead_fuente'     => $pais['fuente'],                              // fuente del componente país
+                        'lead_w'          => (int) round($w * 100),                        // peso de lo propio (%)
                         'modo_transporte' => '',   // aún no se registra; en blanco por ahora
                     ];
                 }

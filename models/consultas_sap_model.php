@@ -1284,6 +1284,7 @@
                     INNER JOIN PDN1 d ON d.BaseType = 22 AND d.BaseEntry = p.DocEntry AND d.BaseLine = p.LineNum
                     INNER JOIN OPDN g ON g.DocEntry = d.DocEntry
                     WHERE o.CANCELED = 'N'
+                      AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))   -- ventana de recencia (24 meses)
 
                     UNION ALL
 
@@ -1295,6 +1296,7 @@
                     INNER JOIN PDN1 d  ON d.BaseType = 18 AND d.BaseEntry = pi.DocEntry AND d.BaseLine = pi.LineNum
                     INNER JOIN OPDN g  ON g.DocEntry = d.DocEntry
                     WHERE o.CANCELED = 'N'
+                      AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))   -- ventana de recencia (24 meses)
                 ),
                 f AS (SELECT norm, dias FROM recep WHERE dias >= 0)
                 SELECT DISTINCT
@@ -1339,6 +1341,7 @@
                 WHERE o.CANCELED = 'N'
                   AND REPLACE(LTRIM(RTRIM(o.CardCode)), '-', '') = ?
                   AND DATEDIFF(day, o.DocDate, g.DocDate) >= 0
+                  AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))   -- ventana de recencia (24 meses)
 
                 UNION ALL
 
@@ -1360,6 +1363,7 @@
                 WHERE o.CANCELED = 'N'
                   AND REPLACE(LTRIM(RTRIM(o.CardCode)), '-', '') = ?
                   AND DATEDIFF(day, o.DocDate, g.DocDate) >= 0
+                  AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))   -- ventana de recencia (24 meses)
 
                 ORDER BY FechaOC DESC, OrdenCompra
             ";
@@ -1380,6 +1384,18 @@
             return ($n % 2) ? (float) $vals[$m] : ($vals[$m - 1] + $vals[$m]) / 2;
         }
 
+        /** Arma un bloque global (mediana + n por trimestre 1..4, más 'todo') desde [t => [dias]]. */
+        private static function bucketGlobal(array $b)
+        {
+            $todo = array_merge($b[1], $b[2], $b[3], $b[4]);
+            $out  = [];
+            foreach ([1, 2, 3, 4] as $t) {
+                $out[$t] = ['mediana' => self::mediana($b[$t]), 'n' => count($b[$t])];
+            }
+            $out['todo'] = ['mediana' => self::mediana($todo), 'n' => count($todo)];
+            return $out;
+        }
+
         /**
          * Lead time REAL por PAÍS × TRIMESTRE (Q1=ene-mar … Q4=oct-dic). Modela que el plazo de
          * abastecimiento depende del ORIGEN y de la temporalidad propia de cada país (la cordillera
@@ -1391,7 +1407,7 @@
          *   [
          *     'por_pais_trimestre' => ['BR' => [1=>['mediana'=>..,'n'=>..], 2=>[...], 3=>[...], 4=>[...]], ...],
          *     'por_pais'           => ['BR' => ['mediana'=>..,'n'=>..], ...],   // todos los trimestres
-         *     'global'             => [1=>[..],2=>[..],3=>[..],4=>[..], 'todo'=>[..]],  // importados (sin Chile)
+         *     'global'             => ['import'=>[1..4,'todo'], 'local'=>[1..4,'todo']],  // fallback por origen
          *   ]
          *
          * @return array
@@ -1408,6 +1424,7 @@
                     INNER JOIN PDN1 d ON d.BaseType = 22 AND d.BaseEntry = p.DocEntry AND d.BaseLine = p.LineNum
                     INNER JOIN OPDN g ON g.DocEntry = d.DocEntry
                     WHERE o.CANCELED = 'N'
+                      AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))   -- ventana de recencia (24 meses)
 
                     UNION ALL
 
@@ -1420,6 +1437,7 @@
                     INNER JOIN PDN1 d  ON d.BaseType = 18 AND d.BaseEntry = pi.DocEntry AND d.BaseLine = pi.LineNum
                     INNER JOIN OPDN g  ON g.DocEntry = d.DocEntry
                     WHERE o.CANCELED = 'N'
+                      AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))   -- ventana de recencia (24 meses)
                 )
                 SELECT LTRIM(RTRIM(ISNULL(c.Country, ''))) AS pais, r.trimestre, r.dias
                 FROM recep r
@@ -1429,7 +1447,10 @@
 
             $pt = [];   // [pais][trimestre] => [dias...]
             $pp = [];   // [pais] => [dias...]
-            $g  = [1 => [], 2 => [], 3 => [], 4 => []];   // global de IMPORTADOS (excluye Chile), por trimestre
+            // Fallback global SEGÚN ORIGEN: local (Chile) e importado (resto). No se mezclan,
+            // porque un proveedor local no debe caer al promedio de importaciones (ni al revés).
+            $gImp = [1 => [], 2 => [], 3 => [], 4 => []];
+            $gLoc = [1 => [], 2 => [], 3 => [], 4 => []];
             foreach ($this->pdo->query($sql) as $r) {
                 $pais = trim((string) $r['pais']);
                 if ($pais === '') { continue; }        // sin país no sirve para segmentar
@@ -1437,9 +1458,7 @@
                 $t = (int) $r['trimestre'];
                 $pt[$pais][$t][] = $d;
                 $pp[$pais][] = $d;
-                // El fallback global excluye los orígenes LOCALES (Chile, same-day), que si no
-                // aplastarían la mediana hacia ~0 y darían un fallback engañoso para importados.
-                if ($pais !== 'CL') { $g[$t][] = $d; }
+                if ($pais === 'CL') { $gLoc[$t][] = $d; } else { $gImp[$t][] = $d; }
             }
 
             $porPaisTrim = [];
@@ -1453,18 +1472,13 @@
                 $porPais[$pais] = ['mediana' => self::mediana($vals), 'n' => count($vals)];
             }
 
-            // Global de importados (sin Chile), por trimestre + 'todo' como respaldo final.
-            $gTodo  = array_merge($g[1], $g[2], $g[3], $g[4]);
-            $global = [];
-            foreach ([1, 2, 3, 4] as $t) {
-                $global[$t] = ['mediana' => self::mediana($g[$t]), 'n' => count($g[$t])];
-            }
-            $global['todo'] = ['mediana' => self::mediana($gTodo), 'n' => count($gTodo)];
-
             return [
                 'por_pais_trimestre' => $porPaisTrim,
                 'por_pais'           => $porPais,
-                'global'             => $global,
+                'global'             => [
+                    'import' => self::bucketGlobal($gImp),
+                    'local'  => self::bucketGlobal($gLoc),
+                ],
             ];
         }
 
@@ -1501,9 +1515,12 @@
                 return ['mediana' => (int) round($p['mediana']), 'n' => $p['n'], 'fuente' => 'pais'];
             }
 
-            // Global de importados (sin Chile), del trimestre; respaldo final: 'todo'.
-            $g = $ref['global'][$t] ?? null;
-            if (!$g || $g['mediana'] === null) { $g = $ref['global']['todo']; }
+            // Global según el ORIGEN: local (Chile) o importado (resto). No se cruza esa frontera:
+            // un proveedor local no debe caer al promedio de importaciones (ni al revés).
+            $bucket = ($pais === 'CL') ? 'local' : 'import';
+            $g = $ref['global'][$bucket][$t] ?? null;
+            if (!$g || $g['mediana'] === null) { $g = $ref['global'][$bucket]['todo']; }
+            if (!$g || $g['mediana'] === null) { $g = $ref['global']['import']['todo']; }   // respaldo extremo
             return [
                 'mediana' => $g['mediana'] !== null ? (int) round($g['mediana']) : null,
                 'n'       => $g['n'],
