@@ -1369,4 +1369,145 @@
 
             return $stmt->fetchAll();
         }
+
+        /** Mediana de un arreglo de números (o null si está vacío). */
+        private static function mediana(array $vals)
+        {
+            $n = count($vals);
+            if ($n === 0) { return null; }
+            sort($vals);
+            $m = intdiv($n, 2);
+            return ($n % 2) ? (float) $vals[$m] : ($vals[$m - 1] + $vals[$m]) / 2;
+        }
+
+        /**
+         * Lead time REAL por PAÍS × TRIMESTRE (Q1=ene-mar … Q4=oct-dic). Modela que el plazo de
+         * abastecimiento depende del ORIGEN y de la temporalidad propia de cada país (la cordillera
+         * en invierno para los vecinos terrestres; el Año Nuevo Chino, vacaciones, etc. para los
+         * lejanos). No impone una estación: cada país revela su patrón desde sus propios datos.
+         * Usa las dos rutas de recepción (directa + factura de reserva) y la MEDIANA por segmento.
+         *
+         * Devuelve la referencia para el resolver con fallback (trimestre = 1..4):
+         *   [
+         *     'por_pais_trimestre' => ['BR' => [1=>['mediana'=>..,'n'=>..], 2=>[...], 3=>[...], 4=>[...]], ...],
+         *     'por_pais'           => ['BR' => ['mediana'=>..,'n'=>..], ...],   // todos los trimestres
+         *     'global'             => [1=>[..],2=>[..],3=>[..],4=>[..], 'todo'=>[..]],  // importados (sin Chile)
+         *   ]
+         *
+         * @return array
+         */
+        public function leadTimeEstacionalPorPais()
+        {
+            $sql = "
+                WITH recep AS (
+                    SELECT LTRIM(RTRIM(o.CardCode)) cc,
+                           DATEDIFF(day, o.DocDate, g.DocDate) dias,
+                           DATEPART(QUARTER, g.DocDate) trimestre
+                    FROM OPOR o
+                    INNER JOIN POR1 p ON p.DocEntry = o.DocEntry
+                    INNER JOIN PDN1 d ON d.BaseType = 22 AND d.BaseEntry = p.DocEntry AND d.BaseLine = p.LineNum
+                    INNER JOIN OPDN g ON g.DocEntry = d.DocEntry
+                    WHERE o.CANCELED = 'N'
+
+                    UNION ALL
+
+                    SELECT LTRIM(RTRIM(o.CardCode)),
+                           DATEDIFF(day, o.DocDate, g.DocDate),
+                           DATEPART(QUARTER, g.DocDate)
+                    FROM OPOR o
+                    INNER JOIN POR1 p  ON p.DocEntry = o.DocEntry
+                    INNER JOIN PCH1 pi ON pi.BaseType = 22 AND pi.BaseEntry = p.DocEntry AND pi.BaseLine = p.LineNum
+                    INNER JOIN PDN1 d  ON d.BaseType = 18 AND d.BaseEntry = pi.DocEntry AND d.BaseLine = pi.LineNum
+                    INNER JOIN OPDN g  ON g.DocEntry = d.DocEntry
+                    WHERE o.CANCELED = 'N'
+                )
+                SELECT LTRIM(RTRIM(ISNULL(c.Country, ''))) AS pais, r.trimestre, r.dias
+                FROM recep r
+                INNER JOIN OCRD c ON LTRIM(RTRIM(c.CardCode)) = r.cc
+                WHERE r.dias >= 0
+            ";
+
+            $pt = [];   // [pais][trimestre] => [dias...]
+            $pp = [];   // [pais] => [dias...]
+            $g  = [1 => [], 2 => [], 3 => [], 4 => []];   // global de IMPORTADOS (excluye Chile), por trimestre
+            foreach ($this->pdo->query($sql) as $r) {
+                $pais = trim((string) $r['pais']);
+                if ($pais === '') { continue; }        // sin país no sirve para segmentar
+                $d = (int) $r['dias'];
+                $t = (int) $r['trimestre'];
+                $pt[$pais][$t][] = $d;
+                $pp[$pais][] = $d;
+                // El fallback global excluye los orígenes LOCALES (Chile, same-day), que si no
+                // aplastarían la mediana hacia ~0 y darían un fallback engañoso para importados.
+                if ($pais !== 'CL') { $g[$t][] = $d; }
+            }
+
+            $porPaisTrim = [];
+            foreach ($pt as $pais => $trims) {
+                foreach ($trims as $t => $vals) {
+                    $porPaisTrim[$pais][$t] = ['mediana' => self::mediana($vals), 'n' => count($vals)];
+                }
+            }
+            $porPais = [];
+            foreach ($pp as $pais => $vals) {
+                $porPais[$pais] = ['mediana' => self::mediana($vals), 'n' => count($vals)];
+            }
+
+            // Global de importados (sin Chile), por trimestre + 'todo' como respaldo final.
+            $gTodo  = array_merge($g[1], $g[2], $g[3], $g[4]);
+            $global = [];
+            foreach ([1, 2, 3, 4] as $t) {
+                $global[$t] = ['mediana' => self::mediana($g[$t]), 'n' => count($g[$t])];
+            }
+            $global['todo'] = ['mediana' => self::mediana($gTodo), 'n' => count($gTodo)];
+
+            return [
+                'por_pais_trimestre' => $porPaisTrim,
+                'por_pais'           => $porPais,
+                'global'             => $global,
+            ];
+        }
+
+        /** Trimestre (1..4) de una fecha 'yyyy-mm-dd'. */
+        public static function trimestreDeFecha($fecha)
+        {
+            $mes = (int) date('n', strtotime((string) $fecha));
+            return $mes >= 1 ? intdiv($mes - 1, 3) + 1 : 1;
+        }
+
+        /**
+         * Resuelve el lead time para un país y trimestre, con FALLBACK en cascada:
+         *   país × trimestre (si n >= umbral) -> país (todos los trimestres, si n >= umbral)
+         *   -> global del trimestre (importados sin Chile) -> global 'todo'.
+         *
+         * @param array $ref       Estructura de leadTimeEstacionalPorPais().
+         * @param string $pais     Código ISO2 del país (OCRD.Country).
+         * @param int   $trimestre 1..4.
+         * @param int   $umbral    Mínimo de recepciones para confiar en un segmento.
+         * @return array ['mediana'=>int|null, 'n'=>int, 'fuente'=>'pais_trimestre'|'pais'|'global']
+         */
+        public static function resolverLeadTime(array $ref, $pais, $trimestre, $umbral = 8)
+        {
+            $pais = trim((string) $pais);
+            $t    = (int) $trimestre;
+
+            $pt = $ref['por_pais_trimestre'][$pais][$t] ?? null;
+            if ($pt && $pt['n'] >= $umbral && $pt['mediana'] !== null) {
+                return ['mediana' => (int) round($pt['mediana']), 'n' => $pt['n'], 'fuente' => 'pais_trimestre'];
+            }
+
+            $p = $ref['por_pais'][$pais] ?? null;
+            if ($p && $p['n'] >= $umbral && $p['mediana'] !== null) {
+                return ['mediana' => (int) round($p['mediana']), 'n' => $p['n'], 'fuente' => 'pais'];
+            }
+
+            // Global de importados (sin Chile), del trimestre; respaldo final: 'todo'.
+            $g = $ref['global'][$t] ?? null;
+            if (!$g || $g['mediana'] === null) { $g = $ref['global']['todo']; }
+            return [
+                'mediana' => $g['mediana'] !== null ? (int) round($g['mediana']) : null,
+                'n'       => $g['n'],
+                'fuente'  => 'global',
+            ];
+        }
     }
