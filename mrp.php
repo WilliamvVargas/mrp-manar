@@ -25,14 +25,22 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'MRP'); ?></h5>
-            <!-- Recalcular Pronóstico: deshabilitado por ahora (funcionalidad pendiente). -->
-            <button type="button"
-                    class="btn btn-primary btn-sm"
-                    id="btn-recalcular-pronostico"
-                    title="Próximamente"
-                    disabled>
-                <i class="bi bi-arrow-repeat me-1"></i> Recalcular Pronóstico
-            </button>
+            <div class="d-flex align-items-center gap-2">
+                <div class="input-group input-group-sm" style="width: auto;">
+                    <label class="input-group-text" for="mrp-seguridad" title="Semanas de demanda a mantener como stock de seguridad">
+                        <i class="bi bi-shield-check me-1"></i> Seguridad (sem)
+                    </label>
+                    <input type="number" class="form-control form-control-sm text-end"
+                           id="mrp-seguridad" name="mrp-seguridad"
+                           min="0" max="52" step="1" value="2" style="width: 70px;">
+                </div>
+                <button type="button"
+                        class="btn btn-primary btn-sm"
+                        id="btn-recalcular-pronostico"
+                        title="Recalcular el plan de reposición con los parámetros actuales">
+                    <i class="bi bi-arrow-repeat me-1"></i> Recalcular Pronóstico
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -89,17 +97,20 @@
                             <th style="width: 9%">Familia</th>
                             <th style="width: 9%">Sub-Familia</th>
                             <th style="width: 11%">Proveedor</th>
-                            <th style="width: 6%"  class="text-end" title="Lead Time del producto (U_LeadTime), en semanas">Lead Time (sem)</th>
+                            <th style="width: 6%"  class="text-end" title="Lead time usado (semanas): mediana real del producto OC→recepción; si no hay historia, U_LeadTime o un default">Lead Time (sem)</th>
                             <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
-                            <th style="width: 8%"  class="text-end" title="Forecast de esa semana">Demanda (Forecast)</th>
+                            <th style="width: 7%"  class="text-end" title="Forecast de esa semana">Demanda (Forecast)</th>
+                            <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda y las reposiciones planificadas)">Saldo Proyectado</th>
                             <th style="width: 6%"  class="text-center" title="Días hasta el lote más próximo a vencer">Próx. Venc. (d)</th>
-                            <th style="width: 7%"  class="text-end">Stock (WMS)</th>
-                            <th style="width: 7%"  class="text-end" title="Stock vigente que vence dentro de 30 días">Stock ≤30d</th>
-                            <th style="width: 7%"  class="text-end">Comprometido</th>
-                            <th style="width: 7%"  class="text-end">En Pedido</th>
-                            <th style="width: 7%"  class="text-end">En Producción</th>
-                            <th style="width: 7%"  class="text-end" title="Stock WMS + En Pedido + En Producción − Comprometido">Stock Teórico</th>
-                            <th style="width: 8%"  class="text-end">Sugerido a Reponer</th>
+                            <th style="width: 6%"  class="text-end">Stock (WMS)</th>
+                            <th style="width: 6%"  class="text-end" title="Stock vigente que vence dentro de 30 días">Stock ≤30d</th>
+                            <th style="width: 6%"  class="text-end">Comprometido</th>
+                            <th style="width: 6%"  class="text-end">En Pedido</th>
+                            <th style="width: 6%"  class="text-end">En Producción</th>
+                            <th style="width: 6%"  class="text-end" title="Stock WMS + En Pedido + En Producción − Comprometido">Stock Teórico</th>
+                            <th style="width: 6%"  class="text-end" title="Stock de seguridad = 2 semanas de la demanda promedio">Stock Seguridad</th>
+                            <th style="width: 8%"  class="text-end" title="Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)">Sugerido a Reponer</th>
+                            <th>Urgencia</th>
                             <th style="width: 5%"  class="text-center">Acciones</th>
                         </tr>
                     </thead>

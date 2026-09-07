@@ -1311,6 +1311,49 @@
         }
 
         /**
+         * Lead time REAL por PRODUCTO: mediana de días entre la creación de la OC y la llegada a
+         * bodega, por artículo, en la ventana de recencia (24 meses) y por las dos rutas de
+         * recepción (directa + factura de reserva). Es el lead time que usa el MRP para proyectar.
+         *
+         * @return array Filas ['item','recepciones','mediana'].
+         */
+        public function leadTimePorProducto()
+        {
+            $sql = "
+                WITH recep AS (
+                    SELECT LTRIM(RTRIM(p.ItemCode)) AS item,
+                           DATEDIFF(day, o.DocDate, g.DocDate) AS dias
+                    FROM OPOR o
+                    INNER JOIN POR1 p ON p.DocEntry = o.DocEntry
+                    INNER JOIN PDN1 d ON d.BaseType = 22 AND d.BaseEntry = p.DocEntry AND d.BaseLine = p.LineNum
+                    INNER JOIN OPDN g ON g.DocEntry = d.DocEntry
+                    WHERE o.CANCELED = 'N'
+                      AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))
+
+                    UNION ALL
+
+                    SELECT LTRIM(RTRIM(pi.ItemCode)),
+                           DATEDIFF(day, o.DocDate, g.DocDate)
+                    FROM OPOR o
+                    INNER JOIN POR1 p  ON p.DocEntry = o.DocEntry
+                    INNER JOIN PCH1 pi ON pi.BaseType = 22 AND pi.BaseEntry = p.DocEntry AND pi.BaseLine = p.LineNum
+                    INNER JOIN PDN1 d  ON d.BaseType = 18 AND d.BaseEntry = pi.DocEntry AND d.BaseLine = pi.LineNum
+                    INNER JOIN OPDN g  ON g.DocEntry = d.DocEntry
+                    WHERE o.CANCELED = 'N'
+                      AND g.DocDate >= DATEADD(MONTH, -24, CAST(GETDATE() AS DATE))
+                ),
+                f AS (SELECT item, dias FROM recep WHERE dias >= 0)
+                SELECT DISTINCT
+                    item,
+                    COUNT(*) OVER (PARTITION BY item) AS recepciones,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dias) OVER (PARTITION BY item) AS mediana
+                FROM f
+            ";
+
+            return $this->pdo->query($sql)->fetchAll();
+        }
+
+        /**
          * Detalle de las recepciones de OC de UN proveedor (por código normalizado, sin guiones):
          * cada línea de OC recibida, con fecha de creación, fecha de llegada a bodega, días de
          * lead time, la vía (Directa / Factura de Reserva) y el artículo. Es el detalle de la

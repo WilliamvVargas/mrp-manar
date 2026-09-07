@@ -28,6 +28,15 @@ $(document).ready(function() {
         return '<span class="text-danger fw-bold">' + formatearEntero(n) + '</span>';
     }
 
+    // Saldo proyectado: negativo (quiebre de stock) en rojo. Ordena por el valor crudo.
+    function renderSaldo(d, type) {
+        if (type === 'sort' || type === 'type') { const n = parseFloat(d); return isNaN(n) ? 0 : n; }
+        const n = parseFloat(d);
+        if (isNaN(n)) { return ''; }
+        const txt = (n < 0 ? '-' : '') + formatearEntero(Math.abs(n));
+        return (n < 0) ? '<span class="text-danger fw-bold">' + txt + '</span>' : txt;
+    }
+
     // Fecha 'yyyy-mm-dd' -> 'dd-mm-yyyy'.
     function fmtFecha(s) {
         if (!s) { return ''; }
@@ -70,13 +79,15 @@ $(document).ready(function() {
     }
 
     // Carga los datos del MRP (una sola vez; DataTable pagina/busca/ordena client-side).
-    function cargarMrp() {
+    function cargarMrp(onDone) {
         const horizonte = $('#mrp-horizonte').val() || '4';
+        const seguridad = $('#mrp-seguridad').val() || '2';
         $.ajax({
             url: 'controllers/mrp_controller.php?action=listar',
             type: 'GET',
-            data: { horizonte: horizonte },
+            data: { horizonte: horizonte, semanas_seguridad: seguridad },
             dataType: 'json',
+            complete: function() { if (typeof onDone === 'function') { onDone(); } },
             success: function(res) {
                 if (res.status !== 'success') {
                     mostrarAlerta(res.message);
@@ -101,7 +112,10 @@ $(document).ready(function() {
                     // Orden por necesidad: mayor "Sugerido a Reponer" primero. Los desempates
                     // (nombre y semana) mantienen juntas las filas de un mismo producto y sus
                     // semanas en orden cronológico.
-                    order: [[15, 'desc'], [1, 'asc'], [6, 'asc']],
+                    // Orden: por URGENCIA del producto (total a ordenar, col. oculta 18), luego
+                    // nombre y semana → productos más urgentes arriba, con sus semanas contiguas
+                    // y en orden cronológico.
+                    order: [[18, 'desc'], [1, 'asc'], [6, 'asc']],
                     columns: [
                         { data: 'producto_codigo',  render: escaparTexto },
                         { data: 'producto_nombre',  render: escaparTexto },
@@ -111,6 +125,7 @@ $(document).ready(function() {
                         { data: 'lead_time',        className: 'text-end',    render: renderNumero },
                         { data: 'semana',           className: 'text-center', render: function(d) { return fmtFecha(d); } },
                         { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
+                        { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
                         { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'stock_wms',        className: 'text-end',    render: renderNumero },
                         { data: 'stock_por_vencer', className: 'text-end',    render: renderNumero },
@@ -118,7 +133,9 @@ $(document).ready(function() {
                         { data: 'en_pedido',        className: 'text-end',    render: renderNumero },
                         { data: 'en_produccion',    className: 'text-end',    render: renderNumero },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
+                        { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
+                        { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
                         {
                             data: null, orderable: false, searchable: false, className: 'text-center',
                             render: function() {
@@ -155,6 +172,15 @@ $(document).ready(function() {
 
     // Cambiar el Horizonte recalcula la demanda/sugerido en el backend (recarga los datos).
     $('#mrp-horizonte').on('change', cargarMrp);
+
+    // Recalcular Pronóstico: reconstruye el plan con los parámetros actuales (horizonte y
+    // semanas de seguridad), con feedback en el botón.
+    $('#btn-recalcular-pronostico').on('click', function() {
+        const $btn = $(this);
+        const original = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Recalculando...');
+        cargarMrp(function() { $btn.prop('disabled', false).html(original); });
+    });
 
     // Botón "Limpiar": vacía filtros y buscador, y redibuja sin filtros.
     $('#btn-limpiar-filtros').on('click', function() {

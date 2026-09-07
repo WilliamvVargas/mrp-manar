@@ -76,6 +76,15 @@
                     $abast[trim($r['ItemCode'])] = $r;
                 }
 
+                // Lead time real por PRODUCTO (mediana OC->recepción, 24 meses) para el plan
+                // time-phased. Se exige un mínimo de historia (>=3 recepciones) para confiar.
+                $leadProd = [];
+                foreach ((new ConsultaSap($pdoSqlsrv))->leadTimePorProducto() as $r) {
+                    if ((int) $r['recepciones'] >= 3) {
+                        $leadProd[trim($r['item'])] = (float) $r['mediana'];   // en días
+                    }
+                }
+
                 // Horizonte de planificación (en semanas): el usuario elige cuántas semanas de
                 // forecast se acumulan para la demanda. Reemplaza al lead time como ventana.
                 // (El lead time se considerará a futuro.) Se valida contra la lista permitida.
@@ -86,6 +95,14 @@
                 // El horizonte va desde la semana ACTUAL hacia adelante: el forecast puede tener
                 // semanas ya pasadas, que no deben contar para la reposición.
                 $lunesActual = date('Y-m-d', strtotime('monday this week'));
+
+                // Parámetros del plan (v1): stock de seguridad = N semanas de demanda (configurable
+                // desde la vista); lot-for-lot; lead time por defecto si el producto no tiene
+                // historia propia ni U_LeadTime.
+                $semanasSeguridad = (int) ($_GET['semanas_seguridad'] ?? 2);
+                if ($semanasSeguridad < 0)  { $semanasSeguridad = 0; }
+                if ($semanasSeguridad > 52) { $semanasSeguridad = 52; }
+                $leadDefaultSem = 4;
 
                 // 4) Merge + sugerido a reponer.
                 $data = [];
@@ -98,38 +115,67 @@
                     $enPedido     = (float) ($abast[$cod]['EnPedido'] ?? 0);
                     $enProduccion = (float) ($abast[$cod]['EnProduccion'] ?? 0);
 
-                    // Lead time (U_LeadTime) EN SEMANAS. Informativo por ahora (columna); la
-                    // ventana de demanda la define el Horizonte, no el lead time.
-                    $leadSemanas = (int) ($abast[$cod]['LeadTime'] ?? 0);
+                    // Lead time del producto EN SEMANAS: propio (mediana OC/7, redondeo hacia arriba,
+                    // conservador) -> U_LeadTime de SAP -> default.
+                    $uLead = (int) ($abast[$cod]['LeadTime'] ?? 0);
+                    if (isset($leadProd[$cod])) {
+                        $leadSem = (int) ceil($leadProd[$cod] / 7);
+                    } elseif ($uLead > 0) {
+                        $leadSem = $uLead;
+                    } else {
+                        $leadSem = $leadDefaultSem;
+                    }
 
-                    // Demanda a cubrir = forecast de las próximas 'horizonte' semanas, contando
-                    // solo DESDE la semana actual (se descartan las semanas pasadas de la serie).
+                    // Ventana futura del forecast (desde la semana actual), acotada al horizonte.
                     $serieFutura = array_values(array_filter(
                         $serie[$cod] ?? [],
                         function ($w) use ($lunesActual) { return $w['semana'] >= $lunesActual; }
                     ));
-                    $ventana     = array_slice($serieFutura, 0, $horizonte);
-                    $demandaFc   = array_sum(array_column($ventana, 'demanda'));
-                    $semanaDesde = $ventana ? $ventana[0]['semana'] : '';
-                    $semanaHasta = $ventana ? $ventana[count($ventana) - 1]['semana'] : '';
+                    $ventana = array_slice($serieFutura, 0, $horizonte);
 
-                    // Stock teórico: disponibilidad neta = stock actual + lo que viene en camino
-                    // (en pedido + en producción) − lo comprometido a clientes.
-                    $stockTeorico = $stock + $enPedido + $enProduccion - $comprometido;
+                    // Stock de seguridad = N semanas de la demanda promedio semanal (del horizonte).
+                    $nSem     = count($ventana);
+                    $demProm  = $nSem > 0 ? array_sum(array_column($ventana, 'demanda')) / $nSem : 0.0;
+                    $stockSeg = $semanasSeguridad * $demProm;
 
-                    // Sugerido a reponer: cubrir la demanda del lead time + lo comprometido,
-                    // descontando el stock disponible y lo que ya viene en camino.
-                    $sugerido = $demandaFc + $comprometido - $stock - $enPedido - $enProduccion;
-                    if ($sugerido < 0) { $sugerido = 0; }
+                    // Disponible inicial = stock + en camino − comprometido. (v1: en pedido/producción
+                    // se consideran disponibles desde ya; se afinará por fecha de llegada a futuro.)
+                    $disponible   = $stock + $enPedido + $enProduccion - $comprometido;
+                    $stockTeorico = $disponible;
 
-                    // Campos a nivel de producto (se repiten en cada fila-semana).
+                    // Proyección TIME-PHASED (lot-for-lot): recorre semana a semana; cuando el saldo
+                    // caería bajo el stock de seguridad, planifica la recepción que lo restituye.
+                    $saldo    = $disponible;
+                    $recibir  = [];   // recepción planificada por índice de semana
+                    $saldoSem = [];   // saldo proyectado al cierre de cada semana
+                    foreach ($ventana as $i => $w) {
+                        $saldo -= (float) $w['demanda'];
+                        $rec = 0;
+                        // Una orden NUEVA recién puede llegar en la semana L (antes tendría que
+                        // haberse colocado en el pasado). Las semanas 0..L-1 sin stock quedan en
+                        // QUIEBRE (saldo negativo): no llega mercadería y no se puede vender.
+                        if ($i >= $leadSem && $saldo < $stockSeg) {
+                            $rec   = (int) ceil($stockSeg - $saldo);
+                            $saldo += $rec;
+                        }
+                        $recibir[$i]  = $rec;
+                        $saldoSem[$i] = $saldo;
+                    }
+
+                    // La recepción de la semana i (i >= L) se ORDENA en la semana i − L (>= 0).
+                    $ordenar = array_fill(0, max(1, $nSem), 0);
+                    foreach ($recibir as $i => $rec) {
+                        if ($rec > 0) { $ordenar[$i - $leadSem] += $rec; }
+                    }
+
+                    // Campos de producto (se repiten en cada fila-semana).
                     $filaBase = [
                         'producto_codigo'  => $b['producto_codigo'],
                         'producto_nombre'  => $b['producto_nombre'],
                         'familia'          => $b['familia'],
                         'sub_familia'      => $b['sub_familia'],
                         'proveedor'        => $abast[$cod]['Proveedor'] ?? null,
-                        'lead_time'        => $leadSemanas,
+                        'lead_time'        => $leadSem,               // lead time usado (semanas)
                         'stock_wms'        => round($stock),
                         'stock_por_vencer' => round($porVencer),
                         'dias_prox_venc'   => $diasProxVenc,
@@ -137,20 +183,27 @@
                         'en_pedido'        => round($enPedido),
                         'en_produccion'    => round($enProduccion),
                         'stock_teorico'    => round($stockTeorico),
-                        'sugerido'         => round($sugerido),
+                        'stock_seguridad'  => round($stockSeg),
+                        // Urgencia del producto (total a ordenar en el horizonte): ordena la tabla
+                        // por producto sin dispersar sus semanas.
+                        'sugerido_total'   => (int) array_sum($ordenar),
                     ];
 
-                    // DESAGRUPADO POR LÍNEA (semana): una fila por cada semana del horizonte, con su
-                    // demanda de esa semana. Los campos de producto se repiten. (Vista exploratoria.)
+                    // Una fila por semana: demanda, saldo proyectado, y sugerido a ORDENAR esa semana.
                     if ($ventana) {
-                        foreach ($ventana as $w) {
+                        foreach ($ventana as $i => $w) {
                             $data[] = $filaBase + [
                                 'semana'           => $w['semana'],
                                 'demanda_forecast' => round($w['demanda']),
+                                'saldo_proyectado' => round($saldoSem[$i]),
+                                'sugerido'         => (int) $ordenar[$i],
                             ];
                         }
                     } else {
-                        $data[] = $filaBase + ['semana' => '', 'demanda_forecast' => 0];
+                        $data[] = $filaBase + [
+                            'semana' => '', 'demanda_forecast' => 0,
+                            'saldo_proyectado' => round($disponible), 'sugerido' => 0,
+                        ];
                     }
                 }
 
