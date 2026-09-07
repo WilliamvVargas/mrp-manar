@@ -98,8 +98,10 @@ $(document).ready(function() {
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
-                    // Por defecto: mayor "Sugerido a Reponer" primero (lo más urgente arriba).
-                    order: [[14, 'desc']],
+                    // Orden por necesidad: mayor "Sugerido a Reponer" primero. Los desempates
+                    // (nombre y semana) mantienen juntas las filas de un mismo producto y sus
+                    // semanas en orden cronológico.
+                    order: [[15, 'desc'], [1, 'asc'], [6, 'asc']],
                     columns: [
                         { data: 'producto_codigo',  render: escaparTexto },
                         { data: 'producto_nombre',  render: escaparTexto },
@@ -107,6 +109,7 @@ $(document).ready(function() {
                         { data: 'sub_familia',      render: escaparTexto },
                         { data: 'proveedor',        render: escaparTexto },
                         { data: 'lead_time',        className: 'text-end',    render: renderNumero },
+                        { data: 'semana',           className: 'text-center', render: function(d) { return fmtFecha(d); } },
                         { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
                         { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'stock_wms',        className: 'text-end',    render: renderNumero },

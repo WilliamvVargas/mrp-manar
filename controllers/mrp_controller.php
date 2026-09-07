@@ -122,16 +122,14 @@
                     $sugerido = $demandaFc + $comprometido - $stock - $enPedido - $enProduccion;
                     if ($sugerido < 0) { $sugerido = 0; }
 
-                    $data[] = [
+                    // Campos a nivel de producto (se repiten en cada fila-semana).
+                    $filaBase = [
                         'producto_codigo'  => $b['producto_codigo'],
                         'producto_nombre'  => $b['producto_nombre'],
                         'familia'          => $b['familia'],
                         'sub_familia'      => $b['sub_familia'],
                         'proveedor'        => $abast[$cod]['Proveedor'] ?? null,
                         'lead_time'        => $leadSemanas,
-                        'demanda_forecast' => round($demandaFc),
-                        'semana_desde'     => $semanaDesde,
-                        'semana_hasta'     => $semanaHasta,
                         'stock_wms'        => round($stock),
                         'stock_por_vencer' => round($porVencer),
                         'dias_prox_venc'   => $diasProxVenc,
@@ -141,6 +139,19 @@
                         'stock_teorico'    => round($stockTeorico),
                         'sugerido'         => round($sugerido),
                     ];
+
+                    // DESAGRUPADO POR LÍNEA (semana): una fila por cada semana del horizonte, con su
+                    // demanda de esa semana. Los campos de producto se repiten. (Vista exploratoria.)
+                    if ($ventana) {
+                        foreach ($ventana as $w) {
+                            $data[] = $filaBase + [
+                                'semana'           => $w['semana'],
+                                'demanda_forecast' => round($w['demanda']),
+                            ];
+                        }
+                    } else {
+                        $data[] = $filaBase + ['semana' => '', 'demanda_forecast' => 0];
+                    }
                 }
 
                 echo json_encode(['status' => 'success', 'data' => $data]);

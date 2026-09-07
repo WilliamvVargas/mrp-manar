@@ -90,7 +90,8 @@
                             <th style="width: 9%">Sub-Familia</th>
                             <th style="width: 11%">Proveedor</th>
                             <th style="width: 6%"  class="text-end" title="Lead Time del producto (U_LeadTime), en semanas">Lead Time (sem)</th>
-                            <th style="width: 8%"  class="text-end" title="Forecast sumado sobre el horizonte seleccionado">Demanda (Forecast)</th>
+                            <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
+                            <th style="width: 8%"  class="text-end" title="Forecast de esa semana">Demanda (Forecast)</th>
                             <th style="width: 6%"  class="text-center" title="Días hasta el lote más próximo a vencer">Próx. Venc. (d)</th>
                             <th style="width: 7%"  class="text-end">Stock (WMS)</th>
                             <th style="width: 7%"  class="text-end" title="Stock vigente que vence dentro de 30 días">Stock ≤30d</th>
