@@ -37,6 +37,46 @@ $(document).ready(function() {
         return (n < 0) ? '<span class="text-danger fw-bold">' + txt + '</span>' : txt;
     }
 
+    // Color de barra según el estado de la semana (igual que los badges de Estado).
+    const COLOR_ESTADO = { quiebre: '#dc3545', ajustado: '#ffc107', ok: '#198754' };
+
+    // Tendencia de la demanda del horizonte: mini bar chart SVG. Cada barra = una semana
+    // (desde la actual hacia el final): la ALTURA es la demanda y el COLOR es el estado de
+    // esa semana (rojo=quiebre, amarillo=ajustado, verde=ok).
+    function renderTendencia(d, type) {
+        if (type !== 'display') { return ''; }
+        const arr = Array.isArray(d) ? d : [];
+        if (arr.length < 1) { return '<span class="text-muted">—</span>'; }
+        const w = 58, h = 18, gap = 1;
+        const n = arr.length;
+        const bw = Math.max(1, (w - gap * (n - 1)) / n);   // ancho de barra ajustado para caber
+        const max = arr.reduce(function(m, o) { const v = Number(o.d) || 0; return v > m ? v : m; }, 0) || 1;
+        let bars = '';
+        arr.forEach(function(o, i) {
+            const v  = Number(o.d) || 0;
+            const bh = Math.max(1, (v / max) * (h - 1));   // altura mínima 1px para que se vea
+            const x  = i * (bw + gap);
+            const y  = h - bh;
+            const fill = COLOR_ESTADO[o.e] || '#0d6efd';
+            bars += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" '
+                  + 'width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" '
+                  + 'rx="0.4" fill="' + fill + '"/>';
+        });
+        return '<svg width="' + w + '" height="' + h + '" style="vertical-align:middle">'
+             + bars + '</svg>';
+    }
+
+    // Estado de abastecimiento del producto: badge según quiebre / ajustado / ok.
+    function renderEstado(d, type, row) {
+        if (type !== 'display') { return d || ''; }
+        if (d === 'quiebre') {
+            const n = row.estado_sem || 0;
+            return '<span class="badge bg-danger">Quiebre' + (n ? ' en ' + n + ' sem' : '') + '</span>';
+        }
+        if (d === 'ajustado') { return '<span class="badge bg-warning text-dark">Ajustado</span>'; }
+        return '<span class="badge bg-success">OK</span>';
+    }
+
     // Fecha 'yyyy-mm-dd' -> 'dd-mm-yyyy'.
     function fmtFecha(s) {
         if (!s) { return ''; }
@@ -109,6 +149,17 @@ $(document).ready(function() {
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
+                    // Agrupa las filas por producto: una cabecera de grupo por producto, con sus
+                    // semanas debajo.
+                    rowGroup: {
+                        dataSrc: 'producto_codigo',
+                        startRender: function(rows, group) {
+                            const d   = rows.data()[0];
+                            const cod = $('<div>').text(group == null ? '' : group).html();
+                            const nom = $('<div>').text(d.producto_nombre || '').html();
+                            return '<span class="fw-bold">' + cod + '</span> — ' + nom;
+                        }
+                    },
                     // Orden por necesidad: mayor "Sugerido a Reponer" primero. Los desempates
                     // (nombre y semana) mantienen juntas las filas de un mismo producto y sus
                     // semanas en orden cronológico.
@@ -123,12 +174,12 @@ $(document).ready(function() {
                         { data: 'sub_familia',      render: escaparTexto },
                         { data: 'proveedor',        render: escaparTexto },
                         { data: 'lead_time',        className: 'text-end',    render: renderNumero },
-                        { data: 'semana',           className: 'text-center', render: function(d) { return fmtFecha(d); } },
+                        { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
                         { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
+                        { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
                         { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'stock_wms',        className: 'text-end',    render: renderNumero },
-                        { data: 'stock_por_vencer', className: 'text-end',    render: renderNumero },
                         { data: 'comprometido',     className: 'text-end',    render: renderNumero },
                         { data: 'en_pedido',        className: 'text-end',    render: renderNumero },
                         { data: 'en_produccion',    className: 'text-end',    render: renderNumero },
@@ -136,6 +187,7 @@ $(document).ready(function() {
                         { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
+                        { data: 'estado',           className: 'text-center', render: renderEstado },
                         {
                             data: null, orderable: false, searchable: false, className: 'text-center',
                             render: function() {
@@ -219,7 +271,7 @@ $(document).ready(function() {
              + filaDet('Demanda (Forecast)',  numDet(f.demanda_forecast))
              + filaDet('Semana(s)',           semanas)
              + seccionDet('Disponibilidad')
-             + filaDet('Stock (WMS)',                 numDet(f.stock_wms))
+             + filaDet('Stock Físico',                numDet(f.stock_wms))
              + filaDet('Stock que vence en ≤30 días', numDet(f.stock_por_vencer))
              + filaDet('Próximo vencimiento (días)',  renderDiasVenc(f.dias_prox_venc, 'display'))
              + seccionDet('Compromisos y entradas')

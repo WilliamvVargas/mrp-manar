@@ -168,6 +168,35 @@
                         if ($rec > 0) { $ordenar[$i - $leadSem] += $rec; }
                     }
 
+                    // Estado del producto en el horizonte: quiebre (saldo negativo alguna semana),
+                    // ajustado (baja del stock de seguridad sin quebrar) u ok.
+                    $estado = 'ok';
+                    $estadoSem = 0;
+                    foreach ($saldoSem as $i => $s) {
+                        if ($s < 0) { $estado = 'quiebre'; $estadoSem = $i + 1; break; }
+                    }
+                    if ($estado === 'ok') {
+                        foreach ($saldoSem as $s) {
+                            if ($s < $stockSeg) { $estado = 'ajustado'; break; }
+                        }
+                    }
+
+                    // Tendencia (para las barras): por semana, demanda (altura) + estado de esa
+                    // semana (color, igual que los badges): quiebre / ajustado / ok.
+                    // Se proyecta el saldo sobre TODA la serie futura (no solo el horizonte),
+                    // para que cada fila pueda mostrar una ventana de N semanas HACIA ADELANTE
+                    // desde su posición, con el mismo número de barras en todas las filas.
+                    $tendencia = [];
+                    $saldoT = $disponible;
+                    foreach ($serieFutura as $i => $w) {
+                        $saldoT -= (float) $w['demanda'];
+                        if ($i >= $leadSem && $saldoT < $stockSeg) {
+                            $saldoT += (int) ceil($stockSeg - $saldoT);
+                        }
+                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $stockSeg) ? 'ajustado' : 'ok');
+                        $tendencia[$i] = ['d' => round((float) $w['demanda'], 1), 'e' => $e];
+                    }
+
                     // Campos de producto (se repiten en cada fila-semana).
                     $filaBase = [
                         'producto_codigo'  => $b['producto_codigo'],
@@ -184,6 +213,9 @@
                         'en_produccion'    => round($enProduccion),
                         'stock_teorico'    => round($stockTeorico),
                         'stock_seguridad'  => round($stockSeg),
+                        // Estado de abastecimiento del producto (para la columna Estado).
+                        'estado'           => $estado,
+                        'estado_sem'       => $estadoSem,
                         // Urgencia del producto (total a ordenar en el horizonte): ordena la tabla
                         // por producto sin dispersar sus semanas.
                         'sugerido_total'   => (int) array_sum($ordenar),
@@ -195,13 +227,17 @@
                             $data[] = $filaBase + [
                                 'semana'           => $w['semana'],
                                 'demanda_forecast' => round($w['demanda']),
+                                // Tendencia = ventana de N semanas (el horizonte) HACIA ADELANTE
+                                // desde ESTA semana; mismo número de barras en cada fila (mientras
+                                // haya forecast disponible; al final de la serie puede acortarse).
+                                'tendencia'        => array_slice($tendencia, $i, $nSem),
                                 'saldo_proyectado' => round($saldoSem[$i]),
                                 'sugerido'         => (int) $ordenar[$i],
                             ];
                         }
                     } else {
                         $data[] = $filaBase + [
-                            'semana' => '', 'demanda_forecast' => 0,
+                            'semana' => '', 'demanda_forecast' => 0, 'tendencia' => [],
                             'saldo_proyectado' => round($disponible), 'sugerido' => 0,
                         ];
                     }

@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.4.0/css/fixedHeader.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/rowgroup/1.4.1/css/rowGroup.bootstrap5.min.css">
     <link href="assets/css/custom.css" rel="stylesheet">
 </head>
 <body>
@@ -100,17 +101,18 @@
                             <th style="width: 6%"  class="text-end" title="Lead time usado (semanas): mediana real del producto OC→recepción; si no hay historia, U_LeadTime o un default">Lead Time (sem)</th>
                             <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
                             <th style="width: 7%"  class="text-end" title="Forecast de esa semana">Demanda (Forecast)</th>
+                            <th style="width: 6%"  class="text-center" title="Tendencia de la demanda a lo largo del horizonte (forecast)">Tendencia</th>
                             <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda y las reposiciones planificadas)">Saldo Proyectado</th>
                             <th style="width: 6%"  class="text-center" title="Días hasta el lote más próximo a vencer">Próx. Venc. (d)</th>
-                            <th style="width: 6%"  class="text-end">Stock (WMS)</th>
-                            <th style="width: 6%"  class="text-end" title="Stock vigente que vence dentro de 30 días">Stock ≤30d</th>
+                            <th style="width: 6%"  class="text-end">Stock Físico</th>
                             <th style="width: 6%"  class="text-end">Comprometido</th>
                             <th style="width: 6%"  class="text-end">En Pedido</th>
                             <th style="width: 6%"  class="text-end">En Producción</th>
-                            <th style="width: 6%"  class="text-end" title="Stock WMS + En Pedido + En Producción − Comprometido">Stock Teórico</th>
+                            <th style="width: 6%"  class="text-end" title="Stock Físico + En Pedido + En Producción − Comprometido">Stock Teórico</th>
                             <th style="width: 6%"  class="text-end" title="Stock de seguridad = 2 semanas de la demanda promedio">Stock Seguridad</th>
                             <th style="width: 8%"  class="text-end" title="Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)">Sugerido a Reponer</th>
                             <th>Urgencia</th>
+                            <th style="width: 7%"  class="text-center" title="Estado de abastecimiento del producto en el horizonte">Estado</th>
                             <th style="width: 5%"  class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -289,6 +291,7 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/fixedheader/3.4.0/js/dataTables.fixedHeader.min.js"></script>
+<script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/mrp.js?v=<?php echo filemtime(__DIR__ . '/assets/js/mrp.js'); ?>"></script>
