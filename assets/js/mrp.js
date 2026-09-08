@@ -77,6 +77,22 @@ $(document).ready(function() {
         return '<span class="badge bg-success">OK</span>';
     }
 
+    // Contenido de la celda "Producto" (info del producto apilada en vertical).
+    function celdaProducto(row) {
+        const esc = function(s) { return $('<div>').text(s == null ? '' : String(s)).html(); };
+        const linea = function(k, v) {
+            return '<div class="mrp-pl"><span class="k">' + k + '</span>'
+                 + '<span class="v">' + esc(v) + '</span></div>';
+        };
+        return '<div class="mrp-cod">' + esc(row.producto_codigo) + '</div>'
+             + '<div class="mrp-nom">' + esc(row.producto_nombre) + '</div>'
+             + linea('Familia', row.familia)
+             + linea('Sub-Familia', row.sub_familia)
+             + linea('Proveedor', row.proveedor)
+             + linea('Lead Time', (row.lead_time || 0) + ' sem')
+             + '<div class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</div>';
+    }
+
     // Fecha 'yyyy-mm-dd' -> 'dd-mm-yyyy'.
     function fmtFecha(s) {
         if (!s) { return ''; }
@@ -149,17 +165,6 @@ $(document).ready(function() {
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
-                    // Agrupa las filas por producto: una cabecera de grupo por producto, con sus
-                    // semanas debajo.
-                    rowGroup: {
-                        dataSrc: 'producto_codigo',
-                        startRender: function(rows, group) {
-                            const d   = rows.data()[0];
-                            const cod = $('<div>').text(group == null ? '' : group).html();
-                            const nom = $('<div>').text(d.producto_nombre || '').html();
-                            return '<span class="fw-bold">' + cod + '</span> — ' + nom;
-                        }
-                    },
                     // Orden por necesidad: mayor "Sugerido a Reponer" primero. Los desempates
                     // (nombre y semana) mantienen juntas las filas de un mismo producto y sus
                     // semanas en orden cronológico.
@@ -168,12 +173,15 @@ $(document).ready(function() {
                     // y en orden cronológico.
                     order: [[18, 'desc'], [1, 'asc'], [6, 'asc']],
                     columns: [
-                        { data: 'producto_codigo',  render: escaparTexto },
-                        { data: 'producto_nombre',  render: escaparTexto },
-                        { data: 'familia',          render: escaparTexto },
-                        { data: 'sub_familia',      render: escaparTexto },
-                        { data: 'proveedor',        render: escaparTexto },
-                        { data: 'lead_time',        className: 'text-end',    render: renderNumero },
+                        {
+                            data: 'producto_codigo', className: 'mrp-prod-cell', orderable: false,
+                            render: function(d, type, row) { return (type === 'display') ? celdaProducto(row) : (d || ''); }
+                        },
+                        { data: 'producto_nombre',  visible: false, render: escaparTexto },
+                        { data: 'familia',          visible: false, render: escaparTexto },
+                        { data: 'sub_familia',      visible: false, render: escaparTexto },
+                        { data: 'proveedor',        visible: false, render: escaparTexto },
+                        { data: 'lead_time',        visible: false, render: renderNumero },
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
                         { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
@@ -187,7 +195,7 @@ $(document).ready(function() {
                         { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
-                        { data: 'estado',           className: 'text-center', render: renderEstado },
+                        { data: 'estado',           visible: false, render: renderEstado },   // se muestra en la celda Producto
                         {
                             data: null, orderable: false, searchable: false, className: 'text-center',
                             render: function() {
@@ -195,7 +203,29 @@ $(document).ready(function() {
                                      + 'title="Ver detalle"><i class="bi bi-eye"></i></button>';
                             }
                         }
-                    ]
+                    ],
+                    // Camino 1 (robusto): celda "Producto" con apariencia fusionada SIN eliminar
+                    // celdas (eso corrompía los nodos que DataTables reutiliza al paginar/ordenar).
+                    // La info del producto se pinta solo en la 1ª fila de cada grupo; en las demás
+                    // se VACÍA la celda (nunca se quita). Sin bordes internos → parece una sola celda.
+                    // Idempotente: se recalcula en cada draw a partir del orden actual.
+                    drawCallback: function() {
+                        const api = this.api();
+                        let prev = null;
+                        api.rows({ page: 'current' }).every(function() {
+                            const d     = this.data();
+                            const $tr   = $(this.node());
+                            const $cell = $tr.children('td').eq(0);
+                            if (d.producto_codigo === prev) {
+                                $cell.empty();
+                                $tr.removeClass('mrp-fila-inicio');
+                            } else {
+                                $cell.html(celdaProducto(d));
+                                $tr.addClass('mrp-fila-inicio');
+                            }
+                            prev = d.producto_codigo;
+                        });
+                    }
                 });
             },
             error: function() {

@@ -11,8 +11,24 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.4.0/css/fixedHeader.bootstrap5.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/rowgroup/1.4.1/css/rowGroup.bootstrap5.min.css">
     <link href="assets/css/custom.css" rel="stylesheet">
+    <style>
+        /* MRP: celda "Producto" con apariencia fusionada (info en la 1ª fila, celdas vacías debajo
+           sin borde interno → se ven como una sola). El separador entre productos es la línea de
+           la fila de inicio de grupo (mrp-fila-inicio). */
+        #tabla-consulta-mrp td.mrp-prod-cell {
+            vertical-align: top; text-align: left;
+            background: #f8f9fa;
+            border-right: 0.5px solid #dee2e6; border-bottom: 0;
+            padding: 8px 10px; min-width: 190px;
+        }
+        #tabla-consulta-mrp tr.mrp-fila-inicio > td { border-top: 2px solid #adb5bd; }
+        .mrp-cod { font-family: monospace; font-size: 11px; color: #6c757d; }
+        .mrp-nom { font-size: 13px; font-weight: 600; line-height: 1.25; margin: 1px 0 6px; }
+        .mrp-pl { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 1px 0; }
+        .mrp-pl .k { color: #6c757d; }
+        .mrp-est { margin-top: 6px; }
+    </style>
 </head>
 <body>
 
@@ -90,10 +106,10 @@
                     </div>
                 </div>
 
-                <table class="table table-hover align-middle table-sm tabla-compacta" id="tabla-consulta-mrp" style="width:100%">
+                <table class="table align-middle table-sm tabla-compacta" id="tabla-consulta-mrp" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 8%">Código Producto</th>
+                            <th style="width: 16%">Producto</th>
                             <th style="width: 14%">Nombre Producto</th>
                             <th style="width: 9%">Familia</th>
                             <th style="width: 9%">Sub-Familia</th>
@@ -291,7 +307,6 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/fixedheader/3.4.0/js/dataTables.fixedHeader.min.js"></script>
-<script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/mrp.js?v=<?php echo filemtime(__DIR__ . '/assets/js/mrp.js'); ?>"></script>
