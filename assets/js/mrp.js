@@ -171,13 +171,14 @@ $(document).ready(function() {
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
-                    // Orden por necesidad: mayor "Sugerido a Reponer" primero. Los desempates
-                    // (nombre y semana) mantienen juntas las filas de un mismo producto y sus
-                    // semanas en orden cronológico.
-                    // Orden: por URGENCIA del producto (total a ordenar, col. oculta 18), luego
-                    // nombre y semana → productos más urgentes arriba, con sus semanas contiguas
-                    // y en orden cronológico.
-                    order: [[18, 'desc'], [1, 'asc'], [6, 'asc']],
+                    // Orden FIJO por producto (siempre primero, no lo cambia el usuario): urgencia
+                    // (col. oculta 18) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
+                    // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
+                    // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
+                    // cada producto, como criterio secundario.
+                    orderFixed: { pre: [[18, 'desc'], [1, 'asc']] },
+                    // Orden por defecto (secundario): semana cronológica dentro del producto.
+                    order: [[6, 'asc']],
                     columns: [
                         {
                             data: 'producto_codigo', className: 'mrp-prod-cell', orderable: false,
