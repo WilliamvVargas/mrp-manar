@@ -104,6 +104,17 @@
                 if ($semanasSeguridad > 52) { $semanasSeguridad = 52; }
                 $leadDefaultSem = 4;
 
+                // 3.5) Entradas EN CAMINO por producto y SEMANA de llegada (lunes ISO): OC +
+                // facturas de reserva + producción, con su fecha esperada. Habilita el time-phase:
+                // cada recepción suma al saldo en la semana en que realmente llega.
+                $entradas = [];
+                foreach ((new ConsultaSap($pdoSqlsrv))->entradasEnCaminoPorSemana() as $r) {
+                    if (empty($r['Fecha'])) { continue; }
+                    $cod = trim($r['ItemCode']);
+                    $lun = date('Y-m-d', strtotime('monday this week', strtotime($r['Fecha'] . ' 12:00:00')));
+                    $entradas[$cod][$lun] = ($entradas[$cod][$lun] ?? 0) + (float) $r['Cantidad'];
+                }
+
                 // 4) Merge + sugerido a reponer.
                 $data = [];
                 foreach ($base as $b) {
@@ -138,17 +149,28 @@
                     $demProm  = $nSem > 0 ? array_sum(array_column($ventana, 'demanda')) / $nSem : 0.0;
                     $stockSeg = $semanasSeguridad * $demProm;
 
-                    // Disponible inicial = stock + en camino − comprometido. (v1: en pedido/producción
-                    // se consideran disponibles desde ya; se afinará por fecha de llegada a futuro.)
-                    $disponible   = $stock + $enPedido + $enProduccion - $comprometido;
-                    $stockTeorico = $disponible;
+                    // Stock Teórico (columna): posición neta TOTAL (foto, sin tiempo).
+                    $stockTeorico = $stock + $enPedido + $enProduccion - $comprometido;
 
-                    // Proyección TIME-PHASED (lot-for-lot): recorre semana a semana; cuando el saldo
-                    // caería bajo el stock de seguridad, planifica la recepción que lo restituye.
-                    $saldo    = $disponible;
+                    // Entradas en camino de este producto por semana de llegada.
+                    $entradasProd = $entradas[$cod] ?? [];
+                    // Arranque de la proyección = stock físico − comprometido, MÁS lo que viene en
+                    // camino con llegada ya vencida o anterior a la 1ª semana de la ventana (ya
+                    // disponible). El resto se sumará en la semana en que llegue (time-phase).
+                    $primera      = $ventana ? $ventana[0]['semana'] : $lunesActual;
+                    $saldoInicial = $stock - $comprometido;
+                    foreach ($entradasProd as $lun => $qty) {
+                        if ($lun < $primera) { $saldoInicial += $qty; }
+                    }
+
+                    // Proyección TIME-PHASED (lot-for-lot): cada semana SUMA lo que llega esa semana
+                    // (OC/reserva/producción por su fecha), resta la demanda, y si el saldo caería bajo
+                    // el stock de seguridad (y ya pasó el lead time) planifica una recepción.
+                    $saldo    = $saldoInicial;
                     $recibir  = [];   // recepción planificada por índice de semana
                     $saldoSem = [];   // saldo proyectado al cierre de cada semana
                     foreach ($ventana as $i => $w) {
+                        $saldo += ($entradasProd[$w['semana']] ?? 0);
                         $saldo -= (float) $w['demanda'];
                         $rec = 0;
                         // Una orden NUEVA recién puede llegar en la semana L (antes tendría que
@@ -187,8 +209,9 @@
                     // para que cada fila pueda mostrar una ventana de N semanas HACIA ADELANTE
                     // desde su posición, con el mismo número de barras en todas las filas.
                     $tendencia = [];
-                    $saldoT = $disponible;
+                    $saldoT = $saldoInicial;
                     foreach ($serieFutura as $i => $w) {
+                        $saldoT += ($entradasProd[$w['semana']] ?? 0);
                         $saldoT -= (float) $w['demanda'];
                         if ($i >= $leadSem && $saldoT < $stockSeg) {
                             $saldoT += (int) ceil($stockSeg - $saldoT);
@@ -238,7 +261,7 @@
                     } else {
                         $data[] = $filaBase + [
                             'semana' => '', 'demanda_forecast' => 0, 'tendencia' => [],
-                            'saldo_proyectado' => round($disponible), 'sugerido' => 0,
+                            'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
                         ];
                     }
                 }

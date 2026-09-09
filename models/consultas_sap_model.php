@@ -1248,6 +1248,50 @@
         }
 
         /**
+         * Entradas EN CAMINO por producto con su FECHA de llegada esperada, para el plan
+         * time-phased del MRP. Une las mismas fuentes/filtros que "En Pedido" + "En Producción"
+         * de abastecimientoPorProducto():
+         *   - OC pendientes (POR1/OPOR, bodegas 010 e IMP01)          -> OPOR.DocDueDate
+         *   - Facturas de reserva de proveedor (PCH1/OPCH, isIns='Y') -> OPCH.DocDueDate
+         *   - Producción liberada (OWOR, Status 'R', bodega 010)      -> OWOR.DueDate
+         * Devuelve una fila por documento; el controlador las agrupa por semana (lunes ISO).
+         *
+         * @return array Filas ['ItemCode', 'Fecha'=>'yyyy-mm-dd', 'Cantidad'].
+         */
+        public function entradasEnCaminoPorSemana()
+        {
+            $sql = "
+                SELECT ItemCode, Fecha, Cantidad FROM (
+                    SELECT LTRIM(RTRIM(p.ItemCode))              AS ItemCode,
+                           CONVERT(char(10), op.DocDueDate, 126) AS Fecha,
+                           p.OpenQty                             AS Cantidad
+                    FROM POR1 p INNER JOIN OPOR op ON op.DocEntry = p.DocEntry
+                    WHERE op.CANCELED = 'N' AND op.DocStatus = 'O' AND p.LineStatus = 'O' AND p.OpenQty > 0
+                      AND p.WhsCode IN ('010', 'IMP01')
+
+                    UNION ALL
+
+                    SELECT LTRIM(RTRIM(pi.ItemCode)),
+                           CONVERT(char(10), oi.DocDueDate, 126),
+                           pi.OpenQty
+                    FROM PCH1 pi INNER JOIN OPCH oi ON oi.DocEntry = pi.DocEntry
+                    WHERE oi.isIns = 'Y' AND oi.CANCELED = 'N' AND oi.DocStatus = 'O' AND pi.OpenQty > 0
+                      AND pi.WhsCode IN ('010', 'IMP01')
+
+                    UNION ALL
+
+                    SELECT LTRIM(RTRIM(w2.ItemCode)),
+                           CONVERT(char(10), w2.DueDate, 126),
+                           (w2.PlannedQty - w2.CmpltQty)
+                    FROM OWOR w2
+                    WHERE w2.Status = 'R' AND (w2.PlannedQty - w2.CmpltQty) > 0
+                      AND w2.Warehouse = '010'
+                ) X
+            ";
+            return $this->pdo->query($sql)->fetchAll();
+        }
+
+        /**
          * Socios de negocio PROVEEDORES (OCRD, CardType='S') activos, con su país y dirección.
          * El país se resuelve del código ISO (OCRD.Country, ej. 'CL') a su nombre vía OCRY
          * ('Chile'); si no hay coincidencia, se deja el código. Base del mantenedor de
