@@ -244,14 +244,14 @@
          * incluye la bodega de importaciones en tránsito). Solo tablas estándar -> cualquier empresa.
          *
          * @param string $itemCode Código de artículo.
-         * @return array Filas ['OrdenCompra','Fecha','FechaEntrega','Almacen','CodProveedor','Proveedor','Cantidad','Pendiente'].
+         * @return array Filas ['OrdenCompra','Fecha','FechaEntrega','Almacen','CodProveedor','Proveedor','Pais','PaisCod','Cantidad','Pendiente'].
          */
         public function enPedidoComprasPorProducto($itemCode)
         {
             $sql = "
                 SELECT
                     X.TipoDoc, X.OrdenCompra, X.Fecha, X.FechaEntrega,
-                    X.Almacen, X.CodProveedor, X.Proveedor, X.Cantidad, X.Pendiente
+                    X.Almacen, X.CodProveedor, X.Proveedor, X.Pais, X.PaisCod, X.Cantidad, X.Pendiente
                 FROM (
 
                     -- Órdenes de Compra pendientes de recepción.
@@ -264,10 +264,15 @@
                         LTRIM(RTRIM(POR1.WhsCode))              AS Almacen,
                         LTRIM(RTRIM(OPOR.CardCode))             AS CodProveedor,
                         LTRIM(RTRIM(OPOR.CardName))             AS Proveedor,
+                        -- País de origen del proveedor real del documento (OCRD.Country -> OCRY).
+                        LTRIM(RTRIM(ISNULL(CY1.Name, OC1.Country))) AS Pais,
+                        LTRIM(RTRIM(ISNULL(OC1.Country, '')))       AS PaisCod,
                         POR1.Quantity                           AS Cantidad,
                         POR1.OpenQty                            AS Pendiente
                     FROM OPOR
                     INNER JOIN POR1 ON OPOR.DocEntry = POR1.DocEntry
+                    LEFT  JOIN OCRD OC1 ON LTRIM(RTRIM(OC1.CardCode)) = LTRIM(RTRIM(OPOR.CardCode))
+                    LEFT  JOIN OCRY CY1 ON CY1.Code = OC1.Country
                     WHERE
                         OPOR.CANCELED       = 'N'
                         AND OPOR.DocStatus  = 'O'
@@ -288,10 +293,15 @@
                         LTRIM(RTRIM(PCH1.WhsCode))              AS Almacen,
                         LTRIM(RTRIM(OPCH.CardCode))             AS CodProveedor,
                         LTRIM(RTRIM(OPCH.CardName))             AS Proveedor,
+                        -- País de origen del proveedor real del documento (OCRD.Country -> OCRY).
+                        LTRIM(RTRIM(ISNULL(CY2.Name, OC2.Country))) AS Pais,
+                        LTRIM(RTRIM(ISNULL(OC2.Country, '')))       AS PaisCod,
                         PCH1.Quantity                           AS Cantidad,
                         PCH1.OpenQty                            AS Pendiente
                     FROM OPCH
                     INNER JOIN PCH1 ON OPCH.DocEntry = PCH1.DocEntry
+                    LEFT  JOIN OCRD OC2 ON LTRIM(RTRIM(OC2.CardCode)) = LTRIM(RTRIM(OPCH.CardCode))
+                    LEFT  JOIN OCRY CY2 ON CY2.Code = OC2.Country
                     WHERE
                         OPCH.isIns          = 'Y'
                         AND OPCH.CANCELED   = 'N'

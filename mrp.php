@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.4.0/css/fixedHeader.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
     <link href="assets/css/custom.css" rel="stylesheet">
     <style>
         /* MRP: celda "Producto" con apariencia fusionada (info en la 1ª fila, celdas vacías debajo
@@ -28,6 +29,8 @@
         .mrp-pl { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 1px 0; }
         .mrp-pl .k { color: #6c757d; }
         .mrp-est { margin-top: 6px; }
+        /* Badge de Estado (Quiebre/Ajustado/OK) más grande y legible dentro de la celda Producto. */
+        .mrp-est .badge { font-size: 0.85rem; padding: 0.45em 0.7em; }
     </style>
 </head>
 <body>
@@ -63,7 +66,7 @@
             <div class="table-responsive">
 
                 <div class="row g-2 mb-2 mx-0">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="consulta-mrp">Consulta</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
@@ -84,6 +87,12 @@
                         <label class="form-label fw-bold small mb-1" for="filtro-sub-familia">Sub-Familia</label>
                         <select class="form-select form-select-sm" id="filtro-sub-familia">
                             <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="filtro-proveedor">Proveedor</label>
+                        <select class="form-select form-select-sm" id="filtro-proveedor" title="Solo proveedores de productos con forecast">
+                            <option value="">Todos</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -247,6 +256,7 @@
                                         <th class="text-center">Fecha Entrega</th>
                                         <th class="text-center">Almacén</th>
                                         <th>Proveedor</th>
+                                        <th>Origen</th>
                                         <th class="text-end">Cantidad</th>
                                         <th class="text-end">Pendiente</th>
                                     </tr>

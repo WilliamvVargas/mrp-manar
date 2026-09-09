@@ -123,6 +123,7 @@ $(document).ready(function() {
     // Índices de columna Familia / Sub-Familia (para el filtro client-side).
     const COL_FAMILIA    = 2;
     const COL_SUBFAMILIA = 3;
+    const COL_PROVEEDOR  = 4;
 
     let tabla = null;
 
@@ -150,9 +151,11 @@ $(document).ready(function() {
                     return;
                 }
                 const filas = res.data || [];
+                poblarProveedores(filas);
 
                 if (tabla) {
                     tabla.clear().rows.add(filas).draw();
+                    aplicarFiltros();   // reaplica el filtro de proveedor si seguía seleccionado
                     return;
                 }
 
@@ -162,6 +165,9 @@ $(document).ready(function() {
                          "<'row'<'col-sm-12'tr>>" +
                          "<'row'<'col-sm-12'p>>",
                     autoWidth: false,
+                    // Por defecto muestra 100 registros por página.
+                    pageLength: 100,
+                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
                     language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
@@ -235,13 +241,32 @@ $(document).ready(function() {
     }
 
     // Filtro client-side por Familia / Sub-Familia (búsqueda exacta por columna).
+    // Puebla el combo de Proveedor con los proveedores DISTINTOS presentes en los datos
+    // cargados (que son solo los productos con forecast). Conserva la selección si sigue.
+    function poblarProveedores(filas) {
+        const $sel = $('#filtro-proveedor');
+        if (!$sel.length) { return; }
+        const prev = $sel.val();
+        const set = {};
+        (filas || []).forEach(function(f) {
+            const p = (f.proveedor == null ? '' : String(f.proveedor)).trim();
+            if (p) { set[p] = true; }
+        });
+        const provs = Object.keys(set).sort(function(a, b) { return a.localeCompare(b, 'es'); });
+        $sel.empty().append('<option value="">Todos</option>');
+        provs.forEach(function(p) { $sel.append($('<option>').val(p).text(p)); });
+        if (prev && set[prev]) { $sel.val(prev); }
+    }
+
     function aplicarFiltros() {
         if (!tabla) { return; }
         const fam = $('#filtro-familia').val();
         const sub = $('#filtro-sub-familia').val();
+        const prv = $('#filtro-proveedor').val();
         const rx  = function(v) { return v ? '^' + $.fn.dataTable.util.escapeRegex(v) + '$' : ''; };
         tabla.column(COL_FAMILIA).search(rx(fam), true, false);
         tabla.column(COL_SUBFAMILIA).search(rx(sub), true, false);
+        tabla.column(COL_PROVEEDOR).search(rx(prv), true, false);
         tabla.draw();
     }
 
@@ -250,7 +275,7 @@ $(document).ready(function() {
         if (tabla) { tabla.search(this.value).draw(); }
     });
 
-    $('#filtro-familia, #filtro-sub-familia').on('change', aplicarFiltros);
+    $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor').on('change', aplicarFiltros);
 
     // Cambiar el Horizonte recalcula la demanda/sugerido en el backend (recarga los datos).
     $('#mrp-horizonte').on('change', cargarMrp);
@@ -266,7 +291,7 @@ $(document).ready(function() {
 
     // Botón "Limpiar": vacía filtros y buscador, y redibuja sin filtros.
     $('#btn-limpiar-filtros').on('click', function() {
-        $('#consulta-mrp, #filtro-familia, #filtro-sub-familia').val('');
+        $('#consulta-mrp, #filtro-familia, #filtro-sub-familia, #filtro-proveedor').val('');
         if (tabla) {
             tabla.search('').columns().search('').draw();
         }
@@ -436,6 +461,10 @@ $(document).ready(function() {
                 let html = '';
                 filas.forEach(function(r) {
                     const proveedor = (r.CodProveedor ? textoDet(r.CodProveedor) + ' — ' : '') + textoDet(r.Proveedor);
+                    // Origen: bandera (flag-icons por ISO2) + país del proveedor real del documento.
+                    const codPais = String(r.PaisCod || '').toLowerCase();
+                    const bandera = /^[a-z]{2}$/.test(codPais) ? '<span class="fi fi-' + codPais + ' me-1"></span>' : '';
+                    const origen  = r.Pais ? (bandera + textoDet(r.Pais)) : '<span class="text-muted">—</span>';
                     // IMP01 = importación en tránsito; se resalta para distinguirla de la bodega local.
                     const almacen = (String(r.Almacen).toUpperCase() === 'IMP01')
                         ? '<span class="badge bg-info text-dark">IMP01</span>'
@@ -451,6 +480,7 @@ $(document).ready(function() {
                          + '<td class="text-center">' + fmtFecha(r.FechaEntrega) + '</td>'
                          + '<td class="text-center">' + almacen + '</td>'
                          + '<td>' + proveedor + '</td>'
+                         + '<td>' + origen + '</td>'
                          + '<td class="text-end">' + formatearEntero(r.Cantidad) + '</td>'
                          + '<td class="text-end">' + formatearEntero(r.Pendiente) + '</td>'
                          + '</tr>';
