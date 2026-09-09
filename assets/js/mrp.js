@@ -17,6 +17,15 @@ $(document).ready(function() {
         return formatearEntero(d);
     }
 
+    // Recepción en camino que llega ESA semana (time-phased): se muestra solo si llega algo;
+    // vacío cuando no hay recepción, para que resalte la semana real de llegada. Ordena por valor.
+    function renderRecepcion(d, type) {
+        if (type === 'sort' || type === 'type') { const n = parseFloat(d); return isNaN(n) ? 0 : n; }
+        const n = parseFloat(d);
+        if (isNaN(n) || n <= 0) { return ''; }
+        return '<i class="bi bi-box-arrow-in-down me-1"></i>' + formatearEntero(n);
+    }
+
     // Sugerido a reponer: rojo si hay que reponer (>0), gris si 0. Ordena por el valor crudo.
     function renderSugerido(d, type) {
         if (type === 'sort' || type === 'type') {
@@ -185,7 +194,7 @@ $(document).ready(function() {
                     // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
                     // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
                     // cada producto, como criterio secundario.
-                    orderFixed: { pre: [[18, 'desc'], [1, 'asc']] },
+                    orderFixed: { pre: [[19, 'desc'], [1, 'asc']] },
                     // Orden por defecto (secundario): semana cronológica dentro del producto.
                     order: [[6, 'asc']],
                     columns: [
@@ -201,6 +210,7 @@ $(document).ready(function() {
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
                         { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
+                        { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
                         { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'stock_wms',        className: 'text-end',    render: renderNumero },

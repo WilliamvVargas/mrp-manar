@@ -256,6 +256,10 @@
                             $data[] = $filaBase + [
                                 'semana'           => $w['semana'],
                                 'demanda_forecast' => round($w['demanda']),
+                                // Recepción = lo EN CAMINO (OC + reserva + producción) que llega en
+                                // ESTA semana según su fecha esperada. Time-phased: 0 en las semanas
+                                // en que no llega nada (a diferencia del total foto "En Pedido").
+                                'recepcion'        => round($entradasProd[$w['semana']] ?? 0),
                                 // Tendencia = ventana de N semanas (el horizonte) HACIA ADELANTE
                                 // desde ESTA semana; mismo número de barras en cada fila (mientras
                                 // haya forecast disponible; al final de la serie puede acortarse).
@@ -266,7 +270,7 @@
                         }
                     } else {
                         $data[] = $filaBase + [
-                            'semana' => '', 'demanda_forecast' => 0, 'tendencia' => [],
+                            'semana' => '', 'demanda_forecast' => 0, 'recepcion' => 0, 'tendencia' => [],
                             'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
                         ];
                     }

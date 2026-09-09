@@ -130,7 +130,8 @@
                             <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
                             <th style="width: 7%"  class="text-end" title="Forecast de esa semana">Demanda (Forecast)</th>
                             <th style="width: 6%"  class="text-center" title="Tendencia de la demanda a lo largo del horizonte (forecast)">Tendencia</th>
-                            <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda y las reposiciones planificadas)">Saldo Proyectado</th>
+                            <th style="width: 6%"  class="text-end" title="Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada">Recepción</th>
+                            <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)">Saldo Proyectado</th>
                             <th style="width: 6%"  class="text-center" title="Días hasta el lote más próximo a vencer">Próx. Venc. (d)</th>
                             <th style="width: 6%"  class="text-end">Stock Físico</th>
                             <th style="width: 6%"  class="text-end">Comprometido</th>
