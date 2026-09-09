@@ -144,7 +144,10 @@ $(document).ready(function() {
             type: 'GET',
             data: { horizonte: horizonte, semanas_seguridad: seguridad },
             dataType: 'json',
-            complete: function() { if (typeof onDone === 'function') { onDone(); } },
+            complete: function() {
+                $('#mrp-loading').remove();
+                if (typeof onDone === 'function') { onDone(); }
+            },
             success: function(res) {
                 if (res.status !== 'success') {
                     mostrarAlerta(res.message);
@@ -161,6 +164,12 @@ $(document).ready(function() {
 
                 tabla = $('#tabla-consulta-mrp').DataTable({
                     data: filas,
+                    // Revela la tabla recién cuando DataTables ya ocultó las columnas de producto
+                    // (evita el "flash" de todas las columnas durante la carga). Reajusta anchos.
+                    initComplete: function() {
+                        $('#tabla-consulta-mrp').removeClass('d-none');
+                        this.api().columns.adjust();
+                    },
                     dom: "<'row align-items-center'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-end'i>>" +
                          "<'row'<'col-sm-12'tr>>" +
                          "<'row'<'col-sm-12'p>>",

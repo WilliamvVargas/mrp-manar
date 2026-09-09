@@ -115,7 +115,10 @@
                     </div>
                 </div>
 
-                <table class="table align-middle table-sm tabla-compacta" id="tabla-consulta-mrp" style="width:100%">
+                <div id="mrp-loading" class="text-center text-muted py-5">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>Cargando pronóstico...
+                </div>
+                <table class="table align-middle table-sm tabla-compacta d-none" id="tabla-consulta-mrp" style="width:100%">
                     <thead class="table-dark">
                         <tr>
                             <th style="width: 16%">Producto</th>
