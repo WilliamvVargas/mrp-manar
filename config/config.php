@@ -50,6 +50,12 @@
   define('VENTAS_MAX_FILAS', 100000);      // Máximo de filas de datos a procesar
   define('VENTAS_MAX_PESO_MB', 25);        // Peso máximo del archivo .xlsx
 
+  // Fecha simulada (SOLO DEV). El valor vive en config/fecha_simulada.php, que está GITIGNORED:
+  // si el archivo existe (entorno de desarrollo con un snapshot antiguo de la BD), define
+  // FECHA_SIMULADA y el MRP trata esa fecha como "hoy". En PRODUCCIÓN el archivo no existe, así
+  // que FECHA_SIMULADA queda sin definir y todo usa la fecha real. Nada que recordar quitar.
+  if (is_file(__DIR__ . '/fecha_simulada.php')) { require_once __DIR__ . '/fecha_simulada.php'; }
+
   //IA local (Ollama) — resúmenes en lenguaje natural del forecast
   define('IA_PROVEEDOR', 'ollama');                 // 'ollama' (local) — dejado configurable a futuro
   define('OLLAMA_URL',   'http://localhost:11434'); // servidor Ollama (mismo equipo)

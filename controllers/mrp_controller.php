@@ -49,6 +49,12 @@
                 require_once __DIR__ . '/../config/conexion_wms.php';         // $pdoWms (WMS)
                 require_once __DIR__ . '/../models/consultas_sap_model.php';  // ConsultaSap
                 require_once __DIR__ . '/../models/consultas_wms_model.php';  // ConsultaWms
+                require_once __DIR__ . '/../config/config.php';               // FECHA_SIMULADA
+
+                // "Hoy" efectivo. TEMPORAL: FECHA_SIMULADA (config.php) permite trabajar con el
+                // snapshot antiguo de la BD tratando esa fecha como hoy. En producción va en ''
+                // -> usa la fecha real del servidor.
+                $hoy = (defined('FECHA_SIMULADA') && FECHA_SIMULADA !== '') ? FECHA_SIMULADA : date('Y-m-d');
 
                 // 1) Base: todos los productos con forecast (MySQL) de la empresa activa.
                 $forecastModel = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
@@ -66,7 +72,7 @@
 
                 // 2) Stock vigente del WMS por producto (con visibilidad de vencimiento, umbral 30 días).
                 $stockWms = [];
-                foreach ((new ConsultaWms($pdoWms, codigoEmpresaWms($pdo)))->stockVencimientoPorProducto(30) as $r) {
+                foreach ((new ConsultaWms($pdoWms, codigoEmpresaWms($pdo)))->stockVencimientoPorProducto(30, $hoy) as $r) {
                     $stockWms[trim($r['CodArticulo'])] = $r;
                 }
 
@@ -92,9 +98,9 @@
                 $horizonte = (int) ($_GET['horizonte'] ?? 4);
                 if (!in_array($horizonte, $horizontesValidos, true)) { $horizonte = 4; }
 
-                // El horizonte va desde la semana ACTUAL hacia adelante: el forecast puede tener
+                // El horizonte va desde la semana de "$hoy" hacia adelante: el forecast puede tener
                 // semanas ya pasadas, que no deben contar para la reposición.
-                $lunesActual = date('Y-m-d', strtotime('monday this week'));
+                $lunesActual = date('Y-m-d', strtotime('monday this week', strtotime($hoy . ' 12:00:00')));
 
                 // Parámetros del plan (v1): stock de seguridad = N semanas de demanda (configurable
                 // desde la vista); lot-for-lot; lead time por defecto si el producto no tiene

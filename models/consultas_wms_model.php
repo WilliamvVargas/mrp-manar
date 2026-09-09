@@ -330,16 +330,20 @@
             return $stmt->fetchAll();
         }
 
-        public function stockVencimientoPorProducto($diasUmbral = 30)
+        public function stockVencimientoPorProducto($diasUmbral = 30, $hoy = null)
         {
             $dias = (int) $diasUmbral;
+            // Fecha de referencia ("hoy"). Permite simular la fecha del snapshot antiguo; si no se
+            // pasa (o no es 'YYYY-MM-DD'), usa GETDATE() (la fecha real del servidor).
+            $ref = ($hoy !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hoy))
+                 ? "CONVERT(date, '$hoy')" : "CAST(GETDATE() AS DATE)";
             $sql = "
                 SELECT
                     LTRIM(RTRIM(T1.GrpCod)) AS CodArticulo,
                     SUM(ISNULL(T0.PltPUAQty, 0)) AS Cantidad,
-                    SUM(CASE WHEN DATEDIFF(day, CAST(GETDATE() AS DATE), FV.FechaVencimientoCorregida) <= $dias
+                    SUM(CASE WHEN DATEDIFF(day, $ref, FV.FechaVencimientoCorregida) <= $dias
                              THEN ISNULL(T0.PltPUAQty, 0) ELSE 0 END) AS PorVencer,
-                    MIN(DATEDIFF(day, CAST(GETDATE() AS DATE), FV.FechaVencimientoCorregida)) AS DiasProxVencer
+                    MIN(DATEDIFF(day, $ref, FV.FechaVencimientoCorregida)) AS DiasProxVencer
 
                 FROM PLTDTL T0
                 INNER JOIN GRPART T1
@@ -363,7 +367,7 @@
                     T1.Cod_Emp        IN (?)
                     AND T3.PltTipoPallet = ''
                     AND T3.PltIngOPck    = 'I'
-                    AND FV.FechaVencimientoCorregida >= CAST(GETDATE() AS DATE)
+                    AND FV.FechaVencimientoCorregida >= $ref
 
                 GROUP BY
                     T1.GrpCod

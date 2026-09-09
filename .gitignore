@@ -4,6 +4,7 @@
 config/config_mysql.php
 config/config_sqlserver.php
 config/config_wms.php
+config/fecha_simulada.php
 
 # Ignorar archivos temporales o de sistema
 .DS_Store
