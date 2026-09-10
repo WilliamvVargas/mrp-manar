@@ -36,6 +36,7 @@ set_time_limit(0);
 require_once __DIR__ . '/../../../config/conexion.php';                    // $pdo (MySQL)
 require_once __DIR__ . '/../../../config/conexion_sqlserver_factory.php';  // conectarSap()
 require_once __DIR__ . '/../../../models/consultas_sap_model.php';
+require_once __DIR__ . '/imputar_censura.php';                             // imputarCensuraProducto()
 
 const HORIZONTE = 52;   // semanas a pronosticar
 
@@ -47,10 +48,15 @@ const HORIZONTE = 52;   // semanas a pronosticar
 if (PHP_SAPI === 'cli') {
     $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
     $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
+    $impArg       = (isset($argv[3]) && $argv[3] !== '') ? $argv[3] : null;   // override A/B: '1'/'0'
 } else {
     $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
     $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
+    $impArg       = (isset($_GET['imputar']) && $_GET['imputar'] !== '') ? $_GET['imputar'] : null;
 }
+// La imputación se decide POR EMPRESA (columna forecast_imputar_censura); el override explícito
+// solo se usa para experimentos A/B.
+$IMPUTAR = ($impArg !== null) ? ($impArg === '1') : imputarCensuraHabilitado($pdo, $EMPRESA_ID);
 
 // Conexión SAP de la EMPRESA (no la por defecto). En CLI no hay sesión, así que la demanda
 // real DEBE salir de la SAP de la empresa recibida; si no, el forecast de otra empresa se
@@ -117,6 +123,38 @@ foreach ($ventas as $r) {
     $prodAgg[$id][$r['CodArticulo']]['semanas'][$sem] = ($prodAgg[$id][$r['CodArticulo']]['semanas'][$sem] ?? 0.0) + $c;
 }
 echo "Grupos: " . count($gruposInfo) . "\n";
+
+// ---- 1.5) Imputación de demanda CENSURADA por quiebre (estacional del producto) --------
+// El forecast se entrena con VENTA (no demanda real): en semanas de quiebre la venta cae
+// y sesga el modelo a la baja. Se reconstruye el stock (OINM) y se sube la venta de esas
+// semanas a la mediana estacional del producto; luego se RE-AGREGA la demanda a grupo.
+// Toggle con IMPUTAR (3er arg '0' -> off) para poder comparar en el backtest.
+if ($IMPUTAR) {
+    $prodWeekly = []; $mapCod = [];   // trimCod => semanas ; trimCod => [id, codRaw]
+    foreach ($prodAgg as $id => $prods) {
+        foreach ($prods as $codRaw => $info) {
+            $t = trim((string) $codRaw);
+            $prodWeekly[$t] = $info['semanas'];
+            $mapCod[$t]     = [$id, $codRaw];
+        }
+    }
+    $res = imputarCensuraProducto($pdoSqlsrv, $prodWeekly, $ultimaSemana, $finStr);
+    foreach ($res['corregido'] as $t => $semanas) {
+        if (!isset($mapCod[$t])) { continue; }
+        [$id, $codRaw] = $mapCod[$t];
+        $prodAgg[$id][$codRaw]['semanas'] = $semanas;
+    }
+    $grupoDem = [];
+    foreach ($prodAgg as $id => $prods) {
+        foreach ($prods as $info) {
+            foreach ($info['semanas'] as $sem => $d) { $grupoDem[$id][$sem] = ($grupoDem[$id][$sem] ?? 0.0) + $d; }
+        }
+    }
+    $s = $res['stats'];
+    echo "Imputación censura: {$s['prod']} productos, {$s['semanas']} semanas (estacional {$s['seasonal']} / fallback {$s['fallback']}), +" . number_format($s['uplift']) . " u\n";
+} else {
+    echo "Imputación censura: DESACTIVADA (baseline)\n";
+}
 
 // ---- 2) Presupuesto por grupo/MES (MySQL) ---------------------------------
 // Se acota a la empresa + versión recibidas (si vienen). Así el forecast usa SOLO el

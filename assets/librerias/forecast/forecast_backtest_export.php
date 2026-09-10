@@ -25,6 +25,7 @@ set_time_limit(0);
 require_once __DIR__ . '/../../../config/conexion.php';                    // $pdo (MySQL)
 require_once __DIR__ . '/../../../config/conexion_sqlserver_factory.php';  // conectarSap()
 require_once __DIR__ . '/../../../models/consultas_sap_model.php';
+require_once __DIR__ . '/imputar_censura.php';                             // imputarCensuraProducto()
 
 const OCULTOS = 52; // semanas a ocultar y evaluar
 
@@ -34,10 +35,14 @@ const OCULTOS = 52; // semanas a ocultar y evaluar
 if (PHP_SAPI === 'cli') {
     $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
     $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
+    $impArg       = (isset($argv[3]) && $argv[3] !== '') ? $argv[3] : null;   // override A/B: '1'/'0'
 } else {
     $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
     $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
+    $impArg       = (isset($_GET['imputar']) && $_GET['imputar'] !== '') ? $_GET['imputar'] : null;
 }
+// Igual que forecast_export.php: decide por empresa; override explícito solo para A/B.
+$IMPUTAR = ($impArg !== null) ? ($impArg === '1') : imputarCensuraHabilitado($pdo, $EMPRESA_ID);
 
 // Conexión SAP de la EMPRESA recibida (no la por defecto): en CLI no hay sesión. Ver
 // forecast_export.php para el detalle del porqué.
@@ -110,14 +115,37 @@ $sap    = new ConsultaSap($pdoSqlsrv);
 $ventas = $sap->demandaDiariaPorArticulo('', $finStr);
 
 $grupos = []; $gruposInfo = []; $demTrain = []; $demReal = []; $next = 1;
+$demTrainProd = []; $prodDeGrupo = [];   // [trimCod][sem]=>dem ; [trimCod]=>id (para imputar por producto)
 foreach ($ventas as $r) {
     $key = claveGrupo($r['Familia'], $r['SubFamilia']);
     if (!isset($grupos[$key])) { $grupos[$key] = $next; $gruposInfo[$next] = [trim((string) $r['Familia']), trim((string) $r['SubFamilia'])]; $next++; }
     $id  = $grupos[$key];
     $sem = lunesDe($r['Fecha']);
     $c   = (float) $r['Cantidad'];
-    if ($sem <= $corteMonday)     { $demTrain[$id][$sem] = ($demTrain[$id][$sem] ?? 0.0) + $c; }
+    if ($sem <= $corteMonday)     {
+        $demTrain[$id][$sem] = ($demTrain[$id][$sem] ?? 0.0) + $c;
+        $t = trim((string) $r['CodArticulo']);
+        $demTrainProd[$t][$sem] = ($demTrainProd[$t][$sem] ?? 0.0) + $c;
+        $prodDeGrupo[$t]        = $id;
+    }
     if (isset($ocultoSet[$sem]))  { $demReal[$id][$sem]  = ($demReal[$id][$sem]  ?? 0.0) + $c; }
+}
+
+// ---- Imputación de demanda censurada (SOLO entrenamiento, hasta el corte) ---
+// Se reconstruye el stock hasta el domingo del corte para NO usar información de las
+// semanas ocultas. La demanda REAL (grupos_real) NO se imputa: es el patrón a predecir.
+if ($IMPUTAR) {
+    $corteSunday = (new DateTime($corteMonday))->modify('+6 days')->format('Y-m-d');
+    $res = imputarCensuraProducto($pdoSqlsrv, $demTrainProd, $corteMonday, $corteSunday);
+    $demTrain = [];
+    foreach ($res['corregido'] as $t => $semanas) {
+        $id = $prodDeGrupo[$t] ?? null; if ($id === null) { continue; }
+        foreach ($semanas as $sem => $d) { $demTrain[$id][$sem] = ($demTrain[$id][$sem] ?? 0.0) + $d; }
+    }
+    $s = $res['stats'];
+    echo "Imputación censura (train): {$s['prod']} productos, {$s['semanas']} semanas, +" . number_format($s['uplift']) . " u\n";
+} else {
+    echo "Imputación censura: DESACTIVADA (baseline)\n";
 }
 
 // ---- Presupuesto por grupo/MES (MySQL) ------------------------------------
