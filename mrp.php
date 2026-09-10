@@ -128,7 +128,7 @@
                             <th style="width: 11%">Proveedor</th>
                             <th style="width: 6%"  class="text-end" title="Lead time usado (semanas): mediana real del producto OC→recepción; si no hay historia, U_LeadTime o un default">Lead Time (sem)</th>
                             <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
-                            <th style="width: 7%"  class="text-end" title="Forecast de esa semana">Demanda (Forecast)</th>
+                            <th style="width: 7%"  class="text-end" title="Demanda efectiva de esa semana = mayor entre el forecast y las OV firmes con entrega esa semana. En azul cuando manda una OV.">Demanda</th>
                             <th style="width: 6%"  class="text-center" title="Tendencia de la demanda a lo largo del horizonte (forecast)">Tendencia</th>
                             <th style="width: 6%"  class="text-end" title="Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada">Recepción</th>
                             <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)">Saldo Proyectado</th>

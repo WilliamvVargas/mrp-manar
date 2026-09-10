@@ -283,9 +283,14 @@
                     // Una fila por semana: demanda, saldo proyectado, y sugerido a ORDENAR esa semana.
                     if ($ventana) {
                         foreach ($ventana as $i => $w) {
+                            $ovSem = (float) ($ovProd[$w['semana']] ?? 0);
                             $data[] = $filaBase + [
                                 'semana'           => $w['semana'],
                                 'demanda_forecast' => round($w['demanda']),
+                                // Demanda efectiva usada por la proyección = max(forecast, OV firme).
+                                // 'ov_semana' permite a la vista marcar cuándo mandó la OV (tooltip).
+                                'ov_semana'        => round($ovSem),
+                                'demanda_efectiva' => round(max((float) $w['demanda'], $ovSem)),
                                 // Recepción = lo EN CAMINO (OC + reserva + producción) que llega en
                                 // ESTA semana según su fecha esperada. Time-phased: 0 en las semanas
                                 // en que no llega nada (a diferencia del total foto "En Pedido").
@@ -300,7 +305,8 @@
                         }
                     } else {
                         $data[] = $filaBase + [
-                            'semana' => '', 'demanda_forecast' => 0, 'recepcion' => 0, 'tendencia' => [],
+                            'semana' => '', 'demanda_forecast' => 0, 'ov_semana' => 0,
+                            'demanda_efectiva' => 0, 'recepcion' => 0, 'tendencia' => [],
                             'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
                         ];
                     }

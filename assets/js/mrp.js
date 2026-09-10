@@ -26,6 +26,24 @@ $(document).ready(function() {
         return '<i class="bi bi-box-arrow-in-down me-1"></i>' + formatearEntero(n);
     }
 
+    // Demanda de la semana = demanda EFECTIVA usada por la proyección (max(forecast, OV firme)).
+    // Cuando una OV firme supera al forecast, se muestra en azul con una banderita y un tooltip
+    // que explica el origen. [#2 tooltip] Para revertir: volver la columna a 'demanda_forecast'
+    // con renderNumero y quitar esta función.
+    function renderDemanda(d, type, row) {
+        const ef = parseFloat(row.demanda_efectiva);
+        if (type === 'sort' || type === 'type') { return isNaN(ef) ? 0 : ef; }
+        const fc = parseFloat(row.demanda_forecast) || 0;
+        const ov = parseFloat(row.ov_semana) || 0;
+        if (ov > fc) {
+            const t = 'Demanda efectiva: OV firme de ' + formatearEntero(ov)
+                    + ' (supera el forecast de ' + formatearEntero(fc) + ')';
+            return '<span class="text-primary fw-bold" title="' + t + '">'
+                 + formatearEntero(ef) + ' <i class="bi bi-flag-fill" style="font-size:.7em"></i></span>';
+        }
+        return formatearEntero(isNaN(ef) ? 0 : ef);
+    }
+
     // Sugerido a reponer: rojo si hay que reponer (>0), gris si 0. Ordena por el valor crudo.
     function renderSugerido(d, type) {
         if (type === 'sort' || type === 'type') {
@@ -208,7 +226,7 @@ $(document).ready(function() {
                         { data: 'proveedor',        visible: false, render: escaparTexto },
                         { data: 'lead_time',        visible: false, render: renderNumero },
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
-                        { data: 'demanda_forecast', className: 'text-end',    render: renderNumero },
+                        { data: 'demanda_efectiva', className: 'text-end',    render: renderDemanda },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
