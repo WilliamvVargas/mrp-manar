@@ -37,6 +37,7 @@ require_once __DIR__ . '/../../../config/conexion.php';                    // $p
 require_once __DIR__ . '/../../../config/conexion_sqlserver_factory.php';  // conectarSap()
 require_once __DIR__ . '/../../../models/consultas_sap_model.php';
 require_once __DIR__ . '/imputar_censura.php';                             // imputarCensuraProducto()
+require_once __DIR__ . '/capar_outliers.php';                              // caparOutliersGrupo()
 
 const HORIZONTE = 52;   // semanas a pronosticar
 
@@ -49,14 +50,17 @@ if (PHP_SAPI === 'cli') {
     $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
     $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
     $impArg       = (isset($argv[3]) && $argv[3] !== '') ? $argv[3] : null;   // override A/B: '1'/'0'
+    $capArg       = (isset($argv[4]) && $argv[4] !== '') ? $argv[4] : null;   // override A/B: '1'/'0'
 } else {
     $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
     $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
     $impArg       = (isset($_GET['imputar']) && $_GET['imputar'] !== '') ? $_GET['imputar'] : null;
+    $capArg       = (isset($_GET['capar']) && $_GET['capar'] !== '') ? $_GET['capar'] : null;
 }
-// La imputación se decide POR EMPRESA (columna forecast_imputar_censura); el override explícito
-// solo se usa para experimentos A/B.
+// Las dos limpiezas de demanda se deciden POR EMPRESA (columnas forecast_imputar_censura /
+// forecast_capar_outliers); los overrides explícitos solo se usan para experimentos A/B.
 $IMPUTAR = ($impArg !== null) ? ($impArg === '1') : imputarCensuraHabilitado($pdo, $EMPRESA_ID);
+$CAPAR   = ($capArg !== null) ? ($capArg === '1') : caparOutliersHabilitado($pdo, $EMPRESA_ID);
 
 // Conexión SAP de la EMPRESA (no la por defecto). En CLI no hay sesión, así que la demanda
 // real DEBE salir de la SAP de la empresa recibida; si no, el forecast de otra empresa se
@@ -154,6 +158,18 @@ if ($IMPUTAR) {
     echo "Imputación censura: {$s['prod']} productos, {$s['semanas']} semanas (estacional {$s['seasonal']} / fallback {$s['fallback']}), +" . number_format($s['uplift']) . " u\n";
 } else {
     echo "Imputación censura: DESACTIVADA (baseline)\n";
+}
+
+// ---- 1.6) Capado de OUTLIERS (pedidos-lote one-off), a nivel grupo, DESPUÉS de la
+// imputación. Complementa la censura: aquella sube los hoyos, esta recorta los picos que
+// distorsionan el nivel que aprende Prophet. Se decide por empresa (override ?capar/argv[4]).
+if ($CAPAR) {
+    $resC     = caparOutliersGrupo($grupoDem);
+    $grupoDem = $resC['corregido'];
+    $sc       = $resC['stats'];
+    echo "Cap outliers: {$sc['grupos']} grupos, {$sc['semanas']} semanas, -" . number_format($sc['recortado']) . " u\n";
+} else {
+    echo "Cap outliers: DESACTIVADO (baseline)\n";
 }
 
 // ---- 2) Presupuesto por grupo/MES (MySQL) ---------------------------------

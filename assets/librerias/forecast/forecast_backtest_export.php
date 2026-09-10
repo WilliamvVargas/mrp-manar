@@ -26,6 +26,7 @@ require_once __DIR__ . '/../../../config/conexion.php';                    // $p
 require_once __DIR__ . '/../../../config/conexion_sqlserver_factory.php';  // conectarSap()
 require_once __DIR__ . '/../../../models/consultas_sap_model.php';
 require_once __DIR__ . '/imputar_censura.php';                             // imputarCensuraProducto()
+require_once __DIR__ . '/capar_outliers.php';                              // caparOutliersGrupo()
 
 const OCULTOS = 52; // semanas a ocultar y evaluar
 
@@ -36,13 +37,16 @@ if (PHP_SAPI === 'cli') {
     $EMPRESA_ID   = (isset($argv[1]) && $argv[1] !== '') ? $argv[1] : null;
     $VERSION_PRES = (isset($argv[2]) && $argv[2] !== '') ? $argv[2] : null;
     $impArg       = (isset($argv[3]) && $argv[3] !== '') ? $argv[3] : null;   // override A/B: '1'/'0'
+    $capArg       = (isset($argv[4]) && $argv[4] !== '') ? $argv[4] : null;   // override A/B: '1'/'0'
 } else {
     $EMPRESA_ID   = (isset($_GET['empresa_id']) && $_GET['empresa_id'] !== '') ? $_GET['empresa_id'] : null;
     $VERSION_PRES = (isset($_GET['version']) && $_GET['version'] !== '') ? $_GET['version'] : null;
     $impArg       = (isset($_GET['imputar']) && $_GET['imputar'] !== '') ? $_GET['imputar'] : null;
+    $capArg       = (isset($_GET['capar']) && $_GET['capar'] !== '') ? $_GET['capar'] : null;
 }
-// Igual que forecast_export.php: decide por empresa; override explícito solo para A/B.
+// Igual que forecast_export.php: deciden por empresa; overrides explícitos solo para A/B.
 $IMPUTAR = ($impArg !== null) ? ($impArg === '1') : imputarCensuraHabilitado($pdo, $EMPRESA_ID);
+$CAPAR   = ($capArg !== null) ? ($capArg === '1') : caparOutliersHabilitado($pdo, $EMPRESA_ID);
 
 // Conexión SAP de la EMPRESA recibida (no la por defecto): en CLI no hay sesión. Ver
 // forecast_export.php para el detalle del porqué.
@@ -146,6 +150,16 @@ if ($IMPUTAR) {
     echo "Imputación censura (train): {$s['prod']} productos, {$s['semanas']} semanas, +" . number_format($s['uplift']) . " u\n";
 } else {
     echo "Imputación censura: DESACTIVADA (baseline)\n";
+}
+
+// Capado de outliers (post-imputación, solo entrenamiento). Por empresa; override argv[4]/?capar.
+if ($CAPAR) {
+    $resC     = caparOutliersGrupo($demTrain);
+    $demTrain = $resC['corregido'];
+    $sc       = $resC['stats'];
+    echo "Cap outliers (train): {$sc['grupos']} grupos, {$sc['semanas']} semanas, -" . number_format($sc['recortado']) . " u\n";
+} else {
+    echo "Cap outliers: DESACTIVADO (baseline)\n";
 }
 
 // ---- Presupuesto por grupo/MES (MySQL) ------------------------------------
