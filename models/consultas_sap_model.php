@@ -1292,6 +1292,30 @@
         }
 
         /**
+         * Comprometido de VENTAS por producto con su FECHA de entrega esperada, para el
+         * time-phase del MRP. Misma base y filtros que la parte de ventas del "Comprometido"
+         * de abastecimientoPorProducto() (ORDR/RDR1, no anuladas, cabecera y línea abiertas,
+         * OpenQty > 0, bodega 010), pero desglosada por línea con su DocDueDate. El controlador
+         * la agrupa por semana (lunes ISO) y aplica demanda = max(forecast, OV) por semana.
+         * NO incluye el comprometido de producción (componentes de OP): ese es consumo interno,
+         * no venta, y se mantiene como descuento up-front en el controlador.
+         *
+         * @return array Filas ['ItemCode', 'Fecha'=>'yyyy-mm-dd'|null, 'Cantidad'].
+         */
+        public function comprometidoVentasPorSemana()
+        {
+            $sql = "
+                SELECT LTRIM(RTRIM(r.ItemCode))             AS ItemCode,
+                       CONVERT(char(10), o.DocDueDate, 126) AS Fecha,
+                       r.OpenQty                            AS Cantidad
+                FROM RDR1 r INNER JOIN ORDR o ON o.DocEntry = r.DocEntry
+                WHERE o.CANCELED = 'N' AND o.DocStatus = 'O' AND r.LineStatus = 'O' AND r.OpenQty > 0
+                  AND r.WhsCode = '010'
+            ";
+            return $this->pdo->query($sql)->fetchAll();
+        }
+
+        /**
          * Socios de negocio PROVEEDORES (OCRD, CardType='S') activos, con su país y dirección.
          * El país se resuelve del código ISO (OCRD.Country, ej. 'CL') a su nombre vía OCRY
          * ('Chile'); si no hay coincidencia, se deja el código. Base del mantenedor de
