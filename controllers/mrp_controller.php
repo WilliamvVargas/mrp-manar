@@ -102,12 +102,10 @@
                 // semanas ya pasadas, que no deben contar para la reposición.
                 $lunesActual = date('Y-m-d', strtotime('monday this week', strtotime($hoy . ' 12:00:00')));
 
-                // Parámetros del plan (v1): stock de seguridad = N semanas de demanda (configurable
-                // desde la vista); lot-for-lot; lead time por defecto si el producto no tiene
+                // Parámetros del plan: stock de seguridad = (lead time del producto, en semanas) ×
+                // demanda promedio semanal → se mantiene como colchón tantas semanas de demanda como
+                // dure la reposición. Lot-for-lot; lead time por defecto si el producto no tiene
                 // historia propia ni U_LeadTime.
-                $semanasSeguridad = (int) ($_GET['semanas_seguridad'] ?? 2);
-                if ($semanasSeguridad < 0)  { $semanasSeguridad = 0; }
-                if ($semanasSeguridad > 52) { $semanasSeguridad = 52; }
                 $leadDefaultSem = 4;
 
                 // 3.5) Entradas EN CAMINO por producto y SEMANA de llegada (lunes ISO): OC +
@@ -182,10 +180,11 @@
                     ));
                     $ventana = array_slice($serieFutura, 0, $horizonte);
 
-                    // Stock de seguridad = N semanas de la demanda promedio semanal (del horizonte).
+                    // Stock de seguridad = (lead time del producto, en semanas) × demanda promedio
+                    // semanal del horizonte → colchón equivalente a la duración de la reposición.
                     $nSem     = count($ventana);
                     $demProm  = $nSem > 0 ? array_sum(array_column($ventana, 'demanda')) / $nSem : 0.0;
-                    $stockSeg = $semanasSeguridad * $demProm;
+                    $stockSeg = $leadSem * $demProm;
 
                     // Entradas en camino de este producto por semana de llegada.
                     $entradasProd = $entradas[$cod] ?? [];

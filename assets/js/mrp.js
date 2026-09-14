@@ -131,6 +131,7 @@ $(document).ready(function() {
              + linea('Lead Time', (row.lead_time || 0) + ' sem')
              + linea('Stock Mín', (Number(row.stock_min) > 0) ? formatearEntero(row.stock_min) : '—')
              + linea('Stock Máx', (Number(row.stock_max) > 0) ? formatearEntero(row.stock_max) : '—')
+             + linea('Stock Seguridad', formatearEntero(row.stock_seguridad))
              + linea('Próx. Lote por Vencer', (row.dias_prox_venc == null || row.dias_prox_venc === '')
                      ? '—' : formatearEntero(row.dias_prox_venc) + ' días')
              + '<div class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</div>';
@@ -181,11 +182,10 @@ $(document).ready(function() {
     // Carga los datos del MRP (una sola vez; DataTable pagina/busca/ordena client-side).
     function cargarMrp(onDone) {
         const horizonte = $('#mrp-horizonte').val() || '4';
-        const seguridad = $('#mrp-seguridad').val() || '2';
         $.ajax({
             url: 'controllers/mrp_controller.php?action=listar',
             type: 'GET',
-            data: { horizonte: horizonte, semanas_seguridad: seguridad },
+            data: { horizonte: horizonte },
             dataType: 'json',
             complete: function() {
                 $('#mrp-loading').remove();
@@ -224,11 +224,11 @@ $(document).ready(function() {
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
                     // Orden FIJO por producto (siempre primero, no lo cambia el usuario): urgencia
-                    // (col. oculta 16) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
+                    // (col. oculta 15) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
                     // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
                     // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
                     // cada producto, como criterio secundario.
-                    orderFixed: { pre: [[16, 'desc'], [1, 'asc']] },
+                    orderFixed: { pre: [[15, 'desc'], [1, 'asc']] },
                     // Orden por defecto (secundario): semana cronológica dentro del producto.
                     order: [[6, 'asc']],
                     columns: [
@@ -249,7 +249,6 @@ $(document).ready(function() {
                         { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
-                        { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
                         { data: 'estado',           visible: false, render: renderEstado },   // se muestra en la celda Producto
@@ -331,8 +330,7 @@ $(document).ready(function() {
     // Cambiar el Horizonte recalcula la demanda/sugerido en el backend (recarga los datos).
     $('#mrp-horizonte').on('change', cargarMrp);
 
-    // Recalcular Pronóstico: reconstruye el plan con los parámetros actuales (horizonte y
-    // semanas de seguridad), con feedback en el botón.
+    // Recalcular Pronóstico: reconstruye el plan con el horizonte actual, con feedback en el botón.
     $('#btn-recalcular-pronostico').on('click', function() {
         const $btn = $(this);
         const original = $btn.html();

@@ -46,14 +46,6 @@
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'MRP'); ?></h5>
             <div class="d-flex align-items-center gap-2">
-                <div class="input-group input-group-sm" style="width: auto;">
-                    <label class="input-group-text" for="mrp-seguridad" title="Semanas de demanda a mantener como stock de seguridad">
-                        <i class="bi bi-shield-check me-1"></i> Seguridad (sem)
-                    </label>
-                    <input type="number" class="form-control form-control-sm text-end"
-                           id="mrp-seguridad" name="mrp-seguridad"
-                           min="0" max="52" step="1" value="2" style="width: 70px;">
-                </div>
                 <button type="button"
                         class="btn btn-primary btn-sm"
                         id="btn-recalcular-pronostico"
@@ -135,7 +127,6 @@
                             <th style="width: 6%"  class="text-end" title="Sale de bodega esa semana: Órdenes de Venta (por fecha de entrega) + consumo de componentes por órdenes de producción">Comprometido</th>
                             <th style="width: 6%"  class="text-end" title="Posición al cierre de la semana actual: Stock Físico + lo que llega esta semana − OV de esta semana − consumo de producción de esta semana">Stock Teórico</th>
                             <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)">Saldo Proyectado de Inventario</th>
-                            <th style="width: 6%"  class="text-end" title="Stock de seguridad = 2 semanas de la demanda promedio">Stock Seguridad</th>
                             <th style="width: 8%"  class="text-end" title="Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)">Sugerido a Reponer</th>
                             <th>Urgencia</th>
                             <th style="width: 7%"  class="text-center" title="Estado de abastecimiento del producto en el horizonte">Estado</th>
