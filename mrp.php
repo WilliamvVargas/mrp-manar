@@ -121,12 +121,12 @@
                             <th style="width: 6%"  class="text-end" title="Lead time usado (semanas): mediana real del producto OC→recepción; si no hay historia, U_LeadTime o un default">Lead Time (sem)</th>
                             <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
                             <th style="width: 7%"  class="text-end" title="Demanda efectiva de esa semana = mayor entre el forecast y las OV firmes con entrega esa semana. En azul cuando manda una OV.">Demanda Proyectada</th>
-                            <th style="width: 6%"  class="text-center" title="Tendencia de la demanda a lo largo del horizonte (forecast)">Tendencia</th>
                             <th style="width: 6%"  class="text-end" title="Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada">En Pedido</th>
                             <th style="width: 6%"  class="text-end" title="Sale de bodega esa semana: Órdenes de Venta (por fecha de entrega) + consumo de componentes por órdenes de producción">Comprometido</th>
                             <th style="width: 6%"  class="text-end" title="Inventario teórico acumulado al cierre de esa semana, solo con documentos comprometidos: arranca del stock físico y cada semana suma En Pedido y resta Comprometido (OV + producción). No incluye forecast ni reposición sugerida.">Stock Teórico</th>
                             <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)">Saldo Proyectado de Inventario</th>
                             <th style="width: 8%"  class="text-end" title="Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)">Sugerido a Reponer</th>
+                            <th style="width: 6%"  class="text-center" title="Tendencia de la demanda a lo largo del horizonte (forecast)">Tendencia</th>
                             <th>Urgencia</th>
                             <th style="width: 7%"  class="text-center" title="Estado de abastecimiento del producto en el horizonte">Estado</th>
                             <th style="width: 5%"  class="text-center">Acciones</th>

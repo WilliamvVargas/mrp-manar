@@ -244,12 +244,12 @@ $(document).ready(function() {
                         { data: 'lead_time',        visible: false, render: renderNumero },
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
                         { data: 'demanda_efectiva', className: 'text-end',    render: renderDemanda },
-                        { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
                         { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
+                        { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
                         { data: 'estado',           visible: false, render: renderEstado },   // se muestra en la celda Producto
                         {
