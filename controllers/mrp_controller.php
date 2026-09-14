@@ -91,12 +91,13 @@
                     }
                 }
 
-                // Horizonte de planificación (en semanas): el usuario elige cuántas semanas de
-                // forecast se acumulan para la demanda. Reemplaza al lead time como ventana.
-                // (El lead time se considerará a futuro.) Se valida contra la lista permitida.
-                $horizontesValidos = [1, 2, 3, 4, 8, 13, 26, 52];
-                $horizonte = (int) ($_GET['horizonte'] ?? 4);
-                if (!in_array($horizonte, $horizontesValidos, true)) { $horizonte = 4; }
+                // Ventana de CÁLCULO fija (semanas): la proyección, el Stock Teórico y el
+                // Estado/Urgencia se calculan SIEMPRE sobre este máximo, NO sobre lo que el usuario
+                // elige ver. El "horizonte" pasó a ser solo de la VISTA (cuántas semanas se muestran)
+                // y lo aplica el cliente filtrando filas — así no recalcula al ampliar/reducir.
+                // $barsTend = nº fijo de barras de la mini-tendencia hacia adelante desde cada semana.
+                $maxSemanas = 52;
+                $barsTend   = 8;
 
                 // El horizonte va desde la semana de "$hoy" hacia adelante: el forecast puede tener
                 // semanas ya pasadas, que no deben contar para la reposición.
@@ -173,12 +174,13 @@
                         $leadSem = $leadDefaultSem;
                     }
 
-                    // Ventana futura del forecast (desde la semana actual), acotada al horizonte.
+                    // Ventana futura del forecast (desde la semana actual), acotada al MÁXIMO de
+                    // cálculo (fijo), no al horizonte de la vista.
                     $serieFutura = array_values(array_filter(
                         $serie[$cod] ?? [],
                         function ($w) use ($lunesActual) { return $w['semana'] >= $lunesActual; }
                     ));
-                    $ventana = array_slice($serieFutura, 0, $horizonte);
+                    $ventana = array_slice($serieFutura, 0, $maxSemanas);
 
                     $nSem = count($ventana);
 
@@ -192,17 +194,25 @@
                     $prodProd = $prodSemana[$cod] ?? [];
                     $prodSF   = $prodSinFecha[$cod] ?? 0;
 
-                    // Stock de seguridad = demanda EFECTIVA durante el LEAD TIME del producto: por
-                    // cada una de las próximas leadSem semanas, max(forecast, OV) + consumo de
-                    // producción — la MISMA demanda que consume la proyección. No depende del
-                    // horizonte elegido; cambia al avanzar de semana o si entra una OV/OP que supere
-                    // el forecast dentro del lead. Cubre la reposición para no quebrar en ese período.
-                    $ventanaLead = array_slice($serieFutura, 0, max(1, $leadSem));
-                    $stockSeg = 0.0;
-                    foreach ($ventanaLead as $w) {
+                    // Demanda EFECTIVA por semana (max(forecast, OV) + consumo de producción), sobre
+                    // toda la serie futura. Es la MISMA demanda que consume la proyección.
+                    $demEfect = [];
+                    foreach ($serieFutura as $k => $w) {
                         $sem = $w['semana'];
-                        $stockSeg += max((float) $w['demanda'], (float) ($ovProd[$sem] ?? 0))
-                                   + (float) ($prodProd[$sem] ?? 0);
+                        $demEfect[$k] = max((float) $w['demanda'], (float) ($ovProd[$sem] ?? 0))
+                                      + (float) ($prodProd[$sem] ?? 0);
+                    }
+                    // Stock de seguridad ROLLING (móvil) por semana: para la semana i, la demanda
+                    // efectiva de las próximas leadSem semanas contadas DESDE i (ventana hacia
+                    // adelante). Cubre la reposición desde ESA semana: en tramos de baja/nula venta
+                    // baja solo, en temporada alta sube. Reemplaza al valor único congelado desde hoy.
+                    $L     = max(1, $leadSem);
+                    $totSF = count($serieFutura);
+                    $stockSegSem = [];
+                    foreach ($serieFutura as $k => $w) {
+                        $s = 0.0;
+                        for ($j = $k; $j < $k + $L && $j < $totSF; $j++) { $s += $demEfect[$j]; }
+                        $stockSegSem[$k] = $s;
                     }
 
                     // Stock Teórico POR SEMANA (columna): balance acumulado considerando solo los
@@ -240,12 +250,13 @@
                         $saldo -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
                         // Consumo de producción (componentes de OP): es adicional a la venta, se resta aparte.
                         $saldo -= (float) ($prodProd[$w['semana']] ?? 0);
-                        $rec = 0;
+                        $rec    = 0;
+                        $segSem = $stockSegSem[$i] ?? 0;   // seguridad rolling de ESTA semana
                         // Una orden NUEVA recién puede llegar en la semana L (antes tendría que
                         // haberse colocado en el pasado). Las semanas 0..L-1 sin stock quedan en
                         // QUIEBRE (saldo negativo): no llega mercadería y no se puede vender.
-                        if ($i >= $leadSem && $saldo < $stockSeg) {
-                            $rec   = (int) ceil($stockSeg - $saldo);
+                        if ($i >= $leadSem && $saldo < $segSem) {
+                            $rec   = (int) ceil($segSem - $saldo);
                             $saldo += $rec;
                         }
                         $recibir[$i]  = $rec;
@@ -258,18 +269,21 @@
                         if ($rec > 0) { $ordenar[$i - $leadSem] += $rec; }
                     }
 
-                    // Estado del producto en el horizonte: quiebre (saldo negativo alguna semana),
-                    // ajustado (baja del stock de seguridad sin quebrar) u ok.
+                    // Estado sobre la VENTANA DEL LEAD TIME (no la vista): ¿quiebra o baja del stock
+                    // de seguridad ANTES de poder reponer? Es la ventana donde la situación ya es
+                    // inevitable (una orden nueva recién llega en la semana leadSem). No depende del
+                    // horizonte que el usuario elija ver.
+                    $saldoLead = array_slice($saldoSem, 0, max(1, $leadSem), true);
                     $estado = 'ok';
                     $estadoSem = 0;
-                    foreach ($saldoSem as $i => $s) {
+                    foreach ($saldoLead as $i => $s) {
                         // estadoSem = semanas DESDE HOY hasta el quiebre (0 = esta semana, 1 = la
                         // próxima, ...). El índice ya es 0-based, así que se usa tal cual.
                         if ($s < 0) { $estado = 'quiebre'; $estadoSem = $i; break; }
                     }
                     if ($estado === 'ok') {
-                        foreach ($saldoSem as $s) {
-                            if ($s < $stockSeg) { $estado = 'ajustado'; break; }
+                        foreach ($saldoLead as $i => $s) {
+                            if ($s < ($stockSegSem[$i] ?? 0)) { $estado = 'ajustado'; break; }
                         }
                     }
 
@@ -284,10 +298,11 @@
                         $saldoT += ($entradasProd[$w['semana']] ?? 0);
                         $saldoT -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
                         $saldoT -= (float) ($prodProd[$w['semana']] ?? 0);
-                        if ($i >= $leadSem && $saldoT < $stockSeg) {
-                            $saldoT += (int) ceil($stockSeg - $saldoT);
+                        $segT = $stockSegSem[$i] ?? 0;
+                        if ($i >= $leadSem && $saldoT < $segT) {
+                            $saldoT += (int) ceil($segT - $saldoT);
                         }
-                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $stockSeg) ? 'ajustado' : 'ok');
+                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $segT) ? 'ajustado' : 'ok');
                         $tendencia[$i] = ['d' => round((float) $w['demanda'], 1), 'e' => $e];
                     }
 
@@ -308,13 +323,13 @@
                         'comprometido'     => round($comprometido),
                         'en_pedido'        => round($enPedido),
                         'en_produccion'    => round($enProduccion),
-                        'stock_seguridad'  => round($stockSeg),
                         // Estado de abastecimiento del producto (para la columna Estado).
                         'estado'           => $estado,
                         'estado_sem'       => $estadoSem,
-                        // Urgencia del producto (total a ordenar en el horizonte): ordena la tabla
-                        // por producto sin dispersar sus semanas.
-                        'sugerido_total'   => (int) array_sum($ordenar),
+                        // Urgencia del producto = total a ORDENAR dentro de la ventana del lead time
+                        // (decisiones inminentes), no sobre toda la vista. Ordena la tabla por
+                        // producto sin depender del horizonte mostrado ni dispersar sus semanas.
+                        'sugerido_total'   => (int) array_sum(array_slice($ordenar, 0, max(1, $leadSem))),
                     ];
 
                     // Una fila por semana: demanda, saldo proyectado, y sugerido a ORDENAR esa semana.
@@ -324,6 +339,9 @@
                             $prodSem = (float) ($prodProd[$w['semana']] ?? 0);
                             $data[] = $filaBase + [
                                 'semana'           => $w['semana'],
+                                // Índice de la semana dentro del producto (0-based): la vista filtra
+                                // por él para mostrar solo las primeras N (N = horizonte elegido).
+                                'sem_idx'          => $i,
                                 'demanda_forecast' => round($w['demanda']),
                                 // Demanda efectiva usada por la proyección = max(forecast, OV firme).
                                 // 'ov_semana' permite a la vista marcar cuándo mandó la OV (indicador azul).
@@ -332,25 +350,28 @@
                                 'comprometido_semana' => round($ovSem + $prodSem),
                                 // Stock Teórico acumulado al cierre de esta semana (solo comprometidos).
                                 'stock_teorico'    => round($teoricoSem[$i]),
+                                // Stock de seguridad ROLLING de esta semana (demanda efectiva de las
+                                // próximas leadSem semanas contadas desde ella).
+                                'stock_seguridad'  => round($stockSegSem[$i] ?? 0),
                                 'demanda_efectiva' => round(max((float) $w['demanda'], $ovSem)),
                                 // Recepción = lo EN CAMINO (OC + reserva + producción) que llega en
                                 // ESTA semana según su fecha esperada. Time-phased: 0 en las semanas
                                 // en que no llega nada (a diferencia del total foto "En Pedido").
                                 'recepcion'        => round($entradasProd[$w['semana']] ?? 0),
-                                // Tendencia = ventana de N semanas (el horizonte) HACIA ADELANTE
-                                // desde ESTA semana; mismo número de barras en cada fila (mientras
-                                // haya forecast disponible; al final de la serie puede acortarse).
-                                'tendencia'        => array_slice($tendencia, $i, $nSem),
+                                // Tendencia = ventana FIJA de $barsTend semanas HACIA ADELANTE desde
+                                // ESTA semana (mismo nº de barras en todas las filas; independiente
+                                // del horizonte de la vista; al final de la serie puede acortarse).
+                                'tendencia'        => array_slice($tendencia, $i, $barsTend),
                                 'saldo_proyectado' => round($saldoSem[$i]),
                                 'sugerido'         => (int) $ordenar[$i],
                             ];
                         }
                     } else {
                         $data[] = $filaBase + [
-                            'semana' => '', 'demanda_forecast' => 0, 'ov_semana' => 0,
+                            'semana' => '', 'sem_idx' => 0, 'demanda_forecast' => 0, 'ov_semana' => 0,
                             'comprometido_semana' => 0, 'stock_teorico' => round($stock),
-                            'demanda_efectiva' => 0, 'recepcion' => 0, 'tendencia' => [],
-                            'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
+                            'stock_seguridad' => 0, 'demanda_efectiva' => 0, 'recepcion' => 0,
+                            'tendencia' => [], 'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
                         ];
                     }
                 }

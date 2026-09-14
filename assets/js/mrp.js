@@ -116,6 +116,31 @@ $(document).ready(function() {
         return '<span class="badge bg-success">OK</span>';
     }
 
+    // Índice por producto: demanda proyectada (efectiva) por semana (sem_idx) y lead time.
+    // Alimenta el Stock de Seguridad de la ficha. Se reconstruye en cada carga de datos.
+    let demPorProd  = {};
+    let leadPorProd = {};
+    function indexarProductos(filas) {
+        demPorProd = {}; leadPorProd = {};
+        (filas || []).forEach(function(f) {
+            const c = f.producto_codigo;
+            if (demPorProd[c] === undefined) { demPorProd[c] = []; leadPorProd[c] = Number(f.lead_time) || 0; }
+            if (f.semana) { demPorProd[c][Number(f.sem_idx) || 0] = Number(f.demanda_efectiva) || 0; }
+        });
+    }
+
+    // Stock de Seguridad (FICHA) = (Σ demanda proyectada del horizonte ÷ nº de semanas del
+    // horizonte) × lead time. Distinto de la columna "Cobertura Lead Time". Usa el horizonte
+    // ACTUAL de la vista, así que se recalcula solo al cambiarlo (drawCallback repinta la ficha).
+    function stockSegFicha(cod) {
+        const arr = demPorProd[cod] || [];
+        const h   = parseInt($('#mrp-horizonte').val() || '4', 10);
+        const win = arr.slice(0, h).filter(function(v) { return v !== undefined; });
+        if (!win.length) { return 0; }
+        const prom = win.reduce(function(a, b) { return a + b; }, 0) / win.length;
+        return Math.round(prom * (leadPorProd[cod] || 0));
+    }
+
     // Contenido de la celda "Producto" (info del producto apilada en vertical).
     function celdaProducto(row) {
         const esc = function(s) { return $('<div>').text(s == null ? '' : String(s)).html(); };
@@ -132,7 +157,7 @@ $(document).ready(function() {
              + linea('Stock Físico', formatearEntero(row.stock_wms))
              + linea('Stock Mín', (Number(row.stock_min) > 0) ? formatearEntero(row.stock_min) : '—')
              + linea('Stock Máx', (Number(row.stock_max) > 0) ? formatearEntero(row.stock_max) : '—')
-             + linea('Stock Seguridad', formatearEntero(row.stock_seguridad))
+             + linea('Stock Seguridad', formatearEntero(stockSegFicha(row.producto_codigo)))
              + linea('Próx. Lote por Vencer', (row.dias_prox_venc == null || row.dias_prox_venc === '')
                      ? '—' : formatearEntero(row.dias_prox_venc) + ' días')
              + '<div class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</div>';
@@ -180,6 +205,16 @@ $(document).ready(function() {
         );
     }
 
+    // Filtro de HORIZONTE (client-side): muestra solo las primeras N semanas de cada producto,
+    // donde N = valor del <select>. NO recalcula nada — el servidor ya devuelve todas las semanas
+    // con el plan calculado sobre una ventana fija (lead time); esto solo decide cuántas se ven.
+    $.fn.dataTable.ext.search.push(function(settings, dataArr, dataIndex) {
+        if (settings.nTable.id !== 'tabla-consulta-mrp') { return true; }
+        const row = settings.aoData[dataIndex]._aData;
+        const h   = parseInt($('#mrp-horizonte').val() || '4', 10);
+        return (Number(row && row.sem_idx) || 0) < h;
+    });
+
     // Carga los datos del MRP (una sola vez; DataTable pagina/busca/ordena client-side).
     function cargarMrp(onDone) {
         const horizonte = $('#mrp-horizonte').val() || '4';
@@ -198,6 +233,7 @@ $(document).ready(function() {
                     return;
                 }
                 const filas = res.data || [];
+                indexarProductos(filas);   // antes del draw: la ficha usa demPorProd/leadPorProd
                 poblarProveedores(filas);
 
                 if (tabla) {
@@ -225,13 +261,13 @@ $(document).ready(function() {
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
                     // Orden FIJO por producto (siempre primero, no lo cambia el usuario): urgencia
-                    // (col. oculta 14) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
+                    // (col. oculta 16) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
                     // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
                     // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
                     // cada producto, como criterio secundario.
-                    orderFixed: { pre: [[14, 'desc'], [1, 'asc']] },
+                    orderFixed: { pre: [[16, 'desc'], [1, 'asc']] },
                     // Orden por defecto (secundario): semana cronológica dentro del producto.
-                    order: [[6, 'asc']],
+                    order: [[7, 'asc']],
                     columns: [
                         {
                             data: 'producto_codigo', className: 'mrp-prod-cell', orderable: false,
@@ -242,12 +278,18 @@ $(document).ready(function() {
                         { data: 'sub_familia',      visible: false, render: escaparTexto },
                         { data: 'proveedor',        visible: false, render: escaparTexto },
                         { data: 'lead_time',        visible: false, render: renderNumero },
+                        { data: 'sem_idx',          className: 'text-center', render: function(d, type, row) {
+                            if (type === 'sort' || type === 'type') { return Number(d) || 0; }
+                            if (!row.semana) { return '<span class="text-muted">—</span>'; }
+                            return Number(d) + 1;   // correlativo 1-based, en orden por fecha
+                        } },
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
                         { data: 'demanda_efectiva', className: 'text-end',    render: renderDemanda },
                         { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
                         { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
+                        { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
@@ -327,8 +369,9 @@ $(document).ready(function() {
 
     $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor').on('change', aplicarFiltros);
 
-    // Cambiar el Horizonte recalcula la demanda/sugerido en el backend (recarga los datos).
-    $('#mrp-horizonte').on('change', cargarMrp);
+    // El horizonte ya NO recalcula: el plan viene calculado sobre una ventana fija (lead time).
+    // Cambiarlo solo filtra CUÁNTAS semanas se muestran por producto (client-side, instantáneo).
+    $('#mrp-horizonte').on('change', function() { if (tabla) { tabla.draw(); } });
 
     // Recalcular Pronóstico: reconstruye el plan con el horizonte actual, con feedback en el botón.
     $('#btn-recalcular-pronostico').on('click', function() {
