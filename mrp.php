@@ -24,7 +24,9 @@
             padding: 8px 10px; min-width: 190px;
         }
         #tabla-consulta-mrp tr.mrp-fila-inicio > td { border-top: 2px solid #adb5bd; }
-        .mrp-cod { font-family: monospace; font-size: 11px; color: #6c757d; }
+        /* Badge del código (nativo bg-secondary): cursor de mano, hover y un tamaño algo mayor. */
+        .mrp-cod-badge { cursor: pointer; margin-bottom: 3px; font-size: 0.82rem; padding: 0.32em 0.6em; }
+        .mrp-cod-badge:hover { filter: brightness(0.9); }
         .mrp-nom { font-size: 13px; font-weight: 600; line-height: 1.25; margin: 1px 0 6px; }
         .mrp-pl { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 1px 0; }
         .mrp-pl .k { color: #6c757d; }
@@ -38,6 +40,10 @@
         .mrp-est .badge { font-size: 0.85rem; padding: 0.45em 0.7em; }
         /* Celdas con tooltip de acumulado (Demanda Proyectada y Sugerido a Reponer): cursor de ayuda. */
         #tabla-consulta-mrp td.mrp-tip-cell { cursor: help; }
+        /* Separador: divide lo COMPROMETIDO (En Pedido, Comprometido, Stock Teórico) de lo
+           dependiente del forecast (Demanda Proyectada en adelante). */
+        #tabla-consulta-mrp th.mrp-sep-left,
+        #tabla-consulta-mrp td.mrp-sep-left { border-left: 2px solid #94a3b8; }
     </style>
 </head>
 <body>
@@ -131,7 +137,7 @@
                             <th style="width: 6%"  class="text-end" title="Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada">En Pedido</th>
                             <th style="width: 6%"  class="text-end" title="Sale de bodega esa semana: Órdenes de Venta (por fecha de entrega) + consumo de componentes por órdenes de producción">Comprometido</th>
                             <th style="width: 6%"  class="text-end" title="Inventario teórico acumulado al cierre de esa semana, solo con documentos comprometidos: arranca del stock físico y cada semana suma En Pedido y resta Comprometido (OV + producción). No incluye forecast ni reposición sugerida.">Stock Teórico</th>
-                            <th style="width: 7%"  class="text-end" title="Demanda efectiva de esa semana = mayor entre el forecast y las OV firmes con entrega esa semana. En azul cuando manda una OV.">Demanda Proyectada</th>
+                            <th style="width: 7%"  class="text-end mrp-sep-left" title="Demanda efectiva de esa semana = mayor entre el forecast y las OV firmes con entrega esa semana. En azul cuando manda una OV.">Demanda Proyectada</th>
                             <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)">Saldo Proyectado de Inventario</th>
                             <th style="width: 6%"  class="text-end" title="Cobertura del lead time (móvil): SUMA de la demanda efectiva (max forecast/OV + producción) de las próximas N semanas que dura la reposición, contadas DESDE esa semana. Es el nivel al que llegas justo cuando debes reordenar (punto de reorden) para no quebrar antes de que llegue la mercadería — no un colchón chico. Sube en temporada alta y baja en semanas de poca venta.">Cobertura Lead Time</th>
                             <th style="width: 8%"  class="text-end" title="Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)">Sugerido a Reponer</th>

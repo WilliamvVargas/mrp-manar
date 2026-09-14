@@ -172,7 +172,7 @@ $(document).ready(function() {
             return '<div class="mrp-pl' + (cls ? ' ' + cls : '') + '"><span class="k">' + k + '</span>'
                  + '<span class="v">' + esc(v) + '</span></div>';
         };
-        return '<div class="mrp-cod">' + esc(row.producto_codigo) + '</div>'
+        return '<span class="badge text-bg-secondary mrp-cod-badge" title="Filtrar la consulta por la familia, sub-familia y proveedor de este producto">' + esc(row.producto_codigo) + '</span>'
              + '<div class="mrp-nom">' + esc(row.producto_nombre) + '</div>'
              + linea('Familia', row.familia)
              + linea('Sub-Familia', row.sub_familia)
@@ -311,7 +311,7 @@ $(document).ready(function() {
                         { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
                         { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
-                        { data: 'demanda_efectiva', className: 'text-end mrp-tip-cell', render: renderDemanda },
+                        { data: 'demanda_efectiva', className: 'text-end mrp-tip-cell mrp-sep-left', render: renderDemanda },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
                         { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end mrp-tip-cell', render: renderSugerido },
@@ -719,6 +719,24 @@ $(document).ready(function() {
         cargarDetalleEnProduccion(f.producto_codigo);
         cargarDetalleForecast(f.producto_codigo);
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMrpDetalle')).show();
+    });
+
+    // Clic en la badge del código (ficha): vuelca las características del producto (Familia,
+    // Sub-Familia, Proveedor) a los filtros de la consulta y aplica. Limpia el buscador de texto
+    // para no restringir a un solo producto: muestra todos los de esas mismas características.
+    $('#tabla-consulta-mrp tbody').on('click', '.mrp-cod-badge', function(e) {
+        e.stopPropagation();
+        if (!tabla) { return; }
+        const d = tabla.row($(this).closest('tr')).data();
+        if (!d) { return; }
+        // El código va al buscador de Consulta; las características a sus filtros. Borrar el código
+        // del buscador deja ver toda la familia/sub-familia/proveedor de ese producto.
+        $('#consulta-mrp').val(d.producto_codigo || '');
+        tabla.search(d.producto_codigo || '');
+        $('#filtro-familia').val(d.familia || '');
+        $('#filtro-sub-familia').val(d.sub_familia || '');
+        $('#filtro-proveedor').val(d.proveedor || '');
+        aplicarFiltros();
     });
 
     // Carga las opciones de Familia / Sub-Familia (mismo contrato que Forecast).
