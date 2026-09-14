@@ -44,29 +44,36 @@ $(document).ready(function() {
     function renderDemanda(d, type, row) {
         const ef = parseFloat(row.demanda_efectiva);
         if (type === 'sort' || type === 'type') { return isNaN(ef) ? 0 : ef; }
-        const fc = parseFloat(row.demanda_forecast) || 0;
-        const ov = parseFloat(row.ov_semana) || 0;
+        const fc  = parseFloat(row.demanda_forecast) || 0;
+        const ov  = parseFloat(row.ov_semana) || 0;
+        const idx = Number(row.sem_idx) || 0;
+        // Tooltip: demanda proyectada ACUMULADA desde la semana 1 hasta esta (inclusive).
+        const acum = 'Acumulado (semanas 1 a ' + (idx + 1) + '): ' + formatearEntero(acumular(demPorProd, row.producto_codigo, idx));
         if (ov > fc) {
             const t = 'Demanda efectiva: OV firme de ' + formatearEntero(ov)
-                    + ' (supera el forecast de ' + formatearEntero(fc) + ')';
+                    + ' (supera el forecast de ' + formatearEntero(fc) + ')\n' + acum;
             return '<span class="text-primary fw-bold" title="' + t + '">'
                  + formatearEntero(ef) + ' <i class="bi bi-flag-fill" style="font-size:.7em"></i></span>';
         }
-        return formatearEntero(isNaN(ef) ? 0 : ef);
+        return '<span title="' + acum + '">' + formatearEntero(isNaN(ef) ? 0 : ef) + '</span>';
     }
 
-    // Sugerido a reponer: rojo si hay que reponer (>0), gris si 0. Ordena por el valor crudo.
-    function renderSugerido(d, type) {
+    // Sugerido a reponer: en negrita si hay que reponer (>0), gris si 0. Ordena por el valor crudo.
+    // Tooltip: total a reponer ACUMULADO desde la semana 1 hasta esta (inclusive).
+    function renderSugerido(d, type, row) {
         if (type === 'sort' || type === 'type') {
             const n = parseFloat(d);
             return isNaN(n) ? 0 : n;
         }
-        const n = parseFloat(d);
-        if (isNaN(n) || n <= 0) { return '<span class="text-muted">0</span>'; }
-        return '<span class="text-danger fw-bold">' + formatearEntero(n) + '</span>';
+        const n   = parseFloat(d);
+        const idx = Number(row && row.sem_idx) || 0;
+        const cod = row ? row.producto_codigo : '';
+        const acum = 'Acumulado a reponer (semanas 1 a ' + (idx + 1) + '): ' + formatearEntero(acumular(sugPorProd, cod, idx));
+        if (isNaN(n) || n <= 0) { return '<span class="text-muted" title="' + acum + '">0</span>'; }
+        return '<span class="fw-bold" title="' + acum + '">' + formatearEntero(n) + '</span>';
     }
 
-    // Saldo proyectado: negativo (quiebre de stock) en rojo. Ordena por el valor crudo.
+    // Saldo proyectado: negativo (quiebre de stock) en rojo y negrita (alerta). Ordena por el valor crudo.
     function renderSaldo(d, type) {
         if (type === 'sort' || type === 'type') { const n = parseFloat(d); return isNaN(n) ? 0 : n; }
         const n = parseFloat(d);
@@ -119,13 +126,18 @@ $(document).ready(function() {
     // Índice por producto: demanda proyectada (efectiva) por semana (sem_idx) y lead time.
     // Alimenta el Stock de Seguridad de la ficha. Se reconstruye en cada carga de datos.
     let demPorProd  = {};
+    let sugPorProd  = {};
     let leadPorProd = {};
     function indexarProductos(filas) {
-        demPorProd = {}; leadPorProd = {};
+        demPorProd = {}; sugPorProd = {}; leadPorProd = {};
         (filas || []).forEach(function(f) {
             const c = f.producto_codigo;
-            if (demPorProd[c] === undefined) { demPorProd[c] = []; leadPorProd[c] = Number(f.lead_time) || 0; }
-            if (f.semana) { demPorProd[c][Number(f.sem_idx) || 0] = Number(f.demanda_efectiva) || 0; }
+            if (demPorProd[c] === undefined) { demPorProd[c] = []; sugPorProd[c] = []; leadPorProd[c] = Number(f.lead_time) || 0; }
+            if (f.semana) {
+                const i = Number(f.sem_idx) || 0;
+                demPorProd[c][i] = Number(f.demanda_efectiva) || 0;
+                sugPorProd[c][i] = Number(f.sugerido) || 0;
+            }
         });
     }
 
@@ -141,11 +153,20 @@ $(document).ready(function() {
         return Math.round(prom * (leadPorProd[cod] || 0));
     }
 
+    // Suma ACUMULADA de un valor por semana (mapa cod->[valor por sem_idx]) desde la 1ª semana del
+    // producto hasta la semana idx (inclusive). Alimenta los tooltips de Demanda y Sugerido.
+    function acumular(mapa, cod, idx) {
+        const arr = mapa[cod] || [];
+        let sum = 0;
+        for (let i = 0; i <= idx && i < arr.length; i++) { sum += Number(arr[i]) || 0; }
+        return sum;
+    }
+
     // Contenido de la celda "Producto" (info del producto apilada en vertical).
     function celdaProducto(row) {
         const esc = function(s) { return $('<div>').text(s == null ? '' : String(s)).html(); };
-        const linea = function(k, v) {
-            return '<div class="mrp-pl"><span class="k">' + k + '</span>'
+        const linea = function(k, v, cls) {
+            return '<div class="mrp-pl' + (cls ? ' ' + cls : '') + '"><span class="k">' + k + '</span>'
                  + '<span class="v">' + esc(v) + '</span></div>';
         };
         return '<div class="mrp-cod">' + esc(row.producto_codigo) + '</div>'
@@ -155,9 +176,9 @@ $(document).ready(function() {
              + linea('Proveedor', row.proveedor)
              + linea('Lead Time', (row.lead_time || 0) + ' sem')
              + linea('Stock Físico', formatearEntero(row.stock_wms))
-             + linea('Stock Mín', (Number(row.stock_min) > 0) ? formatearEntero(row.stock_min) : '—')
-             + linea('Stock Máx', (Number(row.stock_max) > 0) ? formatearEntero(row.stock_max) : '—')
-             + linea('Stock Seguridad', formatearEntero(stockSegFicha(row.producto_codigo)))
+             + linea('Stock Mín', (Number(row.stock_min) > 0) ? formatearEntero(row.stock_min) : '—', 'mrp-min')
+             + linea('Stock Máx', (Number(row.stock_max) > 0) ? formatearEntero(row.stock_max) : '—', 'mrp-max')
+             + linea('Stock Seguridad', formatearEntero(stockSegFicha(row.producto_codigo)), 'mrp-seg')
              + linea('Próx. Lote por Vencer', (row.dias_prox_venc == null || row.dias_prox_venc === '')
                      ? '—' : formatearEntero(row.dias_prox_venc) + ' días')
              + '<div class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</div>';
@@ -284,13 +305,13 @@ $(document).ready(function() {
                             return Number(d) + 1;   // correlativo 1-based, en orden por fecha
                         } },
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
-                        { data: 'demanda_efectiva', className: 'text-end',    render: renderDemanda },
                         { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
                         { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
+                        { data: 'demanda_efectiva', className: 'text-end mrp-tip-cell', render: renderDemanda },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
                         { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
-                        { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
+                        { data: 'sugerido',         className: 'text-end mrp-tip-cell', render: renderSugerido },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
                         { data: 'estado',           visible: false, render: renderEstado },   // se muestra en la celda Producto
