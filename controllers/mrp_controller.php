@@ -97,7 +97,7 @@
                 // y lo aplica el cliente filtrando filas — así no recalcula al ampliar/reducir.
                 // $barsTend = nº fijo de barras de la mini-tendencia hacia adelante desde cada semana.
                 $maxSemanas = 52;
-                $barsTend   = 8;
+                $barsTend   = 16;
 
                 // El horizonte va desde la semana de "$hoy" hacia adelante: el forecast puede tener
                 // semanas ya pasadas, que no deben contar para la reposición.

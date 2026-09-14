@@ -135,7 +135,7 @@
                             <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)">Saldo Proyectado de Inventario</th>
                             <th style="width: 6%"  class="text-end" title="Cobertura del lead time (móvil): SUMA de la demanda efectiva (max forecast/OV + producción) de las próximas N semanas que dura la reposición, contadas DESDE esa semana. Es el nivel al que llegas justo cuando debes reordenar (punto de reorden) para no quebrar antes de que llegue la mercadería — no un colchón chico. Sube en temporada alta y baja en semanas de poca venta.">Cobertura Lead Time</th>
                             <th style="width: 8%"  class="text-end" title="Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)">Sugerido a Reponer</th>
-                            <th style="width: 6%"  class="text-center" title="Tendencia de la demanda a lo largo del horizonte (forecast)">Tendencia</th>
+                            <th style="width: 9%"  class="text-center" title="Tendencia de la demanda: próximas 16 semanas hacia adelante (altura = demanda, color = estado: rojo quiebre / amarillo ajustado / verde ok)">Tendencia</th>
                             <th>Urgencia</th>
                             <th style="width: 7%"  class="text-center" title="Estado de abastecimiento del producto en el horizonte">Estado</th>
                             <th style="width: 5%"  class="text-center">Acciones</th>

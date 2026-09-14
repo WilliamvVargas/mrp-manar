@@ -92,9 +92,12 @@ $(document).ready(function() {
         if (type !== 'display') { return ''; }
         const arr = Array.isArray(d) ? d : [];
         if (arr.length < 1) { return '<span class="text-muted">—</span>'; }
-        const w = 58, h = 18, gap = 1;
-        const n = arr.length;
-        const bw = Math.max(1, (w - gap * (n - 1)) / n);   // ancho de barra ajustado para caber
+        const w = 104, h = 18, gap = 1;
+        // Ancho de barra sobre un nº FIJO de slots (= barsTend del controlador), no sobre las barras
+        // presentes: al final del forecast se dibujan menos barras y el resto queda como espacio en
+        // blanco (barras "invisibles") → ancho y posición constantes en todas las filas.
+        const SLOTS = 16;
+        const bw = Math.max(1, (w - gap * (SLOTS - 1)) / SLOTS);
         const max = arr.reduce(function(m, o) { const v = Number(o.d) || 0; return v > m ? v : m; }, 0) || 1;
         let bars = '';
         arr.forEach(function(o, i) {
