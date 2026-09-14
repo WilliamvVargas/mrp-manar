@@ -1198,7 +1198,7 @@
          *   - EnProduccion = entradas por producción (órdenes liberadas hacia 010).
          * Solo artículos con ficha en la bodega 010. Incluye también LeadTime (U_LeadTime, en semanas).
          *
-         * @return array Filas: ['ItemCode'=>..., 'LeadTime'=>..., 'Comprometido'=>..., 'EnPedido'=>..., 'EnProduccion'=>...].
+         * @return array Filas: ['ItemCode'=>..., 'LeadTime'=>..., 'Comprometido'=>..., 'EnPedido'=>..., 'EnProduccion'=>..., 'StockMin'=>..., 'StockMax'=>...].
          */
         public function abastecimientoPorProducto()
         {
@@ -1238,9 +1238,14 @@
                         FROM OWOR w2
                         WHERE w2.Status = 'R' AND (w2.PlannedQty - w2.CmpltQty) > 0
                           AND w2.Warehouse = '010' AND w2.ItemCode = T0.ItemCode
-                    ), 0) AS EnProduccion
+                    ), 0) AS EnProduccion,
+                    -- Stock mínimo / máximo definido en SAP para la bodega principal (010).
+                    -- Hoy suelen venir en 0 (no cargados); se muestran cuando SAP los pueble.
+                    ISNULL(TW.MinStock, 0) AS StockMin,
+                    ISNULL(TW.MaxStock, 0) AS StockMax
                 FROM OITM T0
                 LEFT JOIN [@PROVEEDORES] PV ON LTRIM(RTRIM(PV.Code)) = LTRIM(RTRIM(T0.U_NX_Proveedor))
+                LEFT JOIN OITW TW ON TW.ItemCode = T0.ItemCode AND TW.WhsCode = '010'
                 WHERE EXISTS (SELECT 1 FROM OITW t WHERE t.ItemCode = T0.ItemCode AND t.WhsCode = '010')
             ";
 
@@ -1297,8 +1302,8 @@
          * de abastecimientoPorProducto() (ORDR/RDR1, no anuladas, cabecera y línea abiertas,
          * OpenQty > 0, bodega 010), pero desglosada por línea con su DocDueDate. El controlador
          * la agrupa por semana (lunes ISO) y aplica demanda = max(forecast, OV) por semana.
-         * NO incluye el comprometido de producción (componentes de OP): ese es consumo interno,
-         * no venta, y se mantiene como descuento up-front en el controlador.
+         * El consumo de producción (componentes de OP) se obtiene aparte en
+         * comprometidoProduccionPorSemana() y se suma al comprometido de cada semana.
          *
          * @return array Filas ['ItemCode', 'Fecha'=>'yyyy-mm-dd'|null, 'Cantidad'].
          */
@@ -1311,6 +1316,30 @@
                 FROM RDR1 r INNER JOIN ORDR o ON o.DocEntry = r.DocEntry
                 WHERE o.CANCELED = 'N' AND o.DocStatus = 'O' AND r.LineStatus = 'O' AND r.OpenQty > 0
                   AND r.WhsCode = '010'
+            ";
+            return $this->pdo->query($sql)->fetchAll();
+        }
+
+        /**
+         * Comprometido de PRODUCCIÓN por producto con su FECHA (para el time-phase del MRP).
+         * Es el consumo interno de componentes por órdenes de producción LIBERADAS (OWOR
+         * Status='R', bodega 010): por cada componente (WOR1), la cantidad pendiente de
+         * consumir (PlannedQty − IssuedQty) con la fecha de la OP (OWOR.DueDate). Misma base
+         * que la parte de producción del "Comprometido" de abastecimientoPorProducto().
+         * El controlador la agrupa por semana (lunes ISO) y la SUMA al comprometido de OV
+         * (es consumo adicional, no venta: no entra al max con el forecast).
+         *
+         * @return array Filas ['ItemCode', 'Fecha'=>'yyyy-mm-dd'|null, 'Cantidad'].
+         */
+        public function comprometidoProduccionPorSemana()
+        {
+            $sql = "
+                SELECT LTRIM(RTRIM(c.ItemCode))            AS ItemCode,
+                       CONVERT(char(10), w.DueDate, 126)   AS Fecha,
+                       (c.PlannedQty - c.IssuedQty)        AS Cantidad
+                FROM WOR1 c INNER JOIN OWOR w ON w.DocEntry = c.DocEntry
+                WHERE w.Status = 'R' AND (c.PlannedQty - c.IssuedQty) > 0
+                  AND c.Warehouse = '010'
             ";
             return $this->pdo->query($sql)->fetchAll();
         }

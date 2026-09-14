@@ -23,7 +23,18 @@ $(document).ready(function() {
         if (type === 'sort' || type === 'type') { const n = parseFloat(d); return isNaN(n) ? 0 : n; }
         const n = parseFloat(d);
         if (isNaN(n) || n <= 0) { return ''; }
-        return '<i class="bi bi-box-arrow-in-down me-1"></i>' + formatearEntero(n);
+        return '<span class="badge bg-success"><i class="bi bi-box-arrow-in-down me-1"></i>'
+             + formatearEntero(n) + '</span>';
+    }
+
+    // Comprometido que SALE de bodega ESA semana (OV firme con entrega esa semana, por DocDueDate).
+    // Análogo a la recepción pero de salida: vacío si no sale nada esa semana. Ordena por valor.
+    function renderSalidaOV(d, type) {
+        if (type === 'sort' || type === 'type') { const n = parseFloat(d); return isNaN(n) ? 0 : n; }
+        const n = parseFloat(d);
+        if (isNaN(n) || n <= 0) { return ''; }
+        return '<span class="badge bg-danger"><i class="bi bi-box-arrow-up me-1"></i>'
+             + formatearEntero(n) + '</span>';
     }
 
     // Demanda de la semana = demanda EFECTIVA usada por la proyección (max(forecast, OV firme)).
@@ -97,8 +108,9 @@ $(document).ready(function() {
     function renderEstado(d, type, row) {
         if (type !== 'display') { return d || ''; }
         if (d === 'quiebre') {
-            const n = row.estado_sem || 0;
-            return '<span class="badge bg-danger">Quiebre' + (n ? ' en ' + n + ' sem' : '') + '</span>';
+            const n = Number(row.estado_sem) || 0;
+            const cuando = (n > 0) ? ('en ' + n + ' sem') : 'semanal actual';
+            return '<span class="badge bg-danger">Quiebre ' + cuando + '</span>';
         }
         if (d === 'ajustado') { return '<span class="badge bg-warning text-dark">Ajustado</span>'; }
         return '<span class="badge bg-success">OK</span>';
@@ -117,6 +129,10 @@ $(document).ready(function() {
              + linea('Sub-Familia', row.sub_familia)
              + linea('Proveedor', row.proveedor)
              + linea('Lead Time', (row.lead_time || 0) + ' sem')
+             + linea('Stock Mín', (Number(row.stock_min) > 0) ? formatearEntero(row.stock_min) : '—')
+             + linea('Stock Máx', (Number(row.stock_max) > 0) ? formatearEntero(row.stock_max) : '—')
+             + linea('Próx. Lote por Vencer', (row.dias_prox_venc == null || row.dias_prox_venc === '')
+                     ? '—' : formatearEntero(row.dias_prox_venc) + ' días')
              + '<div class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</div>';
     }
 
@@ -208,11 +224,11 @@ $(document).ready(function() {
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
                     // Orden FIJO por producto (siempre primero, no lo cambia el usuario): urgencia
-                    // (col. oculta 18) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
+                    // (col. oculta 16) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
                     // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
                     // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
                     // cada producto, como criterio secundario.
-                    orderFixed: { pre: [[19, 'desc'], [1, 'asc']] },
+                    orderFixed: { pre: [[16, 'desc'], [1, 'asc']] },
                     // Orden por defecto (secundario): semana cronológica dentro del producto.
                     order: [[6, 'asc']],
                     columns: [
@@ -228,14 +244,11 @@ $(document).ready(function() {
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
                         { data: 'demanda_efectiva', className: 'text-end',    render: renderDemanda },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
-                        { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
-                        { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
-                        { data: 'dias_prox_venc',   className: 'text-center', render: renderDiasVenc },
                         { data: 'stock_wms',        className: 'text-end',    render: renderNumero },
-                        { data: 'comprometido',     className: 'text-end',    render: renderNumero },
-                        { data: 'en_pedido',        className: 'text-end',    render: renderNumero },
-                        { data: 'en_produccion',    className: 'text-end',    render: renderNumero },
+                        { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
+                        { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
+                        { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
                         { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end',    render: renderSugerido },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)

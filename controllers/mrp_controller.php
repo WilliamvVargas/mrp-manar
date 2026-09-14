@@ -137,6 +137,22 @@
                     }
                 }
 
+                // 3.7) Comprometido de PRODUCCIÓN (consumo de componentes por OP liberada) por
+                // producto y SEMANA (lunes ISO). Es consumo adicional (no venta): se SUMA al
+                // comprometido de la semana y se resta del saldo, pero NO entra al max con el forecast.
+                $prodSemana   = [];   // [cod][lunesISO] => consumo de producción esa semana
+                $prodSinFecha = [];   // [cod] => consumo de producción sin fecha (backorder)
+                foreach ((new ConsultaSap($pdoSqlsrv))->comprometidoProduccionPorSemana() as $r) {
+                    $cod = trim($r['ItemCode']);
+                    $qty = (float) $r['Cantidad'];
+                    if (empty($r['Fecha'])) {
+                        $prodSinFecha[$cod] = ($prodSinFecha[$cod] ?? 0) + $qty;
+                    } else {
+                        $lun = date('Y-m-d', strtotime('monday this week', strtotime($r['Fecha'] . ' 12:00:00')));
+                        $prodSemana[$cod][$lun] = ($prodSemana[$cod][$lun] ?? 0) + $qty;
+                    }
+                }
+
                 // 4) Merge + sugerido a reponer.
                 $data = [];
                 foreach ($base as $b) {
@@ -171,31 +187,31 @@
                     $demProm  = $nSem > 0 ? array_sum(array_column($ventana, 'demanda')) / $nSem : 0.0;
                     $stockSeg = $semanasSeguridad * $demProm;
 
-                    // Stock Teórico (columna): posición neta TOTAL (foto, sin tiempo).
-                    $stockTeorico = $stock + $enPedido + $enProduccion - $comprometido;
-
                     // Entradas en camino de este producto por semana de llegada.
                     $entradasProd = $entradas[$cod] ?? [];
 
-                    // Comprometido de VENTAS (OV) de este producto por semana de entrega y OV sin
-                    // fecha. El comprometido de PRODUCCIÓN (componentes de OP) es lo que reste del
-                    // total: consumo interno que se descuenta up-front (no entra al max con forecast).
+                    // Comprometido de este producto por semana: VENTAS (OV) y PRODUCCIÓN (consumo de
+                    // componentes de OP), cada uno con su fecha; más los "sin fecha" (backorder up-front).
                     $ovProd   = $ovSemana[$cod] ?? [];
                     $ovSF     = $ovSinFecha[$cod] ?? 0;
-                    $compProd = max(0, $comprometido - (array_sum($ovProd) + $ovSF));
+                    $prodProd = $prodSemana[$cod] ?? [];
+                    $prodSF   = $prodSinFecha[$cod] ?? 0;
 
-                    // Arranque de la proyección = stock físico − comp. producción − OV sin fecha,
-                    // MÁS lo en camino con llegada ya vencida o anterior a la ventana, MENOS las OV
-                    // con entrega vencida (backorder). El resto de OV se consume en su semana vía
-                    // max(forecast, OV); el resto de lo en camino se suma en su semana (time-phase).
-                    $primera      = $ventana ? $ventana[0]['semana'] : $lunesActual;
-                    $saldoInicial = $stock - $compProd - $ovSF;
-                    foreach ($entradasProd as $lun => $qty) {
-                        if ($lun < $primera) { $saldoInicial += $qty; }
-                    }
-                    foreach ($ovProd as $lun => $qty) {
-                        if ($lun < $primera) { $saldoInicial -= $qty; }
-                    }
+                    // Stock Teórico (columna): posición al cierre de la SEMANA ACTUAL. Considera solo
+                    // los movimientos con fecha en la semana en curso (no vencidos ni futuros):
+                    // stock físico + lo que llega esta semana − OV de esta semana − consumo de
+                    // producción de esta semana.
+                    $stockTeorico = $stock
+                        + (float) ($entradasProd[$lunesActual] ?? 0)
+                        - (float) ($ovProd[$lunesActual] ?? 0)
+                        - (float) ($prodProd[$lunesActual] ?? 0);
+
+                    // Arranque de la proyección = Stock Físico, ajustado solo por OV / producción
+                    // SIN fecha (compromisos sin semana asignada). Los documentos VENCIDOS (llegada
+                    // o entrega con fecha ya pasada) se IGNORAN: no se suma la OC atrasada ni se
+                    // restan las OV/producción vencidas. El saldo parte del stock real y solo se
+                    // mueve con lo que tiene fecha DENTRO del horizonte (time-phase).
+                    $saldoInicial = $stock - $ovSF - $prodSF;
 
                     // Proyección TIME-PHASED (lot-for-lot): cada semana SUMA lo que llega esa semana
                     // (OC/reserva/producción por su fecha), resta la demanda, y si el saldo caería bajo
@@ -208,6 +224,8 @@
                         // Consumo de forecast: la demanda efectiva de la semana es la MAYOR entre el
                         // forecast y las OV firmes con entrega esa semana (evita doble conteo).
                         $saldo -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
+                        // Consumo de producción (componentes de OP): es adicional a la venta, se resta aparte.
+                        $saldo -= (float) ($prodProd[$w['semana']] ?? 0);
                         $rec = 0;
                         // Una orden NUEVA recién puede llegar en la semana L (antes tendría que
                         // haberse colocado en el pasado). Las semanas 0..L-1 sin stock quedan en
@@ -231,7 +249,9 @@
                     $estado = 'ok';
                     $estadoSem = 0;
                     foreach ($saldoSem as $i => $s) {
-                        if ($s < 0) { $estado = 'quiebre'; $estadoSem = $i + 1; break; }
+                        // estadoSem = semanas DESDE HOY hasta el quiebre (0 = esta semana, 1 = la
+                        // próxima, ...). El índice ya es 0-based, así que se usa tal cual.
+                        if ($s < 0) { $estado = 'quiebre'; $estadoSem = $i; break; }
                     }
                     if ($estado === 'ok') {
                         foreach ($saldoSem as $s) {
@@ -249,6 +269,7 @@
                     foreach ($serieFutura as $i => $w) {
                         $saldoT += ($entradasProd[$w['semana']] ?? 0);
                         $saldoT -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
+                        $saldoT -= (float) ($prodProd[$w['semana']] ?? 0);
                         if ($i >= $leadSem && $saldoT < $stockSeg) {
                             $saldoT += (int) ceil($stockSeg - $saldoT);
                         }
@@ -263,6 +284,9 @@
                         'familia'          => $b['familia'],
                         'sub_familia'      => $b['sub_familia'],
                         'proveedor'        => $abast[$cod]['Proveedor'] ?? null,
+                        // Stock mín/máx de SAP (OITW bodega 010). Hoy 0 si no están cargados.
+                        'stock_min'        => (float) ($abast[$cod]['StockMin'] ?? 0),
+                        'stock_max'        => (float) ($abast[$cod]['StockMax'] ?? 0),
                         'lead_time'        => $leadSem,               // lead time usado (semanas)
                         'stock_wms'        => round($stock),
                         'stock_por_vencer' => round($porVencer),
@@ -283,13 +307,16 @@
                     // Una fila por semana: demanda, saldo proyectado, y sugerido a ORDENAR esa semana.
                     if ($ventana) {
                         foreach ($ventana as $i => $w) {
-                            $ovSem = (float) ($ovProd[$w['semana']] ?? 0);
+                            $ovSem   = (float) ($ovProd[$w['semana']] ?? 0);
+                            $prodSem = (float) ($prodProd[$w['semana']] ?? 0);
                             $data[] = $filaBase + [
                                 'semana'           => $w['semana'],
                                 'demanda_forecast' => round($w['demanda']),
                                 // Demanda efectiva usada por la proyección = max(forecast, OV firme).
-                                // 'ov_semana' permite a la vista marcar cuándo mandó la OV (tooltip).
+                                // 'ov_semana' permite a la vista marcar cuándo mandó la OV (indicador azul).
                                 'ov_semana'        => round($ovSem),
+                                // Comprometido de la semana = OV + consumo de producción (columna).
+                                'comprometido_semana' => round($ovSem + $prodSem),
                                 'demanda_efectiva' => round(max((float) $w['demanda'], $ovSem)),
                                 // Recepción = lo EN CAMINO (OC + reserva + producción) que llega en
                                 // ESTA semana según su fecha esperada. Time-phased: 0 en las semanas
@@ -306,6 +333,7 @@
                     } else {
                         $data[] = $filaBase + [
                             'semana' => '', 'demanda_forecast' => 0, 'ov_semana' => 0,
+                            'comprometido_semana' => 0,
                             'demanda_efectiva' => 0, 'recepcion' => 0, 'tendencia' => [],
                             'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
                         ];
