@@ -180,11 +180,7 @@
                     ));
                     $ventana = array_slice($serieFutura, 0, $horizonte);
 
-                    // Stock de seguridad = (lead time del producto, en semanas) × demanda promedio
-                    // semanal del horizonte → colchón equivalente a la duración de la reposición.
-                    $nSem     = count($ventana);
-                    $demProm  = $nSem > 0 ? array_sum(array_column($ventana, 'demanda')) / $nSem : 0.0;
-                    $stockSeg = $leadSem * $demProm;
+                    $nSem = count($ventana);
 
                     // Entradas en camino de este producto por semana de llegada.
                     $entradasProd = $entradas[$cod] ?? [];
@@ -195,6 +191,19 @@
                     $ovSF     = $ovSinFecha[$cod] ?? 0;
                     $prodProd = $prodSemana[$cod] ?? [];
                     $prodSF   = $prodSinFecha[$cod] ?? 0;
+
+                    // Stock de seguridad = demanda EFECTIVA durante el LEAD TIME del producto: por
+                    // cada una de las próximas leadSem semanas, max(forecast, OV) + consumo de
+                    // producción — la MISMA demanda que consume la proyección. No depende del
+                    // horizonte elegido; cambia al avanzar de semana o si entra una OV/OP que supere
+                    // el forecast dentro del lead. Cubre la reposición para no quebrar en ese período.
+                    $ventanaLead = array_slice($serieFutura, 0, max(1, $leadSem));
+                    $stockSeg = 0.0;
+                    foreach ($ventanaLead as $w) {
+                        $sem = $w['semana'];
+                        $stockSeg += max((float) $w['demanda'], (float) ($ovProd[$sem] ?? 0))
+                                   + (float) ($prodProd[$sem] ?? 0);
+                    }
 
                     // Stock Teórico (columna): posición al cierre de la SEMANA ACTUAL. Considera solo
                     // los movimientos con fecha en la semana en curso (no vencidos ni futuros):
