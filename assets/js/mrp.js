@@ -129,6 +129,7 @@ $(document).ready(function() {
              + linea('Sub-Familia', row.sub_familia)
              + linea('Proveedor', row.proveedor)
              + linea('Lead Time', (row.lead_time || 0) + ' sem')
+             + linea('Stock Físico', formatearEntero(row.stock_wms))
              + linea('Stock Mín', (Number(row.stock_min) > 0) ? formatearEntero(row.stock_min) : '—')
              + linea('Stock Máx', (Number(row.stock_max) > 0) ? formatearEntero(row.stock_max) : '—')
              + linea('Stock Seguridad', formatearEntero(row.stock_seguridad))
@@ -224,11 +225,11 @@ $(document).ready(function() {
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
                     // Orden FIJO por producto (siempre primero, no lo cambia el usuario): urgencia
-                    // (col. oculta 15) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
+                    // (col. oculta 14) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
                     // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
                     // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
                     // cada producto, como criterio secundario.
-                    orderFixed: { pre: [[15, 'desc'], [1, 'asc']] },
+                    orderFixed: { pre: [[14, 'desc'], [1, 'asc']] },
                     // Orden por defecto (secundario): semana cronológica dentro del producto.
                     order: [[6, 'asc']],
                     columns: [
@@ -244,7 +245,6 @@ $(document).ready(function() {
                         { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
                         { data: 'demanda_efectiva', className: 'text-end',    render: renderDemanda },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
-                        { data: 'stock_wms',        className: 'text-end',    render: renderNumero },
                         { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
                         { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },

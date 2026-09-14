@@ -205,14 +205,20 @@
                                    + (float) ($prodProd[$sem] ?? 0);
                     }
 
-                    // Stock Teórico (columna): posición al cierre de la SEMANA ACTUAL. Considera solo
-                    // los movimientos con fecha en la semana en curso (no vencidos ni futuros):
-                    // stock físico + lo que llega esta semana − OV de esta semana − consumo de
-                    // producción de esta semana.
-                    $stockTeorico = $stock
-                        + (float) ($entradasProd[$lunesActual] ?? 0)
-                        - (float) ($ovProd[$lunesActual] ?? 0)
-                        - (float) ($prodProd[$lunesActual] ?? 0);
+                    // Stock Teórico POR SEMANA (columna): balance acumulado considerando solo los
+                    // documentos comprometidos (sin forecast ni reposición sugerida). La 1ª semana
+                    // parte del stock físico; cada semana siguiente ARRASTRA el teórico de la semana
+                    // anterior y le suma lo que entra (En Pedido) y le resta lo comprometido
+                    // (OV + consumo de producción) de esa semana.
+                    $teoricoSem = [];
+                    $teorico    = (float) $stock;
+                    foreach ($ventana as $i => $w) {
+                        $sem = $w['semana'];
+                        $teorico += (float) ($entradasProd[$sem] ?? 0)
+                                  - (float) ($ovProd[$sem] ?? 0)
+                                  - (float) ($prodProd[$sem] ?? 0);
+                        $teoricoSem[$i] = $teorico;
+                    }
 
                     // Arranque de la proyección = Stock Físico, ajustado solo por OV / producción
                     // SIN fecha (compromisos sin semana asignada). Los documentos VENCIDOS (llegada
@@ -302,7 +308,6 @@
                         'comprometido'     => round($comprometido),
                         'en_pedido'        => round($enPedido),
                         'en_produccion'    => round($enProduccion),
-                        'stock_teorico'    => round($stockTeorico),
                         'stock_seguridad'  => round($stockSeg),
                         // Estado de abastecimiento del producto (para la columna Estado).
                         'estado'           => $estado,
@@ -325,6 +330,8 @@
                                 'ov_semana'        => round($ovSem),
                                 // Comprometido de la semana = OV + consumo de producción (columna).
                                 'comprometido_semana' => round($ovSem + $prodSem),
+                                // Stock Teórico acumulado al cierre de esta semana (solo comprometidos).
+                                'stock_teorico'    => round($teoricoSem[$i]),
                                 'demanda_efectiva' => round(max((float) $w['demanda'], $ovSem)),
                                 // Recepción = lo EN CAMINO (OC + reserva + producción) que llega en
                                 // ESTA semana según su fecha esperada. Time-phased: 0 en las semanas
@@ -341,7 +348,7 @@
                     } else {
                         $data[] = $filaBase + [
                             'semana' => '', 'demanda_forecast' => 0, 'ov_semana' => 0,
-                            'comprometido_semana' => 0,
+                            'comprometido_semana' => 0, 'stock_teorico' => round($stock),
                             'demanda_efectiva' => 0, 'recepcion' => 0, 'tendencia' => [],
                             'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
                         ];
