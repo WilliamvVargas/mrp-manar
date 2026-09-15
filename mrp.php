@@ -24,8 +24,10 @@
             padding: 8px 10px; min-width: 190px;
         }
         #tabla-consulta-mrp tr.mrp-fila-inicio > td { border-top: 2px solid #adb5bd; }
+        /* Fila superior de la ficha: código a la izquierda y badge de Estado a la derecha. */
+        .mrp-cod-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
         /* Badge del código (nativo bg-secondary): cursor de mano, hover y un tamaño algo mayor. */
-        .mrp-cod-badge { cursor: pointer; margin-bottom: 3px; font-size: 0.82rem; padding: 0.32em 0.6em; }
+        .mrp-cod-badge { cursor: pointer; font-size: 0.82rem; padding: 0.32em 0.6em; }
         .mrp-cod-badge:hover { filter: brightness(0.9); }
         .mrp-nom { font-size: 13px; font-weight: 600; line-height: 1.25; margin: 1px 0 6px; }
         .mrp-pl { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 1px 0; }
@@ -35,15 +37,21 @@
         .mrp-pl.mrp-max .k, .mrp-pl.mrp-max .v { color: #198754; font-weight: 700; }
         /* Stock Seguridad: etiqueta y valor en negrita (sin color). */
         .mrp-pl.mrp-seg .k, .mrp-pl.mrp-seg .v { font-weight: 700; }
-        .mrp-est { margin-top: 6px; }
-        /* Badge de Estado (Quiebre/Ajustado/OK) más grande y legible dentro de la celda Producto. */
-        .mrp-est .badge { font-size: 0.85rem; padding: 0.45em 0.7em; }
+        /* Badge de Estado (Quiebre/Ajustado/OK) más grande y legible; va en la fila del código. */
+        .mrp-est .badge { font-size: 0.85rem; padding: 0.45em 0.7em; white-space: nowrap; }
         /* Celdas con tooltip de acumulado (Demanda Proyectada y Sugerido a Reponer): cursor de ayuda. */
         #tabla-consulta-mrp td.mrp-tip-cell { cursor: help; }
         /* Separador: divide lo COMPROMETIDO (En Pedido, Comprometido, Stock Teórico) de lo
            dependiente del forecast (Demanda Proyectada en adelante). */
         #tabla-consulta-mrp th.mrp-sep-left,
         #tabla-consulta-mrp td.mrp-sep-left { border-left: 2px solid #94a3b8; }
+        /* Sin reordenar: oculta las flechas de orden de DataTables en TODOS los encabezados
+           (incluida la columna del orden por defecto) y quita el cursor de mano. */
+        #tabla-consulta-mrp thead th { cursor: default; }
+        #tabla-consulta-mrp thead th::before,
+        #tabla-consulta-mrp thead th::after { display: none !important; }
+        /* Botón "Ver detalle" al pie de la ficha del producto. */
+        .mrp-acciones { margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -144,7 +152,6 @@
                             <th style="width: 9%"  class="text-center" title="Tendencia de la demanda: próximas 16 semanas hacia adelante (altura = demanda, color = estado: rojo quiebre / amarillo ajustado / verde ok)">Tendencia</th>
                             <th>Urgencia</th>
                             <th style="width: 7%"  class="text-center" title="Estado de abastecimiento del producto en el horizonte">Estado</th>
-                            <th style="width: 5%"  class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

@@ -172,7 +172,10 @@ $(document).ready(function() {
             return '<div class="mrp-pl' + (cls ? ' ' + cls : '') + '"><span class="k">' + k + '</span>'
                  + '<span class="v">' + esc(v) + '</span></div>';
         };
-        return '<span class="badge text-bg-secondary mrp-cod-badge" title="Filtrar la consulta por la familia, sub-familia y proveedor de este producto">' + esc(row.producto_codigo) + '</span>'
+        return '<div class="mrp-cod-row">'
+             +     '<span class="badge text-bg-secondary mrp-cod-badge" title="Filtrar la consulta por la familia, sub-familia y proveedor de este producto">' + esc(row.producto_codigo) + '</span>'
+             +     '<span class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</span>'
+             + '</div>'
              + '<div class="mrp-nom">' + esc(row.producto_nombre) + '</div>'
              + linea('Familia', row.familia)
              + linea('Sub-Familia', row.sub_familia)
@@ -184,7 +187,11 @@ $(document).ready(function() {
              + linea('Stock Seguridad', formatearEntero(stockSegFicha(row.producto_codigo)), 'mrp-seg')
              + linea('Próx. Lote por Vencer', (row.dias_prox_venc == null || row.dias_prox_venc === '')
                      ? '—' : formatearEntero(row.dias_prox_venc) + ' días')
-             + '<div class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</div>';
+             + '<div class="mrp-acciones">'
+             +     '<button type="button" class="btn btn-sm btn-outline-dark btn-mrp-detalle" title="Ver detalle">'
+             +         '<i class="bi bi-eye me-1"></i> Ver detalle'
+             +     '</button>'
+             + '</div>';
     }
 
     // Fecha 'yyyy-mm-dd' -> 'dd-mm-yyyy'.
@@ -292,6 +299,9 @@ $(document).ready(function() {
                     orderFixed: { pre: [[16, 'desc'], [1, 'asc']] },
                     // Orden por defecto (secundario): semana cronológica dentro del producto.
                     order: [[7, 'asc']],
+                    // El usuario NO puede reordenar ninguna columna (no hay clic-para-ordenar). El
+                    // orden interno (orderFixed por urgencia + semana) se sigue aplicando por código.
+                    columnDefs: [{ targets: '_all', orderable: false }],
                     columns: [
                         {
                             data: 'producto_codigo', className: 'mrp-prod-cell', orderable: false,
@@ -317,14 +327,7 @@ $(document).ready(function() {
                         { data: 'sugerido',         className: 'text-end mrp-tip-cell', render: renderSugerido },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
-                        { data: 'estado',           visible: false, render: renderEstado },   // se muestra en la celda Producto
-                        {
-                            data: null, orderable: false, searchable: false, className: 'text-center',
-                            render: function() {
-                                return '<button type="button" class="btn btn-sm btn-outline-dark btn-mrp-detalle" '
-                                     + 'title="Ver detalle"><i class="bi bi-eye"></i></button>';
-                            }
-                        }
+                        { data: 'estado',           visible: false, render: renderEstado }   // se muestra en la celda Producto
                     ],
                     // Camino 1 (robusto): celda "Producto" con apariencia fusionada SIN eliminar
                     // celdas (eso corrompía los nodos que DataTables reutiliza al paginar/ordenar).
