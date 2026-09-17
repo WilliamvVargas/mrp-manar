@@ -163,6 +163,31 @@ CREATE TABLE `forecast_backtest` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `forecast_configuracion`
+--
+
+DROP TABLE IF EXISTS `forecast_configuracion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `forecast_configuracion` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `empresa_id` varchar(36) DEFAULT NULL,
+  `nombre` varchar(100) NOT NULL,
+  `imputar_censura` tinyint(1) NOT NULL DEFAULT 0,
+  `capar_outliers` tinyint(1) NOT NULL DEFAULT 0,
+  `capar_k` decimal(4,1) NOT NULL DEFAULT 10.0,
+  `ensamble` tinyint(1) NOT NULL DEFAULT 0,
+  `ensamble_peso_prophet` tinyint(3) unsigned NOT NULL DEFAULT 50,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_by` char(36) DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `updated_by` char(36) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_fc_empresa` (`empresa_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `forecast_x_producto`
 --
 
