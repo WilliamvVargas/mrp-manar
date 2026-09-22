@@ -7,6 +7,16 @@ $(document).ready(function() {
             : '<span class="badge bg-secondary">No</span>';
     }
 
+    // Número "bonito": quita el .0 sobrante (15.0 -> 15) y conserva decimales reales (7.5).
+    function num(v) { return String(parseFloat(v)); }
+
+    // Badge "Sí" + parámetro (solo si la opción está activa); "No" si está apagada.
+    function badgeConParametro(valor, texto) {
+        return Number(valor) === 1
+            ? '<span class="badge bg-success">Sí</span> <span class="text-muted small">' + texto + '</span>'
+            : '<span class="badge bg-secondary">No</span>';
+    }
+
     // Tabla principal de configuraciones (server-side, helper reutilizable de utils.js).
     const tablaConsulta = inicializarTablaConsulta({
         tabla: '#tabla-consulta',
@@ -16,9 +26,18 @@ $(document).ready(function() {
         columnas: [
             { data: 'nombre', render: $.fn.dataTable.render.text() },
             { data: 'imputar_censura', className: 'text-center', render: badgeToggle },
-            { data: 'capar_outliers',  className: 'text-center', render: badgeToggle },
-            { data: 'ensamble',        className: 'text-center', render: badgeToggle },
-            { data: 'estabilizar_poco_historico', className: 'text-center', render: badgeToggle }
+            {
+                data: 'capar_outliers', className: 'text-center',
+                render: function(v, t, fila) { return badgeConParametro(v, 'K ' + num(fila.capar_k)); }
+            },
+            {
+                data: 'ensamble', className: 'text-center',
+                render: function(v, t, fila) { return badgeConParametro(v, 'Prophet ' + num(fila.ensamble_peso_prophet) + '%'); }
+            },
+            {
+                data: 'estabilizar_poco_historico', className: 'text-center',
+                render: function(v, t, fila) { return badgeConParametro(v, 'N ' + num(fila.estabilizar_n_semanas)); }
+            }
         ]
     });
 

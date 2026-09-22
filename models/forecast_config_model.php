@@ -53,7 +53,8 @@
             $col = $columnasValidas[$columnaOrden] ?? 'nombre';
             $dir = (strtolower($dirOrden) === 'desc') ? 'DESC' : 'ASC';
 
-            $sql    = "SELECT id, nombre, imputar_censura, capar_outliers, ensamble, estabilizar_poco_historico
+            $sql    = "SELECT id, nombre, imputar_censura, capar_outliers, capar_k, ensamble, ensamble_peso_prophet,
+                              estabilizar_poco_historico, estabilizar_n_semanas
                        FROM forecast_configuracion WHERE empresa_id <=> ?";
             $params = [$empresaId];
             if ($consulta !== '') { $sql .= " AND nombre LIKE ?"; $params[] = '%' . $consulta . '%'; }
