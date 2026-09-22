@@ -48,11 +48,12 @@
                 'imputar_censura' => 'imputar_censura',
                 'capar_outliers'  => 'capar_outliers',
                 'ensamble'        => 'ensamble',
+                'estabilizar_poco_historico' => 'estabilizar_poco_historico',
             ];
             $col = $columnasValidas[$columnaOrden] ?? 'nombre';
             $dir = (strtolower($dirOrden) === 'desc') ? 'DESC' : 'ASC';
 
-            $sql    = "SELECT id, nombre, imputar_censura, capar_outliers, ensamble
+            $sql    = "SELECT id, nombre, imputar_censura, capar_outliers, ensamble, estabilizar_poco_historico
                        FROM forecast_configuracion WHERE empresa_id <=> ?";
             $params = [$empresaId];
             if ($consulta !== '') { $sql .= " AND nombre LIKE ?"; $params[] = '%' . $consulta . '%'; }
@@ -73,7 +74,8 @@
         public function buscarPorId($id, $empresaId)
         {
             $stmt = $this->pdo->prepare(
-                "SELECT id, nombre, imputar_censura, capar_outliers, capar_k, ensamble, ensamble_peso_prophet
+                "SELECT id, nombre, imputar_censura, capar_outliers, capar_k, ensamble, ensamble_peso_prophet,
+                        estabilizar_poco_historico, estabilizar_n_semanas
                  FROM forecast_configuracion
                  WHERE id = ? AND empresa_id <=> ?"
             );
@@ -87,12 +89,13 @@
          *
          * @return int Id creado.
          */
-        public function crear($empresaId, $nombre, $imputarCensura, $caparOutliers, $caparK, $ensamble, $ensamblePesoProphet, $creadoPor = null)
+        public function crear($empresaId, $nombre, $imputarCensura, $caparOutliers, $caparK, $ensamble, $ensamblePesoProphet, $estabilizarPocoHistorico, $estabilizarNSemanas, $creadoPor = null)
         {
             $stmt = $this->pdo->prepare(
                 "INSERT INTO forecast_configuracion
-                    (empresa_id, nombre, imputar_censura, capar_outliers, capar_k, ensamble, ensamble_peso_prophet, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                    (empresa_id, nombre, imputar_censura, capar_outliers, capar_k, ensamble, ensamble_peso_prophet,
+                     estabilizar_poco_historico, estabilizar_n_semanas, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             $stmt->execute([
                 $empresaId,
@@ -102,6 +105,8 @@
                 $caparK,
                 $ensamble ? 1 : 0,
                 $ensamblePesoProphet,
+                $estabilizarPocoHistorico ? 1 : 0,
+                $estabilizarNSemanas,
                 $creadoPor,
             ]);
 
@@ -113,11 +118,12 @@
          *
          * @return int Filas afectadas.
          */
-        public function actualizar($id, $empresaId, $nombre, $imputarCensura, $caparOutliers, $caparK, $ensamble, $ensamblePesoProphet, $actualizadoPor = null)
+        public function actualizar($id, $empresaId, $nombre, $imputarCensura, $caparOutliers, $caparK, $ensamble, $ensamblePesoProphet, $estabilizarPocoHistorico, $estabilizarNSemanas, $actualizadoPor = null)
         {
             $stmt = $this->pdo->prepare(
                 "UPDATE forecast_configuracion
-                 SET nombre = ?, imputar_censura = ?, capar_outliers = ?, capar_k = ?, ensamble = ?, ensamble_peso_prophet = ?, updated_by = ?
+                 SET nombre = ?, imputar_censura = ?, capar_outliers = ?, capar_k = ?, ensamble = ?, ensamble_peso_prophet = ?,
+                     estabilizar_poco_historico = ?, estabilizar_n_semanas = ?, updated_by = ?
                  WHERE id = ? AND empresa_id <=> ?"
             );
             $stmt->execute([
@@ -127,6 +133,8 @@
                 $caparK,
                 $ensamble ? 1 : 0,
                 $ensamblePesoProphet,
+                $estabilizarPocoHistorico ? 1 : 0,
+                $estabilizarNSemanas,
                 $actualizadoPor,
                 (int) $id,
                 $empresaId,

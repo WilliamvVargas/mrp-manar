@@ -52,10 +52,11 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 40%">Nombre</th>
-                            <th style="width: 20%" class="text-center">Imputar Censura</th>
-                            <th style="width: 20%" class="text-center">Suavizar Outliers</th>
-                            <th style="width: 20%" class="text-center">Ensamble</th>
+                            <th style="width: 32%">Nombre</th>
+                            <th style="width: 17%" class="text-center">Imputar Censura</th>
+                            <th style="width: 17%" class="text-center">Suavizar Outliers</th>
+                            <th style="width: 17%" class="text-center">Ensamble</th>
+                            <th style="width: 17%" class="text-center">Estabilizar Poco Histórico</th>
                         </tr>
                     </thead>
                     <tbody>

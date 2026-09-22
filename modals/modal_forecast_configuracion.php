@@ -102,7 +102,7 @@
                         </div>
 
                         <!-- Ensamble -->
-                        <div class="opcion-item">
+                        <div class="opcion-item border-bottom">
                             <div class="d-flex align-items-center gap-2 px-2 py-2">
                                 <button type="button" class="opcion-toggle btn p-0 border-0 bg-transparent d-flex align-items-center gap-2 flex-grow-1 text-start"
                                         aria-expanded="false" aria-controls="op-body-ensamble">
@@ -126,6 +126,38 @@
                                     <input type="range" min="0" max="100" step="5" value="50"
                                            class="form-range opcion-param"
                                            id="cfg_ensamble_peso" name="ensamble_peso_prophet" disabled>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Estabilizar productos de poco histórico -->
+                        <div class="opcion-item">
+                            <div class="d-flex align-items-center gap-2 px-2 py-2">
+                                <button type="button" class="opcion-toggle btn p-0 border-0 bg-transparent d-flex align-items-center gap-2 flex-grow-1 text-start"
+                                        aria-expanded="false" aria-controls="op-body-estabilizar">
+                                    <i class="bi bi-chevron-right opcion-chevron text-muted"></i>
+                                    <span class="small fw-semibold">Estabilizar productos de poco histórico</span>
+                                </button>
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="cfg_estabilizar" name="estabilizar_poco_historico" value="1">
+                                </div>
+                            </div>
+                            <div class="opcion-body" id="op-body-estabilizar" style="display: none;">
+                                <div class="px-2 pb-2 ps-4">
+                                    <p class="small text-secondary mb-2">
+                                        Un producto con pocas semanas de venta tiene una participación ruidosa dentro de su grupo.
+                                        Esta opción suaviza su participación hacia el reparto neutro del grupo: mientras menos historia
+                                        tenga, más se apoya en el grupo; al acercarse a N semanas, usa su propia tasa.
+                                    </p>
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
+                                        <label class="form-label fw-bold small mb-0" for="cfg_estabilizar_n">Semanas de referencia (N)</label>
+                                        <input type="number" step="1" min="4" max="104"
+                                               class="form-control form-control-sm opcion-param"
+                                               id="cfg_estabilizar_n" name="estabilizar_n_semanas" value="52"
+                                               style="width: 90px;" disabled>
+                                        <span class="small text-muted">semanas</span>
+                                        <div class="invalid-feedback small w-100"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

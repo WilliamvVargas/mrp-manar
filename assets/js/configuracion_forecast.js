@@ -17,7 +17,8 @@ $(document).ready(function() {
             { data: 'nombre', render: $.fn.dataTable.render.text() },
             { data: 'imputar_censura', className: 'text-center', render: badgeToggle },
             { data: 'capar_outliers',  className: 'text-center', render: badgeToggle },
-            { data: 'ensamble',        className: 'text-center', render: badgeToggle }
+            { data: 'ensamble',        className: 'text-center', render: badgeToggle },
+            { data: 'estabilizar_poco_historico', className: 'text-center', render: badgeToggle }
         ]
     });
 
@@ -42,9 +43,11 @@ $(document).ready(function() {
     function resetParametrosOpciones() {
         $('#cfg_capar_k').val('10');
         $('#cfg_ensamble_peso').val(50);
+        $('#cfg_estabilizar_n').val('52');
         actualizarLecturaPeso();
         sincronizarParametro($('#cfg_capar_outliers'), $('#cfg_capar_k'));
         sincronizarParametro($('#cfg_ensamble'), $('#cfg_ensamble_peso'));
+        sincronizarParametro($('#cfg_estabilizar'), $('#cfg_estabilizar_n'));
     }
 
     $('#cfg_capar_outliers').on('change', function() {
@@ -52,6 +55,9 @@ $(document).ready(function() {
     });
     $('#cfg_ensamble').on('change', function() {
         sincronizarParametro($(this), $('#cfg_ensamble_peso'));
+    });
+    $('#cfg_estabilizar').on('change', function() {
+        sincronizarParametro($(this), $('#cfg_estabilizar_n'));
     });
     $('#cfg_ensamble_peso').on('input', actualizarLecturaPeso);
 
@@ -106,8 +112,9 @@ $(document).ready(function() {
                     if (res.type === 'fields') {
                         renderizarErroresCampos(formulario, res.errors);
                         // Despliega el panel del parámetro con error para que el mensaje sea visible.
-                        if (res.errors.capar_k)             abrirPanelOpcion('#op-body-outliers');
+                        if (res.errors.capar_k)               abrirPanelOpcion('#op-body-outliers');
                         if (res.errors.ensamble_peso_prophet) abrirPanelOpcion('#op-body-ensamble');
+                        if (res.errors.estabilizar_n_semanas) abrirPanelOpcion('#op-body-estabilizar');
                     }
                     mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
                 }

@@ -40,13 +40,15 @@ switch ($action) {
 
         $nombre = trim($_POST['nombre'] ?? '');
         // Los interruptores llegan solo si están marcados (checkbox value="1"); ausente => 0.
-        $imputar  = isset($_POST['imputar_censura']) ? 1 : 0;
-        $capar    = isset($_POST['capar_outliers'])  ? 1 : 0;
-        $ensamble = isset($_POST['ensamble'])        ? 1 : 0;
+        $imputar     = isset($_POST['imputar_censura']) ? 1 : 0;
+        $capar       = isset($_POST['capar_outliers'])  ? 1 : 0;
+        $ensamble    = isset($_POST['ensamble'])        ? 1 : 0;
+        $estabilizar = isset($_POST['estabilizar_poco_historico']) ? 1 : 0;
 
         // Parámetros: solo aplican si su opción está activa; si no, se guarda el valor por defecto.
         $caparK    = 10.0;   // por defecto
         $pesoProph = 50;     // por defecto (Prophet 50% / Estacional 50%)
+        $estabN    = 52;     // por defecto (semanas de referencia del suavizado)
 
         $errores = [];
         if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
@@ -73,10 +75,20 @@ switch ($action) {
             }
         }
 
+        // Semanas de referencia del suavizado (entero 4–104). Se valida solo si la opción está activa.
+        if ($estabilizar) {
+            $nRaw = trim($_POST['estabilizar_n_semanas'] ?? '');
+            if ($nRaw === '' || !ctype_digit($nRaw) || (int) $nRaw < 4 || (int) $nRaw > 104) {
+                $errores['estabilizar_n_semanas'] = 'Ingrese un valor entre <b>4</b> y <b>104</b> semanas.';
+            } else {
+                $estabN = (int) $nRaw;
+            }
+        }
+
         enviarErrorCamposFormulario($errores);
 
         try {
-            $configModel->crear($empresaId, $nombre, $imputar, $capar, $caparK, $ensamble, $pesoProph, $_SESSION['usuario_id']);
+            $configModel->crear($empresaId, $nombre, $imputar, $capar, $caparK, $ensamble, $pesoProph, $estabilizar, $estabN, $_SESSION['usuario_id']);
             echo json_encode(['status' => 'success', 'message' => 'Configuración creada con éxito.']);
         } catch (PDOException $e) {
             responderErrorServidor($e);
@@ -111,7 +123,7 @@ switch ($action) {
         $consulta = trim($_GET['consulta'] ?? '');   // buscador (#consulta) por nombre
 
         // Columna y dirección de ordenamiento (índice -> nombre lógico).
-        $columnas     = [0 => 'nombre', 1 => 'imputar_censura', 2 => 'capar_outliers', 3 => 'ensamble'];
+        $columnas     = [0 => 'nombre', 1 => 'imputar_censura', 2 => 'capar_outliers', 3 => 'ensamble', 4 => 'estabilizar_poco_historico'];
         $idxOrden     = isset($_GET['order'][0]['column']) ? (int) $_GET['order'][0]['column'] : null;
         $columnaOrden = ($idxOrden !== null && isset($columnas[$idxOrden])) ? $columnas[$idxOrden] : 'nombre';
         $dirOrden     = $_GET['order'][0]['dir'] ?? 'asc';

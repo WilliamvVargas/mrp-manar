@@ -178,6 +178,8 @@ CREATE TABLE `forecast_configuracion` (
   `capar_k` decimal(4,1) NOT NULL DEFAULT 10.0,
   `ensamble` tinyint(1) NOT NULL DEFAULT 0,
   `ensamble_peso_prophet` tinyint(3) unsigned NOT NULL DEFAULT 50,
+  `estabilizar_poco_historico` tinyint(1) NOT NULL DEFAULT 0,
+  `estabilizar_n_semanas` smallint(5) unsigned NOT NULL DEFAULT 52,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` char(36) DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
