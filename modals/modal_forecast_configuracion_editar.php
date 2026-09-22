@@ -1,25 +1,23 @@
 <?php require_once __DIR__ . '/../config/config.php'; ?>
 
-<style>
-    .opciones-forecast .opcion-toggle:focus { box-shadow: none; }
-    .opciones-forecast .opcion-chevron { transition: transform .18s ease; }
-    .opciones-forecast .opcion-toggle[aria-expanded="true"] .opcion-chevron { transform: rotate(90deg); }
-</style>
-
-<div class="modal fade" id="modalForecastConfiguracion" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalForecastConfiguracionEditar" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content border-0 shadow-sm">
             <div class="modal-header bg-dark text-white py-2">
-                <h6 class="modal-title"><i class="bi bi-gear me-2"></i>Configuración del Forecast</h6>
+                <h6 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Editar Configuración del Forecast</h6>
                 <button type="button"
                         class="btn-close btn-close-white"
                         data-bs-dismiss="modal"
                         aria-label="Close">
                 </button>
             </div>
-            <form id="form-forecast-config" class="form-validado-estatico" action="controllers/forecast_config_controller.php" novalidate>
+            <form id="form-forecast-config-editar" class="form-validado-estatico" action="controllers/forecast_config_controller.php" novalidate>
                 <div class="modal-body py-2">
-                    <?php $suf = ''; include __DIR__ . '/_forecast_config_campos.php'; ?>
+
+                    <!-- Id de la configuración que se está editando (lo usa la validación de unicidad) -->
+                    <input type="hidden" id="id_forecast_config_editar" name="id_registro">
+
+                    <?php $suf = '_ed'; include __DIR__ . '/_forecast_config_campos.php'; ?>
                 </div>
                 <div class="modal-footer bg-light py-2">
                     <button type="button"
@@ -29,8 +27,8 @@
                     </button>
                     <button type="submit"
                             class="btn btn-sm btn-primary"
-                            id="btnGuardarForecastConfig">
-                        <i class="bi bi-save me-1"></i> Guardar
+                            id="btnActualizarForecastConfig">
+                        <i class="bi bi-save me-1"></i> Actualizar
                     </button>
                 </div>
             </form>

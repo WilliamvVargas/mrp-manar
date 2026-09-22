@@ -151,6 +151,105 @@ switch ($action) {
         }
         exit;
 
+    case 'obtener':
+
+        $id = $_GET['id'] ?? 0;
+
+        try {
+            $config = $configModel->buscarPorId($id, $empresaId);
+            if ($config) {
+                echo json_encode(['status' => 'success', 'data' => $config]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Configuración no encontrada.']);
+            }
+        } catch (PDOException $e) {
+            responderErrorServidor($e, null);
+        }
+        exit;
+
+    case 'actualizar':
+
+        retrasar();
+
+        $id     = $_POST['id_registro'] ?? 0;
+        $nombre = trim($_POST['nombre'] ?? '');
+        // Los interruptores llegan solo si están marcados (checkbox value="1"); ausente => 0.
+        $imputar     = isset($_POST['imputar_censura']) ? 1 : 0;
+        $capar       = isset($_POST['capar_outliers'])  ? 1 : 0;
+        $ensamble    = isset($_POST['ensamble'])        ? 1 : 0;
+        $estabilizar = isset($_POST['estabilizar_poco_historico']) ? 1 : 0;
+
+        // Parámetros: solo aplican si su opción está activa; si no, se guarda el valor por defecto.
+        $caparK    = 10.0;
+        $pesoProph = 50;
+        $estabN    = 52;
+
+        $errores = [];
+        if ($err = validarCampoTexto($nombre, 'Nombre', $REGLAS_NOMBRE)) {
+            $errores['nombre'] = $err;
+        }
+        if ($capar) {
+            $kRaw = str_replace(',', '.', trim($_POST['capar_k'] ?? ''));
+            if ($kRaw === '' || !is_numeric($kRaw) || (float) $kRaw < 1 || (float) $kRaw > 50) {
+                $errores['capar_k'] = 'Ingrese un umbral entre <b>1</b> y <b>50</b>.';
+            } else {
+                $caparK = round((float) $kRaw, 1);
+            }
+        }
+        if ($ensamble) {
+            $pRaw = trim($_POST['ensamble_peso_prophet'] ?? '');
+            if ($pRaw === '' || !ctype_digit($pRaw) || (int) $pRaw < 0 || (int) $pRaw > 100) {
+                $errores['ensamble_peso_prophet'] = 'Ingrese un peso entre <b>0</b> y <b>100</b>.';
+            } else {
+                $pesoProph = (int) $pRaw;
+            }
+        }
+        if ($estabilizar) {
+            $nRaw = trim($_POST['estabilizar_n_semanas'] ?? '');
+            if ($nRaw === '' || !ctype_digit($nRaw) || (int) $nRaw < 4 || (int) $nRaw > 104) {
+                $errores['estabilizar_n_semanas'] = 'Ingrese un valor entre <b>4</b> y <b>104</b> semanas.';
+            } else {
+                $estabN = (int) $nRaw;
+            }
+        }
+
+        enviarErrorCamposFormulario($errores);
+
+        try {
+            $filas = $configModel->actualizar($id, $empresaId, $nombre, $imputar, $capar, $caparK, $ensamble, $pesoProph, $estabilizar, $estabN, $_SESSION['usuario_id']);
+            if ($filas > 0) {
+                echo json_encode(['status' => 'success', 'message' => 'Configuración actualizada con éxito.']);
+            } else {
+                echo json_encode(['status' => 'no_changes', 'message' => 'No se realizaron cambios.']);
+            }
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
+    case 'eliminar':
+
+        retrasar();
+
+        $id = (int) ($_POST['id'] ?? 0);
+
+        if ($id < 1) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Identificador no válido.']);
+            exit;
+        }
+
+        try {
+            if ($configModel->eliminar($id, $empresaId) > 0) {
+                echo json_encode(['status' => 'success', 'message' => 'Configuración eliminada con éxito.']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'La configuración que intenta eliminar no existe.']);
+            }
+        } catch (PDOException $e) {
+            responderErrorServidor($e);
+        }
+        exit;
+
     default:
         http_response_code(400);
         echo json_encode(['status' => 'error', 'message' => 'Acción no válida.']);

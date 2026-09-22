@@ -52,11 +52,12 @@
                 <table class="table table-hover align-middle" id="tabla-consulta" style="width:100%">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 32%">Nombre</th>
-                            <th style="width: 17%" class="text-center">Imputar Censura</th>
-                            <th style="width: 17%" class="text-center">Suavizar Outliers</th>
-                            <th style="width: 17%" class="text-center">Ensamble</th>
-                            <th style="width: 17%" class="text-center">Estabilizar Poco Histórico</th>
+                            <th style="width: 26%">Nombre</th>
+                            <th style="width: 16%" class="text-center">Imputar Censura</th>
+                            <th style="width: 16%" class="text-center">Suavizar Outliers</th>
+                            <th style="width: 16%" class="text-center">Ensamble</th>
+                            <th style="width: 16%" class="text-center">Estabilizar Poco Histórico</th>
+                            <th style="width: 10%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -69,6 +70,8 @@
 
 <?php
     include 'modals/modal_forecast_configuracion.php';
+    include 'modals/modal_forecast_configuracion_editar.php';
+    include 'modals/modal_forecast_configuracion_eliminar.php';
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
