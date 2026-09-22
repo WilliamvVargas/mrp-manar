@@ -3,14 +3,21 @@
     // activa la resuelve el navbar ($empresaActivaId), que se incluye antes que este modal.
     // El forecast SOLO puede correr sobre una empresa + versión concretas (no mezcla el resto).
     require_once __DIR__ . '/../models/presupuesto_model.php';
+    require_once __DIR__ . '/../models/forecast_config_model.php';
     $empresaExplosionId  = $empresaActivaId ?? ($_SESSION['empresa_id'] ?? '');
     $empresaExplosionNom = $empresaActiva['nombre'] ?? '';
     $versionesExplosion  = [];
+    $configsExplosion    = [];   // configuraciones de forecast de la empresa activa (id + nombre)
     if ($empresaExplosionId !== '') {
         try {
             $versionesExplosion = (new Presupuesto($pdo, $empresaExplosionId))->versionesDisponibles();
         } catch (Throwable $e) {
             $versionesExplosion = [];
+        }
+        try {
+            $configsExplosion = (new ForecastConfig($pdo))->listarNombres($empresaExplosionId);
+        } catch (Throwable $e) {
+            $configsExplosion = [];
         }
     }
 ?>
@@ -36,12 +43,12 @@
 
                 <!-- Empresa activa + versión del presupuesto a usar -->
                 <div class="row g-2 mb-3 align-items-end">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label fw-bold small mb-1">Empresa activa</label>
                         <input type="text" class="form-control form-control-sm" readonly
                                value="<?php echo htmlspecialchars($empresaExplosionNom !== '' ? $empresaExplosionNom : '(sin empresa activa)'); ?>">
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label fw-bold small mb-1" for="explosion-version">Versión del presupuesto</label>
                         <select class="form-select form-select-sm" id="explosion-version"
                                 <?php echo empty($versionesExplosion) ? 'disabled' : ''; ?>>
@@ -52,6 +59,15 @@
                                     <option value="<?php echo htmlspecialchars($v); ?>"><?php echo htmlspecialchars($v); ?></option>
                                 <?php endforeach; ?>
                             <?php endif; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small mb-1" for="explosion-configuracion">Configuración</label>
+                        <select class="form-select form-select-sm" id="explosion-configuracion">
+                            <option value="">Por Defecto</option>
+                            <?php foreach ($configsExplosion as $c): ?>
+                                <option value="<?php echo (int) $c['id']; ?>"><?php echo htmlspecialchars($c['nombre']); ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                 </div>

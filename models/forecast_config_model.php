@@ -16,6 +16,21 @@
             $this->pdo = $pdo;
         }
 
+        /**
+         * Lista id + nombre de las configuraciones de la empresa (para selectores). Ordenado por nombre.
+         *
+         * @param string|null $empresaId
+         * @return array
+         */
+        public function listarNombres($empresaId)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT id, nombre FROM forecast_configuracion WHERE empresa_id <=> ? ORDER BY nombre ASC"
+            );
+            $stmt->execute([$empresaId]);
+            return $stmt->fetchAll();
+        }
+
         /** Total de configuraciones de la empresa (sin filtro). */
         public function contarTodos($empresaId)
         {
