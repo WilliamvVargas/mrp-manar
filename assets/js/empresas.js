@@ -26,6 +26,18 @@ $(document).ready(function() {
             { data: 'nombre', render: $.fn.dataTable.render.text() },
             { data: 'fecha' },
             {
+                // Nivel de servicio del MRP: se guarda el factor Z; se muestra como % (+ Z).
+                data: 'mrp_z_seguridad',
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(z) {
+                    const zz = parseFloat(z);
+                    if (isNaN(zz)) { return '<span class="text-muted">—</span>'; }
+                    return coma(pctPorZ(zz)) + '% <span class="text-muted">· Z ' + coma(zz.toFixed(2)) + '</span>';
+                }
+            },
+            {
                 // Acciones: Conexión SAP / Editar / Eliminar (Eliminar pendiente).
                 data: 'id',
                 orderable: false,
@@ -81,6 +93,65 @@ $(document).ready(function() {
             $('#' + $(this).attr('id')).closest('.mb-2').find('.invalid-feedback').text('');
         }
     });
+
+    // ============================================================
+    //  NIVEL DE SERVICIO (Z) DEL MRP  — slider en % que guarda el factor Z
+    // ============================================================
+
+    // El slider se mueve en NIVEL DE SERVICIO (%) en pasos de 0,5%, y guardamos el factor Z
+    // correspondiente (columna mrp_z_seguridad) en el hidden. El % es intuitivo y los pasos
+    // acotados impiden ingresar valores sin sentido.
+    const NS_MIN = 80, NS_MAX = 99.5, NS_STEP = 0.5, NS_DEFAULT_PCT = 95;
+    const coma = function(v) { return String(v).replace('.', ','); };
+
+    // Inversa de la normal estándar (probit): z tal que P(Z<=z)=p. Aproximación de Acklam
+    // (error < 1,15e-9). Convierte el nivel de servicio (p) al factor Z de la fórmula del SS.
+    function probit(p) {
+        if (p <= 0) { return -Infinity; }
+        if (p >= 1) { return Infinity; }
+        const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+        const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+        const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+        const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+        const plow = 0.02425, phigh = 1 - plow;
+        let q, r;
+        if (p < plow) {
+            q = Math.sqrt(-2 * Math.log(p));
+            return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+        }
+        if (p <= phigh) {
+            q = p - 0.5; r = q * q;
+            return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+        }
+        q = Math.sqrt(-2 * Math.log(1 - p));
+        return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+    }
+
+    // Factor Z (2 decimales) para un nivel de servicio dado en %.
+    function zDePct(pct) { return Math.round(probit(pct / 100) * 100) / 100; }
+
+    // Refresca la lectura (label) y el hidden Z a partir del % del slider.
+    function actualizarNivelServicio() {
+        let pct = parseFloat($('#mrp_nivel_servicio_editar').val());
+        if (isNaN(pct)) { pct = NS_DEFAULT_PCT; }
+        const z = zDePct(pct);
+        const pctTxt = (pct % 1 === 0) ? String(pct) : pct.toFixed(1);
+        $('#mrp_nivel_servicio_out_editar').text(coma(pctTxt) + '% · Z ' + coma(z.toFixed(2)));
+        $('#mrp_z_seguridad_editar').val(z);
+    }
+    $(document).on('input', '#mrp_nivel_servicio_editar', actualizarNivelServicio);
+
+    // Dado el Z guardado, ubica el % del slider cuyo Z esté más cerca (recorre la grilla de 0,5%).
+    function pctPorZ(z) {
+        const zz = parseFloat(z);
+        if (isNaN(zz)) { return NS_DEFAULT_PCT; }
+        let best = NS_DEFAULT_PCT, bestD = Infinity;
+        for (let p = NS_MIN; p <= NS_MAX + 1e-9; p += NS_STEP) {
+            const d = Math.abs(zDePct(p) - zz);
+            if (d < bestD) { bestD = d; best = p; }
+        }
+        return best;
+    }
 
     // ============================================================
     //  ASIGNAR POSICIÓN (widget reutilizable, igual que Menús)
@@ -260,6 +331,10 @@ $(document).ready(function() {
                     $('#nombre_editar').val(res.data.nombre);
                     // Empresa WMS asociada (persistencia en BD pendiente; hoy queda "Sin asociar").
                     $('#empresa_wms_editar').val(res.data.empresa_wms || '');
+                    // Nivel de servicio del MRP: ubica el slider en el % más cercano al Z guardado
+                    // y sincroniza la lectura y el hidden Z.
+                    $('#mrp_nivel_servicio_editar').val(pctPorZ(res.data.mrp_z_seguridad != null ? res.data.mrp_z_seguridad : 1.65));
+                    actualizarNivelServicio();
 
                     // Posición: muestra la actual; el hidden queda vacío (= sin cambio) hasta
                     // que el usuario elija otra en el selector. Habilita el botón "Asignar".

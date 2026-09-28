@@ -181,6 +181,8 @@
             $nombre     = trim($_POST['nombre'] ?? '');
             $posicion   = $_POST['posicion'] ?? '';   // vacío = no reordena
             $empresaWms = trim($_POST['empresa_wms'] ?? '');
+            // Factor Z del stock de seguridad del MRP (acepta coma o punto decimal).
+            $zRaw       = str_replace(',', '.', trim($_POST['mrp_z_seguridad'] ?? ''));
 
             $errores = [];
 
@@ -198,6 +200,14 @@
             // Empresa WMS (obligatoria).
             if ($err = validarEmpresaWms($empresaWms)) {
                 $errores['empresa_wms'] = $err;
+            }
+
+            // Nivel de servicio Z (obligatorio): número entre 0 y 5, 2 decimales.
+            $zVal = null;
+            if ($zRaw === '' || !is_numeric($zRaw) || (float) $zRaw < 0 || (float) $zRaw > 5) {
+                $errores['mrp_z_seguridad'] = 'Ingrese un factor <b>Z</b> entre <b>0</b> y <b>5</b> (ej: 1,65 = 95%).';
+            } else {
+                $zVal = round((float) $zRaw, 2);
             }
 
             // Logo nuevo (opcional).
@@ -221,9 +231,10 @@
                 $hayPosicion  = (is_numeric($posicion) && (int) $posicion >= 1
                                  && (int) $posicion !== (int) $actual['posicion']);
                 $cambioWms    = ((int) $empresaWms !== (int) $actual['empresa_wms']);
+                $cambioZ      = (round((float) $actual['mrp_z_seguridad'], 2) !== $zVal);
 
-                // Sin cambios: mismo nombre, misma Empresa WMS, sin logo nuevo y sin reordenar.
-                if ($actual['nombre'] === $nombre && !$cambioWms && !$hayLogoNuevo && !$hayPosicion) {
+                // Sin cambios: mismo nombre, misma Empresa WMS, mismo Z, sin logo nuevo y sin reordenar.
+                if ($actual['nombre'] === $nombre && !$cambioWms && !$cambioZ && !$hayLogoNuevo && !$hayPosicion) {
                     echo json_encode(['status' => 'no_changes', 'message' => 'No se realizaron cambios.']);
                     exit;
                 }
@@ -239,7 +250,7 @@
                     }
                 }
 
-                $empresaModel->actualizar($id, $nombre, $logoFinal, $_SESSION['usuario_id'] ?? null, (int) $empresaWms);
+                $empresaModel->actualizar($id, $nombre, $logoFinal, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal);
 
                 // Reordena si se eligió una posición distinta.
                 if ($hayPosicion) {

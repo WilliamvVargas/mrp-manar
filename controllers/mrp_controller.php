@@ -60,6 +60,16 @@
                 $forecastModel = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
                 $base = $forecastModel->listarPagina('', '', '', '', [], 0, -1);
 
+                // Nivel de servicio (factor Z) de la empresa, para el stock de seguridad ESTADÍSTICO
+                // de la ficha (SS = Z × σ × √LT). Default 1,65 (95%) si la empresa no lo tiene fijado.
+                $zSeg = 1.65;
+                try {
+                    $stZ = $pdo->prepare("SELECT mrp_z_seguridad FROM empresas WHERE id = ?");
+                    $stZ->execute([$_SESSION['empresa_id'] ?? null]);
+                    $zVal = $stZ->fetchColumn();
+                    if ($zVal !== false && $zVal !== null) { $zSeg = (float) $zVal; }
+                } catch (Throwable $e) { /* se mantiene el default */ }
+
                 // Serie semanal del forecast por producto (ordenada), para sumar el horizonte del
                 // lead time. Guarda la semana (lunes ISO) y la demanda de cada punto.
                 $serie = [];
@@ -109,14 +119,35 @@
                 // historia propia ni U_LeadTime.
                 $leadDefaultSem = 4;
 
+                // 3.4) DEMANDA REAL semanal por producto (SAP: facturas − NC), últimas 52 semanas
+                // COMPLETAS, agregada a semana ISO (lunes). Alimenta el σ del stock de seguridad
+                // ESTADÍSTICO de la ficha. Es la MISMA fuente/criterio que entrena el forecast, pero
+                // aquí se usa la venta real (no el forecast suave): el SS debe cubrir la variabilidad
+                // real de la demanda, que el forecast por definición no tiene.
+                $SIGMA_SEMANAS = 52;
+                $finSigma   = date('Y-m-d', strtotime($lunesActual . ' -1 day'));                       // domingo: última semana completa
+                $desdeSigma = date('Y-m-d', strtotime($lunesActual . ' -' . ($SIGMA_SEMANAS * 7) . ' days'));
+                $demRealSem = [];   // [cod][lunesISO] => unidades reales de la semana
+                foreach ((new ConsultaSap($pdoSqlsrv))->demandaDiariaPorArticulo($desdeSigma, $finSigma) as $r) {
+                    $cod = trim($r['CodArticulo']);
+                    $lun = date('Y-m-d', strtotime('monday this week', strtotime($r['Fecha'] . ' 12:00:00')));
+                    $demRealSem[$cod][$lun] = ($demRealSem[$cod][$lun] ?? 0.0) + (float) $r['Cantidad'];
+                }
+
                 // 3.5) Entradas EN CAMINO por producto y SEMANA de llegada (lunes ISO): OC +
                 // facturas de reserva + producción, con su fecha esperada. Habilita el time-phase:
                 // cada recepción suma al saldo en la semana en que realmente llega.
+                // REGLA (vencidas): las OC/recepciones que DEBIERON llegar semanas atrás pero siguen
+                // ABIERTAS (fecha de llegada anterior a la semana actual) se acumulan en la PRIMERA
+                // semana ($lunesActual), sumándose a lo que llega esa semana. La mercadería atrasada
+                // sigue esperándose, así que cuenta desde ya para el saldo proyectado en vez de perderse
+                // en una semana pasada fuera del horizonte.
                 $entradas = [];
                 foreach ((new ConsultaSap($pdoSqlsrv))->entradasEnCaminoPorSemana() as $r) {
                     if (empty($r['Fecha'])) { continue; }
                     $cod = trim($r['ItemCode']);
                     $lun = date('Y-m-d', strtotime('monday this week', strtotime($r['Fecha'] . ' 12:00:00')));
+                    if ($lun < $lunesActual) { $lun = $lunesActual; }   // vencida y abierta -> a la 1ª semana
                     $entradas[$cod][$lun] = ($entradas[$cod][$lun] ?? 0) + (float) $r['Cantidad'];
                 }
 
@@ -173,6 +204,30 @@
                     } else {
                         $leadSem = $leadDefaultSem;
                     }
+
+                    // Stock de seguridad ESTADÍSTICO (para la FICHA): SS = Z × σ × √LT, todo en
+                    // SEMANAS. σ = desviación estándar MUESTRAL de la demanda real semanal en la
+                    // ventana (últimas 52 sem completas), rellenando con 0 las semanas SIN venta
+                    // desde la primera venta del producto en la ventana (esos ceros son variabilidad
+                    // real). LT en semanas ($leadSem). Es un valor por producto (no depende del
+                    // horizonte de la vista). NO afecta a la proyección time-phased ni a la columna
+                    // semanal "Stock de Seguridad" (rolling), que se calculan aparte más abajo.
+                    $sigmaSem  = 0.0;
+                    $serieReal = $demRealSem[$cod] ?? [];
+                    if ($serieReal) {
+                        ksort($serieReal);
+                        $primera  = array_key_first($serieReal);   // lunes de la 1ª semana con venta
+                        // Semanas calendario desde la 1ª venta hasta el fin de ventana (inclusive).
+                        $nSemReal = (int) floor((strtotime($finSigma) - strtotime($primera)) / (7 * 86400)) + 1;
+                        if ($nSemReal < count($serieReal)) { $nSemReal = count($serieReal); }
+                        $mediaR = array_sum($serieReal) / $nSemReal;
+                        $sumSq  = 0.0;
+                        foreach ($serieReal as $v) { $sumSq += ($v - $mediaR) * ($v - $mediaR); }
+                        $ceros  = $nSemReal - count($serieReal);            // semanas sin venta (=0)
+                        if ($ceros > 0) { $sumSq += $ceros * ($mediaR * $mediaR); }
+                        $sigmaSem = ($nSemReal > 1) ? sqrt($sumSq / ($nSemReal - 1)) : 0.0;
+                    }
+                    $stockSegEst = (int) round($zSeg * $sigmaSem * sqrt(max(1, $leadSem)));
 
                     // Ventana futura del forecast (desde la semana actual), acotada al MÁXIMO de
                     // cálculo (fijo), no al horizonte de la vista.
@@ -231,10 +286,11 @@
                     }
 
                     // Arranque de la proyección = Stock Físico, ajustado solo por OV / producción
-                    // SIN fecha (compromisos sin semana asignada). Los documentos VENCIDOS (llegada
-                    // o entrega con fecha ya pasada) se IGNORAN: no se suma la OC atrasada ni se
-                    // restan las OV/producción vencidas. El saldo parte del stock real y solo se
-                    // mueve con lo que tiene fecha DENTRO del horizonte (time-phase).
+                    // SIN fecha (compromisos sin semana asignada). Las OV/producción VENCIDAS (entrega
+                    // con fecha ya pasada) se IGNORAN. Las OC/recepciones vencidas y abiertas NO se
+                    // ignoran: se acumulan en la primera semana (ver bloque 3.5 de Entradas), así que
+                    // entran al saldo vía la recepción de esa semana. El saldo parte del stock real y
+                    // solo se mueve con lo que tiene fecha DENTRO del horizonte (time-phase).
                     $saldoInicial = $stock - $ovSF - $prodSF;
 
                     // Proyección TIME-PHASED (lot-for-lot): cada semana SUMA lo que llega esa semana
@@ -317,6 +373,11 @@
                         'stock_min'        => (float) ($abast[$cod]['StockMin'] ?? 0),
                         'stock_max'        => (float) ($abast[$cod]['StockMax'] ?? 0),
                         'lead_time'        => $leadSem,               // lead time usado (semanas)
+                        // Stock de seguridad ESTADÍSTICO de la ficha (SS = Z × σ × √LT, en semanas).
+                        // Valor por producto; σ y Z se envían para el tooltip explicativo.
+                        'stock_seguridad_est' => $stockSegEst,
+                        'sigma_semanal'    => round($sigmaSem, 1),
+                        'z_seguridad'      => $zSeg,
                         'stock_wms'        => round($stock),
                         'stock_por_vencer' => round($porVencer),
                         'dias_prox_venc'   => $diasProxVenc,

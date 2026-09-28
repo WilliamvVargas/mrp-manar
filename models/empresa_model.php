@@ -230,6 +230,7 @@
                            e.nombre,
                            e.logo,
                            e.posicion,
+                           e.mrp_z_seguridad,
                            DATE_FORMAT(e.created_at, '%d/%m/%Y %H:%i') AS fecha
                     FROM empresas e
                     $where
@@ -248,7 +249,7 @@
          */
         public function buscarPorId($id)
         {
-            $stmt = $this->pdo->prepare("SELECT id, nombre, empresa_wms, logo, posicion FROM empresas WHERE id = ?");
+            $stmt = $this->pdo->prepare("SELECT id, nombre, empresa_wms, logo, posicion, mrp_z_seguridad FROM empresas WHERE id = ?");
             $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         }
@@ -260,11 +261,11 @@
          *
          * @return int Filas afectadas.
          */
-        public function actualizar($id, $nombre, $logo = null, $modificadoPor = null, $empresaWms = null)
+        public function actualizar($id, $nombre, $logo = null, $modificadoPor = null, $empresaWms = null, $zSeguridad = null)
         {
-            $sql  = "UPDATE empresas SET nombre = ?, empresa_wms = ?, logo = ?, updated_by = ? WHERE id = ?";
+            $sql  = "UPDATE empresas SET nombre = ?, empresa_wms = ?, logo = ?, mrp_z_seguridad = ?, updated_by = ? WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([trim($nombre), $empresaWms, $logo, $modificadoPor, $id]);
+            $stmt->execute([trim($nombre), $empresaWms, $logo, $zSeguridad, $modificadoPor, $id]);
             return $stmt->rowCount();
         }
 

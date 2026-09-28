@@ -126,16 +126,27 @@ $(document).ready(function() {
         return '<span class="badge bg-success">OK</span>';
     }
 
-    // Índice por producto: demanda proyectada (efectiva) por semana (sem_idx) y lead time.
-    // Alimenta el Stock de Seguridad de la ficha. Se reconstruye en cada carga de datos.
+    // Índice por producto: demanda proyectada (efectiva) por semana (sem_idx), lead time y el
+    // stock de seguridad ESTADÍSTICO por producto (con su σ y Z para el tooltip). Alimenta el
+    // Stock de Seguridad de la ficha. Se reconstruye en cada carga de datos.
     let demPorProd  = {};
     let sugPorProd  = {};
     let leadPorProd = {};
+    let segEstPorProd = {};   // SS = Z × σ × √LT (por producto)
+    let sigmaPorProd  = {};   // σ semanal de la demanda real
+    let zPorProd      = {};   // factor Z (nivel de servicio) de la empresa
     function indexarProductos(filas) {
         demPorProd = {}; sugPorProd = {}; leadPorProd = {};
+        segEstPorProd = {}; sigmaPorProd = {}; zPorProd = {};
         (filas || []).forEach(function(f) {
             const c = f.producto_codigo;
-            if (demPorProd[c] === undefined) { demPorProd[c] = []; sugPorProd[c] = []; leadPorProd[c] = Number(f.lead_time) || 0; }
+            if (demPorProd[c] === undefined) {
+                demPorProd[c] = []; sugPorProd[c] = [];
+                leadPorProd[c]   = Number(f.lead_time) || 0;
+                segEstPorProd[c] = Number(f.stock_seguridad_est) || 0;
+                sigmaPorProd[c]  = Number(f.sigma_semanal) || 0;
+                zPorProd[c]      = Number(f.z_seguridad) || 0;
+            }
             if (f.semana) {
                 const i = Number(f.sem_idx) || 0;
                 demPorProd[c][i] = Number(f.demanda_efectiva) || 0;
@@ -144,16 +155,23 @@ $(document).ready(function() {
         });
     }
 
-    // Stock de Seguridad (FICHA) = (Σ demanda proyectada del horizonte ÷ nº de semanas del
-    // horizonte) × lead time. Distinto de la columna "Cobertura Lead Time". Usa el horizonte
-    // ACTUAL de la vista, así que se recalcula solo al cambiarlo (drawCallback repinta la ficha).
+    // Stock de Seguridad (FICHA) = SS = Z × σ × √LT (todo en semanas), calculado en el servidor:
+    // Z = nivel de servicio de la empresa, σ = desviación estándar de la demanda REAL semanal
+    // (últimas 52 sem), LT = lead time en semanas. Valor por producto: NO depende del horizonte
+    // de la vista (a diferencia del cálculo anterior). Es distinto de la columna semanal "Stock
+    // de Seguridad" (rolling), que sigue alimentando la proyección time-phased.
     function stockSegFicha(cod) {
-        const arr = demPorProd[cod] || [];
-        const h   = parseInt($('#mrp-horizonte').val() || '4', 10);
-        const win = arr.slice(0, h).filter(function(v) { return v !== undefined; });
-        if (!win.length) { return 0; }
-        const prom = win.reduce(function(a, b) { return a + b; }, 0) / win.length;
-        return Math.round(prom * (leadPorProd[cod] || 0));
+        return segEstPorProd[cod] || 0;
+    }
+
+    // Tooltip explicativo de la fórmula del stock de seguridad de la ficha.
+    function tooltipSegFicha(cod) {
+        const z  = zPorProd[cod] || 0;
+        const s  = sigmaPorProd[cod] || 0;
+        const lt = leadPorProd[cod] || 0;
+        return 'SS = Z × σ × √LT = ' + z.toLocaleString('es-CL') + ' × '
+             + formatearEntero(s) + ' × √' + lt + ' = ' + formatearEntero(stockSegFicha(cod))
+             + '  (Z nivel de servicio, σ ' + formatearEntero(s) + '/sem de demanda real, LT ' + lt + ' sem)';
     }
 
     // Suma ACUMULADA de un valor por semana (mapa cod->[valor por sem_idx]) desde la 1ª semana del
@@ -184,7 +202,10 @@ $(document).ready(function() {
              + linea('Stock Físico', formatearEntero(row.stock_wms))
              + linea('Stock Mín', (Number(row.stock_min) > 0) ? formatearEntero(row.stock_min) : '—', 'mrp-min')
              + linea('Stock Máx', (Number(row.stock_max) > 0) ? formatearEntero(row.stock_max) : '—', 'mrp-max')
-             + linea('Stock Seguridad', formatearEntero(stockSegFicha(row.producto_codigo)), 'mrp-seg')
+             + '<div class="mrp-pl mrp-seg" title="' + tooltipSegFicha(row.producto_codigo) + '">'
+             +     '<span class="k">Stock Seguridad</span>'
+             +     '<span class="v">' + formatearEntero(stockSegFicha(row.producto_codigo)) + '</span>'
+             + '</div>'
              + linea('Próx. Lote por Vencer', (row.dias_prox_venc == null || row.dias_prox_venc === '')
                      ? '—' : formatearEntero(row.dias_prox_venc) + ' días')
              + '<div class="mrp-acciones">'
@@ -244,6 +265,25 @@ $(document).ready(function() {
         const row = settings.aoData[dataIndex]._aData;
         const h   = parseInt($('#mrp-horizonte').val() || '4', 10);
         return (Number(row && row.sem_idx) || 0) < h;
+    });
+
+    // Filtro "En Quiebre" (client-side, a nivel PRODUCTO: usa estado/estado_sem de la fila, que
+    // se repiten en todas las semanas del producto). Opciones:
+    //   ''=Ver Todo · 'con'=con quiebre · 'sin'=sin quiebre · '0'=quiebre esta semana ·
+    //   '1'..'7'=quiebre exactamente en N semanas · '8+'=quiebre en 8 semanas o más.
+    //   estado_sem solo es válido si estado==='quiebre'.
+    $.fn.dataTable.ext.search.push(function(settings, dataArr, dataIndex) {
+        if (settings.nTable.id !== 'tabla-consulta-mrp') { return true; }
+        const val = $('#filtro-quiebre').val() || '';
+        if (val === '') { return true; }                 // Ver Todo
+        const row = settings.aoData[dataIndex]._aData;
+        const enQuiebre = (row && row.estado === 'quiebre');
+        if (val === 'con') { return enQuiebre; }
+        if (val === 'sin') { return !enQuiebre; }
+        const sem = Number(row.estado_sem) || 0;
+        if (val === '8+') { return enQuiebre && sem >= 8; }   // 8 semanas o más
+        // Valor numérico: semana exacta del quiebre (0 = actual, 1..7).
+        return enQuiebre && sem === parseInt(val, 10);
     });
 
     // Carga los datos del MRP (una sola vez; DataTable pagina/busca/ordena client-side).
@@ -400,6 +440,9 @@ $(document).ready(function() {
     // Cambiarlo solo filtra CUÁNTAS semanas se muestran por producto (client-side, instantáneo).
     $('#mrp-horizonte').on('change', function() { if (tabla) { tabla.draw(); } });
 
+    // Filtro "En Quiebre": no recalcula, solo redibuja (el custom search lo aplica).
+    $('#filtro-quiebre').on('change', function() { if (tabla) { tabla.draw(); } });
+
     // Recalcular Pronóstico: reconstruye el plan con el horizonte actual, con feedback en el botón.
     $('#btn-recalcular-pronostico').on('click', function() {
         const $btn = $(this);
@@ -410,7 +453,7 @@ $(document).ready(function() {
 
     // Botón "Limpiar": vacía filtros y buscador, y redibuja sin filtros.
     $('#btn-limpiar-filtros').on('click', function() {
-        $('#consulta-mrp, #filtro-familia, #filtro-sub-familia, #filtro-proveedor').val('');
+        $('#consulta-mrp, #filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre').val('');
         if (tabla) {
             tabla.search('').columns().search('').draw();
         }

@@ -109,6 +109,23 @@
                         </select>
                     </div>
                     <div class="col-md-2">
+                        <label class="form-label fw-bold small mb-1" for="filtro-quiebre">En Quiebre</label>
+                        <select class="form-select form-select-sm" id="filtro-quiebre" title="Filtra los productos por su estado de quiebre en el horizonte de cálculo">
+                            <option value="" selected>Ver Todo</option>
+                            <option value="con">Con Quiebre</option>
+                            <option value="sin">Sin Quiebre</option>
+                            <option value="0">Quiebre Actual</option>
+                            <option value="1">Quiebre en 1 semana</option>
+                            <option value="2">Quiebre en 2 semanas</option>
+                            <option value="3">Quiebre en 3 semanas</option>
+                            <option value="4">Quiebre en 4 semanas</option>
+                            <option value="5">Quiebre en 5 semanas</option>
+                            <option value="6">Quiebre en 6 semanas</option>
+                            <option value="7">Quiebre en 7 semanas</option>
+                            <option value="8+">Quiebre en 8 semanas o más</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label fw-bold small mb-1" for="mrp-horizonte">Horizonte</label>
                         <select class="form-select form-select-sm" id="mrp-horizonte" title="Cuántas semanas mostrar por producto (no recalcula: el plan se calcula sobre una ventana fija)">
                             <option value="1">1 Semana</option>
@@ -121,7 +138,7 @@
                             <option value="52">1 Año</option>
                         </select>
                     </div>
-                    <div class="col-md-auto d-flex align-items-end">
+                    <div class="col-md-auto ms-auto d-flex align-items-end">
                         <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros">
                             <i class="bi bi-eraser me-1"></i> Limpiar
                         </button>
@@ -142,7 +159,7 @@
                             <th style="width: 6%"  class="text-end" title="Lead time usado (semanas): mediana real del producto OC→recepción; si no hay historia, U_LeadTime o un default">Lead Time (sem)</th>
                             <th style="width: 4%"  class="text-center" title="Número correlativo de semana desde la actual (1 = esta semana, 2 = la próxima…), en orden por fecha">N° Sem</th>
                             <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
-                            <th style="width: 6%"  class="text-end" title="Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada">En Pedido</th>
+                            <th style="width: 6%"  class="text-end" title="Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada. Las OC vencidas y aún abiertas (debieron llegar semanas atrás) se acumulan en la primera semana.">En Pedido</th>
                             <th style="width: 6%"  class="text-end" title="Sale de bodega esa semana: Órdenes de Venta (por fecha de entrega) + consumo de componentes por órdenes de producción">Comprometido</th>
                             <th style="width: 6%"  class="text-end" title="Inventario teórico acumulado al cierre de esa semana, solo con documentos comprometidos: arranca del stock físico y cada semana suma En Pedido y resta Comprometido (OV + producción). No incluye forecast ni reposición sugerida.">Stock Teórico</th>
                             <th style="width: 7%"  class="text-end mrp-sep-left" title="Demanda efectiva de esa semana = mayor entre el forecast y las OV firmes con entrega esa semana. En azul cuando manda una OV.">Demanda Proyectada</th>

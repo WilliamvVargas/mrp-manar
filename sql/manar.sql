@@ -62,6 +62,7 @@ CREATE TABLE `empresas` (
   `forecast_imputar_censura` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Imputar demanda censurada por quiebre en el forecast (validado por empresa)',
   `forecast_capar_outliers` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Capar outliers (pedidos-lote) en el forecast (validado por empresa)',
   `forecast_ensamble` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Ensamble Prophet+seasonal-naive 50/50 en el forecast (validado por empresa)',
+  `mrp_z_seguridad` decimal(4,2) NOT NULL DEFAULT 1.65 COMMENT 'Factor Z (nivel de servicio) del stock de seguridad estadistico del MRP: SS = Z x sigma x sqrt(LT). 1.65=95%',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

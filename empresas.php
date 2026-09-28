@@ -52,8 +52,9 @@
                         <tr>
                             <th style="width: 8%"  class="text-center">Posición</th>
                             <th style="width: 13%" class="text-center">Logo</th>
-                            <th style="width: 40%">Nombre</th>
-                            <th style="width: 21%">Fecha de Creación</th>
+                            <th style="width: 33%">Nombre</th>
+                            <th style="width: 16%">Fecha de Creación</th>
+                            <th style="width: 12%" class="text-center" title="Nivel de servicio del stock de seguridad del MRP (y su factor Z)">Nivel de Servicio</th>
                             <th style="width: 18%" class="text-center">Acciones</th>
                         </tr>
                     </thead>
