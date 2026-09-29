@@ -24,7 +24,6 @@ $(document).ready(function() {
                 }
             },
             { data: 'nombre', render: $.fn.dataTable.render.text() },
-            { data: 'fecha' },
             {
                 // Nivel de servicio del MRP: se guarda el factor Z; se muestra como % (+ Z).
                 data: 'mrp_z_seguridad',
@@ -37,6 +36,7 @@ $(document).ready(function() {
                     return coma(pctPorZ(zz)) + '% <span class="text-muted">· Z ' + coma(zz.toFixed(2)) + '</span>';
                 }
             },
+            { data: 'fecha' },
             {
                 // Acciones: Conexión SAP / Editar / Eliminar (Eliminar pendiente).
                 data: 'id',
@@ -130,16 +130,19 @@ $(document).ready(function() {
     // Factor Z (2 decimales) para un nivel de servicio dado en %.
     function zDePct(pct) { return Math.round(probit(pct / 100) * 100) / 100; }
 
-    // Refresca la lectura (label) y el hidden Z a partir del % del slider.
-    function actualizarNivelServicio() {
-        let pct = parseFloat($('#mrp_nivel_servicio_editar').val());
+    // Refresca la lectura (label) y el hidden Z a partir del % del slider. El sufijo distingue
+    // el modal de creación ('') del de edición ('_editar'); ambos comparten esta lógica.
+    function actualizarNivelServicio(sufijo) {
+        const s = sufijo || '';
+        let pct = parseFloat($('#mrp_nivel_servicio' + s).val());
         if (isNaN(pct)) { pct = NS_DEFAULT_PCT; }
         const z = zDePct(pct);
         const pctTxt = (pct % 1 === 0) ? String(pct) : pct.toFixed(1);
-        $('#mrp_nivel_servicio_out_editar').text(coma(pctTxt) + '% · Z ' + coma(z.toFixed(2)));
-        $('#mrp_z_seguridad_editar').val(z);
+        $('#mrp_nivel_servicio_out' + s).text(coma(pctTxt) + '% · Z ' + coma(z.toFixed(2)));
+        $('#mrp_z_seguridad' + s).val(z);
     }
-    $(document).on('input', '#mrp_nivel_servicio_editar', actualizarNivelServicio);
+    $(document).on('input', '#mrp_nivel_servicio_editar', function() { actualizarNivelServicio('_editar'); });
+    $(document).on('input', '#mrp_nivel_servicio',        function() { actualizarNivelServicio(''); });
 
     // Dado el Z guardado, ubica el % del slider cuyo Z esté más cerca (recorre la grilla de 0,5%).
     function pctPorZ(z) {

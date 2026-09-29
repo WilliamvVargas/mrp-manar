@@ -70,6 +70,21 @@
                         </div>
                     </div>
 
+                    <!-- Nivel de servicio del stock de seguridad del MRP: slider en % (nivel de
+                         servicio). El % elegido se traduce al factor Z, que viaja en el hidden
+                         (name="mrp_z_seguridad") y es lo que se guarda en la BD. -->
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label fw-bold small mb-0" for="mrp_nivel_servicio">Nivel de servicio — MRP</label>
+                            <span class="small fw-semibold text-primary" id="mrp_nivel_servicio_out">95% &middot; Z 1,64</span>
+                        </div>
+                        <input type="range" min="80" max="99.5" step="0.5" value="95"
+                               class="form-range" id="mrp_nivel_servicio">
+                        <input type="hidden" id="mrp_z_seguridad" name="mrp_z_seguridad" value="1.64">
+                        <div class="form-text small">Cuánta demanda cubre el stock de seguridad (SS = Z &times; &sigma; &times; &radic;LT).</div>
+                        <div class="invalid-feedback small" id="error-mrp_z_seguridad"></div>
+                    </div>
+
                     <!-- Posición (mismo widget que el mantenedor de Menús) -->
                     <div class="mb-2">
                         <label class="form-label fw-bold small mb-1" for="input_posicion">Posición</label>
