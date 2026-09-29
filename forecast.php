@@ -71,6 +71,7 @@
                             <option value="Alta">Alta</option>
                             <option value="Media">Media</option>
                             <option value="Baja">Baja</option>
+                            <option value="Manual">Manual</option>
                         </select>
                     </div>
                     <div class="col-md-auto d-flex align-items-end">
