@@ -173,14 +173,17 @@
          */
         public function demandaSemanalPorProducto()
         {
+            // Forecast efectivo: para cada producto con carga personalizada vigente manda el
+            // forecast manual (custom); el resto usa Prophet. Mismo criterio que el mantenedor.
+            $fe = $this->forecastEfectivo();
+            $e  = $this->empresaId;
             $stmt = $this->pdo->prepare(
                 "SELECT producto_codigo, semana_inicio, SUM(demanda_forecast) AS demanda
-                 FROM forecast_x_producto
-                 WHERE empresa_id = ?
+                 FROM $fe f
                  GROUP BY producto_codigo, semana_inicio
                  ORDER BY producto_codigo, semana_inicio ASC"
             );
-            $stmt->execute([$this->empresaId]);
+            $stmt->execute([$e, $e, $e, $e]);
             return $stmt->fetchAll();
         }
 

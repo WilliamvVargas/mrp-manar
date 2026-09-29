@@ -366,6 +366,9 @@
                     $filaBase = [
                         'producto_codigo'  => $b['producto_codigo'],
                         'producto_nombre'  => $b['producto_nombre'],
+                        // Origen del forecast: 'manual' (carga personalizada vigente, manda sobre
+                        // Prophet) o 'prophet'. Para el badge "Manual" en la ficha del producto.
+                        'origen'           => $b['origen'] ?? 'prophet',
                         'familia'          => $b['familia'],
                         'sub_familia'      => $b['sub_familia'],
                         'proveedor'        => $abast[$cod]['Proveedor'] ?? null,

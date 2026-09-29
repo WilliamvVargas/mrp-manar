@@ -195,6 +195,10 @@ $(document).ready(function() {
              +     '<span class="mrp-est">' + renderEstado(row.estado, 'display', row) + '</span>'
              + '</div>'
              + '<div class="mrp-nom">' + esc(row.producto_nombre) + '</div>'
+             + (row.origen === 'manual'
+                 ? '<div class="mb-1"><span class="badge bg-info text-dark" '
+                   + 'title="Forecast cargado manualmente (personalizado); manda sobre Prophet">Manual</span></div>'
+                 : '')
              + linea('Familia', row.familia)
              + linea('Sub-Familia', row.sub_familia)
              + linea('Proveedor', row.proveedor)
