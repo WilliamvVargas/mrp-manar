@@ -44,6 +44,214 @@ function promptResumenForecast(array $h) {
 
 switch ($action) {
 
+    // Descarga una PLANTILLA .xlsx para la Carga de Forecast Personalizado. Tres columnas, con el
+    // mismo formato de la BD: Código Producto · Período (lunes ISO, yyyy-mm-dd) · Demanda. Trae 52
+    // semanas de ejemplo (un año) de un producto ficticio, para que el usuario vea el formato.
+    case 'plantilla_forecast_personalizado':
+
+        require_once __DIR__ . '/../assets/librerias/escritor_xlsx/escritor_xlsx.php';
+        try {
+            $xlsx = new EscritorXlsx('Forecast Personalizado');
+            $xlsx->encabezados(['Código Producto', 'Período', 'Demanda']);
+
+            // 52 semanas (lunes ISO) desde el lunes de la semana actual hacia adelante.
+            $lunes = strtotime('monday this week', strtotime(date('Y-m-d') . ' 12:00:00'));
+            for ($i = 0; $i < 52; $i++) {
+                $xlsx->fila([
+                    'COD-EJEMPLO',
+                    date('Y-m-d', strtotime("+$i week", $lunes)),
+                    100,
+                ]);
+            }
+            $xlsx->descargar('Plantilla_Forecast_Personalizado');
+        } catch (Throwable $e) {
+            error_log('[FORECAST][plantilla_personalizado] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => 'No se pudo generar la plantilla.']);
+        }
+        exit;
+
+    // Procesa el .xlsx de Carga Forecast Personalizado: lee (Código Producto · Período · Demanda),
+    // valida y hace upsert en forecast_x_producto_custom (empresa activa). Período se normaliza al
+    // lunes ISO de su semana. Recargar el mismo producto/semana REESCRIBE (unique key).
+    case 'cargar_personalizado':
+
+        require_once __DIR__ . '/../assets/librerias/lector_xlsx/lector_xlsx.php';
+        require_once __DIR__ . '/../models/forecast_custom_model.php';
+
+        $responder = function ($status, $message, $extra = []) {
+            echo json_encode(array_merge(['status' => $status, 'message' => $message], $extra));
+            exit;
+        };
+
+        if (empty($_SESSION['empresa_id'])) { $responder('error', 'No hay una empresa activa.'); }
+
+        if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+            $responder('error', 'No se recibió el archivo o hubo un error en la subida.');
+        }
+        $archivo = $_FILES['archivo'];
+        if (strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION)) !== 'xlsx') {
+            $responder('error', 'El archivo debe ser un Excel .xlsx.');
+        }
+        if ($archivo['size'] > 10 * 1024 * 1024) {
+            $responder('error', 'El archivo supera el tamaño máximo permitido (10 MB).');
+        }
+
+        // Lee la PRIMERA hoja (robusto ante renombres de pestaña).
+        try {
+            $lector = new LectorXlsx($archivo['tmp_name']);
+            $filas  = $lector->leerFilas(1);
+        } catch (Throwable $e) {
+            error_log('[FORECAST][cargar_personalizado] ' . $e->getMessage());
+            $responder('error', 'No se pudo leer el archivo .xlsx.');
+        }
+        if (count($filas) < 2) { $responder('error', 'El archivo no contiene registros.'); }
+
+        // Normalizador de cabecera: minúsculas, sin acentos ni espacios extra.
+        $norm = function ($t) {
+            $t = mb_strtolower(trim((string) $t), 'UTF-8');
+            $t = strtr($t, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ü'=>'u']);
+            return preg_replace('/\s+/', ' ', $t);
+        };
+        // Mapa título->columna de la fila 1.
+        $mapa = [];
+        foreach ($filas[0] as $col => $titulo) {
+            $k = $norm($titulo);
+            if ($k !== '' && !isset($mapa[$k])) { $mapa[$k] = $col; }
+        }
+        $colCod = $mapa[$norm('Código Producto')] ?? null;
+        $colPer = $mapa[$norm('Período')]         ?? null;
+        $colDem = $mapa[$norm('Demanda')]         ?? null;
+        $faltan = [];
+        if ($colCod === null) { $faltan[] = 'Código Producto'; }
+        if ($colPer === null) { $faltan[] = 'Período'; }
+        if ($colDem === null) { $faltan[] = 'Demanda'; }
+        if ($faltan) { $responder('error', 'Faltan columnas: "' . implode('", "', $faltan) . '".'); }
+
+        // Período -> lunes ISO (Y-m-d). Acepta 'yyyy-mm-dd', serial de Excel o fecha reconocible.
+        $aLunes = function ($v) {
+            $v = trim((string) $v);
+            if ($v === '') { return null; }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) { $ts = strtotime($v . ' 12:00:00'); }
+            elseif (is_numeric($v)) { $ts = ((int) round((float) $v) - 25569) * 86400 + 43200; }
+            else { $ts = strtotime($v); }
+            if (!$ts) { return null; }
+            return date('Y-m-d', strtotime('monday this week', $ts));
+        };
+
+        $registros = [];
+        $descartados = 0;
+        $total = count($filas);
+        for ($i = 1; $i < $total; $i++) {
+            $cod = trim($filas[$i][$colCod] ?? '');
+            $perRaw = trim($filas[$i][$colPer] ?? '');
+            $demRaw = trim($filas[$i][$colDem] ?? '');
+            if ($cod === '' && $perRaw === '' && $demRaw === '') { continue; }   // fila vacía
+
+            $per = $aLunes($perRaw);
+            $demOk = is_numeric(str_replace(',', '.', $demRaw));
+            $dem = $demOk ? round((float) str_replace(',', '.', $demRaw), 4) : null;
+            if ($cod === '' || $per === null || !$demOk || $dem < 0) { $descartados++; continue; }
+
+            $registros[] = ['producto_codigo' => $cod, 'semana_inicio' => $per, 'demanda_forecast' => $dem];
+        }
+
+        if (empty($registros)) {
+            $responder('error', 'No hay filas válidas para cargar.', ['errores' => ['Revisa que Período sea una fecha y Demanda un número ≥ 0.']]);
+        }
+
+        try {
+            $model = new ForecastCustom($pdo, $_SESSION['empresa_id'] ?? null);
+            $guardados = $model->guardarMasivo($registros);
+        } catch (Throwable $e) {
+            error_log('[FORECAST][cargar_personalizado] ' . $e->getMessage());
+            $responder('error', 'Ocurrió un error al guardar el forecast personalizado.');
+        }
+
+        $msg = "Se cargaron $guardados registro(s) de forecast personalizado.";
+        if ($descartados > 0) { $msg .= " Se descartaron $descartados fila(s) inválida(s)."; }
+        $responder('success', $msg, ['guardados' => $guardados, 'descartados' => $descartados]);
+
+    // Lista (agrupada por producto) el forecast personalizado cargado de la empresa activa,
+    // para el datatable del modal: código, nombre y cantidad de semanas cargadas.
+    case 'listar_personalizado':
+
+        require_once __DIR__ . '/../models/forecast_custom_model.php';
+        try {
+            $model = new ForecastCustom($pdo, $_SESSION['empresa_id'] ?? null);
+            echo json_encode(['status' => 'success', 'data' => $model->resumenPorProducto()]);
+        } catch (Throwable $e) {
+            error_log('[FORECAST][listar_personalizado] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'data' => [], 'message' => 'No se pudo cargar el listado.']);
+        }
+        exit;
+
+    // Detalle (semana a semana) del forecast personalizado de un producto (empresa activa).
+    case 'detalle_personalizado':
+
+        require_once __DIR__ . '/../models/forecast_custom_model.php';
+        $codigo = trim($_GET['producto_codigo'] ?? '');
+        if ($codigo === '') {
+            echo json_encode(['status' => 'error', 'data' => [], 'message' => 'No se indicó el producto.']);
+            exit;
+        }
+        try {
+            $model = new ForecastCustom($pdo, $_SESSION['empresa_id'] ?? null);
+            echo json_encode(['status' => 'success', 'data' => $model->detallePorProducto($codigo)]);
+        } catch (Throwable $e) {
+            error_log('[FORECAST][detalle_personalizado] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'data' => [], 'message' => 'No se pudo cargar el detalle.']);
+        }
+        exit;
+
+    // Elimina UN registro (una semana) del forecast personalizado de un producto. POST (CSRF).
+    case 'eliminar_linea_personalizado':
+
+        require_once __DIR__ . '/../models/forecast_custom_model.php';
+        $codigo = trim($_POST['producto_codigo'] ?? '');
+        $semana = trim($_POST['semana_inicio'] ?? '');
+        if ($codigo === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $semana)) {
+            echo json_encode(['status' => 'error', 'message' => 'Datos incompletos para eliminar el registro.']);
+            exit;
+        }
+        try {
+            $model    = new ForecastCustom($pdo, $_SESSION['empresa_id'] ?? null);
+            $borradas = $model->eliminarLinea($codigo, $semana);
+            if ($borradas > 0) {
+                echo json_encode(['status' => 'success', 'message' => 'Registro eliminado con éxito.']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'El registro que intenta eliminar no existe.']);
+            }
+        } catch (Throwable $e) {
+            error_log('[FORECAST][eliminar_linea_personalizado] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'No se pudo eliminar el registro.']);
+        }
+        exit;
+
+    // Elimina TODO el forecast personalizado de un producto (empresa activa). POST (CSRF validado
+    // por auth.php).
+    case 'eliminar_personalizado':
+
+        require_once __DIR__ . '/../models/forecast_custom_model.php';
+        $codigo = trim($_POST['producto_codigo'] ?? '');
+        if ($codigo === '') {
+            echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto.']);
+            exit;
+        }
+        try {
+            $model    = new ForecastCustom($pdo, $_SESSION['empresa_id'] ?? null);
+            $borradas = $model->eliminarPorProducto($codigo);
+            if ($borradas > 0) {
+                echo json_encode(['status' => 'success', 'message' => "Se eliminó el forecast personalizado de $codigo ($borradas registro(s))."]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'El forecast del producto que intenta eliminar no existe.']);
+            }
+        } catch (Throwable $e) {
+            error_log('[FORECAST][eliminar_personalizado] ' . $e->getMessage());
+            echo json_encode(['status' => 'error', 'message' => 'No se pudo eliminar el forecast del producto.']);
+        }
+        exit;
+
     case 'listar':
 
         $draw     = (int) ($_GET['draw'] ?? 0);

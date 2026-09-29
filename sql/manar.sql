@@ -232,6 +232,27 @@ CREATE TABLE `forecast_x_producto` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `forecast_x_producto_custom`
+-- Forecast cargado MANUALMENTE por el usuario (Carga Forecast Personalizado). Mismos nombres/tipos
+-- que forecast_x_producto para las columnas usadas. UNIQUE (empresa_id, producto_codigo,
+-- semana_inicio) => una recarga del mismo producto/semana REESCRIBE el registro (upsert).
+--
+
+DROP TABLE IF EXISTS `forecast_x_producto_custom`;
+CREATE TABLE `forecast_x_producto_custom` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `empresa_id` varchar(36) DEFAULT NULL,
+  `producto_codigo` varchar(50) NOT NULL,
+  `producto_nombre` varchar(200) DEFAULT NULL,
+  `semana_inicio` date NOT NULL,
+  `demanda_forecast` decimal(15,4) NOT NULL DEFAULT 0.0000,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_fcust_emp_prod_sem` (`empresa_id`,`producto_codigo`,`semana_inicio`),
+  KEY `idx_fcust_producto` (`producto_codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
 -- Table structure for table `iconos`
 --
 
