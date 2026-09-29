@@ -21,7 +21,21 @@ $(document).ready(function() {
         // Orden por defecto: Código Producto ascendente.
         orden: [[0, 'asc']],
         columnas: [
-            { data: 'producto_codigo',  render: $.fn.dataTable.render.text() },
+            {
+                // Código de producto + distintivo de origen del forecast:
+                // "Manual" (badge) cuando el producto tiene carga personalizada vigente
+                // (forecast_x_producto_custom manda sobre Prophet); sin badge = Prophet.
+                data: 'producto_codigo',
+                render: function(d, type, row) {
+                    const codigo = $('<div>').text(d || '').html();
+                    if (type !== 'display') { return d; }
+                    if (row.origen === 'manual') {
+                        return codigo + ' <span class="badge bg-info text-dark ms-1" '
+                             + 'title="Forecast cargado manualmente (personalizado)">Manual</span>';
+                    }
+                    return codigo;
+                }
+            },
             { data: 'producto_nombre',  render: $.fn.dataTable.render.text() },
             { data: 'familia',          render: $.fn.dataTable.render.text() },
             { data: 'sub_familia',      render: $.fn.dataTable.render.text() },

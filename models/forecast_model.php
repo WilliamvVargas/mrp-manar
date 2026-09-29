@@ -30,8 +30,10 @@
          */
         public function contarTodos()
         {
-            $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT producto_codigo) FROM forecast_x_producto WHERE empresa_id = ?");
-            $stmt->execute([$this->empresaId]);
+            $e   = $this->empresaId;
+            $sql = "SELECT COUNT(DISTINCT producto_codigo) FROM " . $this->forecastEfectivo() . " f";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$e, $e, $e, $e]);
             return (int) $stmt->fetchColumn();
         }
 
@@ -43,8 +45,10 @@
         {
             list($where, $params) = $this->construirFiltro($busqueda, $familia, $subFamilia, $calidad);
 
-            $stmt = $this->pdo->prepare("SELECT COUNT(DISTINCT f.producto_codigo) FROM forecast_x_producto f $where");
-            $stmt->execute($params);
+            $e   = $this->empresaId;
+            $sql = "SELECT COUNT(DISTINCT f.producto_codigo) FROM " . $this->forecastEfectivo() . " f $where";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(array_merge([$e, $e, $e, $e], $params));
 
             return (int) $stmt->fetchColumn();
         }
@@ -90,6 +94,64 @@
         }
 
         /**
+         * Lunes ISO de la semana actual (yyyy-mm-dd). Frontera del forecast "vigente".
+         */
+        private function lunesActual()
+        {
+            return date('Y-m-d', strtotime('monday this week'));
+        }
+
+        /**
+         * ¿El producto tiene forecast PERSONALIZADO VIGENTE? (custom con semana_inicio >= lunes de
+         * la semana actual). Regla: si lo tiene, ese producto se maneja SOLO por su forecast custom.
+         */
+        public function tieneCustomVigente($productoCodigo)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT 1 FROM forecast_x_producto_custom
+                 WHERE empresa_id = ? AND producto_codigo = ? AND semana_inicio >= ? LIMIT 1"
+            );
+            $stmt->execute([$this->empresaId, $productoCodigo, $this->lunesActual()]);
+            return (bool) $stmt->fetchColumn();
+        }
+
+        /**
+         * Subconsulta (tabla derivada) del forecast EFECTIVO por producto: mezcla en LECTURA de
+         * Prophet (forecast_x_producto) + personalizado (forecast_x_producto_custom). Regla POR
+         * PRODUCTO: si el producto tiene custom VIGENTE (alguna semana >= lunes actual), usa SOLO
+         * su custom; el resto usa Prophet. El origen se deduce aquí (no hay columna que mantener).
+         * Devuelve columnas homogéneas a forecast_x_producto (alias `f` al usarla) + 'origen'.
+         * Contiene 4 placeholders de empresa_id (en orden).
+         */
+        private function forecastEfectivo()
+        {
+            $lunes = $this->lunesActual();   // yyyy-mm-dd (de date(), seguro para incrustar)
+            return "(
+                SELECT c.empresa_id, c.producto_codigo, c.producto_nombre,
+                       NULL AS familia, NULL AS sub_familia, NULL AS version_presupuesto,
+                       c.semana_inicio, YEAR(c.semana_inicio) AS iso_year, WEEK(c.semana_inicio, 3) AS iso_week,
+                       c.demanda_forecast, 0 AS usa_presupuesto, NULL AS semanas_historia,
+                       'Manual' AS calidad, 'manual' AS metodo, 'manual' AS origen
+                FROM forecast_x_producto_custom c
+                WHERE c.empresa_id = ?
+                  AND c.producto_codigo IN (
+                      SELECT producto_codigo FROM forecast_x_producto_custom
+                      WHERE empresa_id = ? AND semana_inicio >= '$lunes')
+                UNION ALL
+                SELECT f.empresa_id, f.producto_codigo, f.producto_nombre,
+                       f.familia, f.sub_familia, f.version_presupuesto,
+                       f.semana_inicio, f.iso_year, f.iso_week,
+                       f.demanda_forecast, f.usa_presupuesto, f.semanas_historia,
+                       f.calidad, f.metodo, 'prophet' AS origen
+                FROM forecast_x_producto f
+                WHERE f.empresa_id = ?
+                  AND f.producto_codigo NOT IN (
+                      SELECT producto_codigo FROM forecast_x_producto_custom
+                      WHERE empresa_id = ? AND semana_inicio >= '$lunes')
+            )";
+        }
+
+        /**
          * Familias distintas presentes en el forecast de la empresa (alfabético), para el filtro.
          *
          * @return string[]
@@ -130,12 +192,23 @@
          */
         public function serieSemanalProducto($productoCodigo)
         {
-            $stmt = $this->pdo->prepare(
-                "SELECT semana_inicio, iso_year, iso_week, demanda_forecast AS demanda
-                 FROM forecast_x_producto
-                 WHERE empresa_id = ? AND producto_codigo = ?
-                 ORDER BY semana_inicio ASC"
-            );
+            // Si el producto tiene forecast personalizado vigente, su serie sale del custom.
+            if ($this->tieneCustomVigente($productoCodigo)) {
+                $stmt = $this->pdo->prepare(
+                    "SELECT semana_inicio, YEAR(semana_inicio) AS iso_year, WEEK(semana_inicio, 3) AS iso_week,
+                            demanda_forecast AS demanda
+                     FROM forecast_x_producto_custom
+                     WHERE empresa_id = ? AND producto_codigo = ?
+                     ORDER BY semana_inicio ASC"
+                );
+            } else {
+                $stmt = $this->pdo->prepare(
+                    "SELECT semana_inicio, iso_year, iso_week, demanda_forecast AS demanda
+                     FROM forecast_x_producto
+                     WHERE empresa_id = ? AND producto_codigo = ?
+                     ORDER BY semana_inicio ASC"
+                );
+            }
             $stmt->execute([$this->empresaId, $productoCodigo]);
             return $stmt->fetchAll();
         }
@@ -149,13 +222,24 @@
          */
         public function hechosForecastProducto($productoCodigo)
         {
-            $stmt = $this->pdo->prepare(
-                "SELECT producto_nombre, familia, sub_familia, semana_inicio, demanda_forecast,
-                        usa_presupuesto, metodo, calidad, semanas_historia
-                 FROM forecast_x_producto
-                 WHERE empresa_id = ? AND producto_codigo = ?
-                 ORDER BY semana_inicio ASC"
-            );
+            if ($this->tieneCustomVigente($productoCodigo)) {
+                $stmt = $this->pdo->prepare(
+                    "SELECT producto_nombre, NULL AS familia, NULL AS sub_familia, semana_inicio,
+                            demanda_forecast, 0 AS usa_presupuesto, 'manual' AS metodo,
+                            'Manual' AS calidad, NULL AS semanas_historia
+                     FROM forecast_x_producto_custom
+                     WHERE empresa_id = ? AND producto_codigo = ?
+                     ORDER BY semana_inicio ASC"
+                );
+            } else {
+                $stmt = $this->pdo->prepare(
+                    "SELECT producto_nombre, familia, sub_familia, semana_inicio, demanda_forecast,
+                            usa_presupuesto, metodo, calidad, semanas_historia
+                     FROM forecast_x_producto
+                     WHERE empresa_id = ? AND producto_codigo = ?
+                     ORDER BY semana_inicio ASC"
+                );
+            }
             $stmt->execute([$this->empresaId, $productoCodigo]);
             $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
             if (!$filas) { return null; }
@@ -268,8 +352,12 @@
 
             $limit = ($longitud < 0) ? '' : "LIMIT $inicio, $longitud";
 
-            // pm: primera semana de forecast de cada producto (menor semana_inicio) DE LA EMPRESA,
-            // para tomar la demanda de la "semana siguiente" (la más próxima del horizonte).
+            // Forecast EFECTIVO (Prophet + custom por producto). Se usa en la consulta principal y
+            // en pm (primera semana de cada producto), para que los productos nuevos (solo custom)
+            // también entren y tomen su "semana siguiente" del custom.
+            $fe = $this->forecastEfectivo();
+            $e  = $this->empresaId;
+
             $sql = "SELECT f.producto_codigo,
                            MAX(f.producto_nombre)        AS producto_nombre,
                            MAX(f.familia)                AS familia,
@@ -280,12 +368,12 @@
                                     THEN f.demanda_forecast ELSE 0 END) AS forecast_sig_semana,
                            MAX(f.usa_presupuesto)        AS usa_presupuesto,
                            MAX(f.semanas_historia)       AS semanas_historia,
-                           MAX(f.calidad)                AS calidad
-                    FROM forecast_x_producto f
+                           MAX(f.calidad)                AS calidad,
+                           MAX(f.origen)                 AS origen
+                    FROM $fe f
                     JOIN (
                         SELECT producto_codigo, MIN(semana_inicio) AS min_semana
-                        FROM forecast_x_producto
-                        WHERE empresa_id = ?
+                        FROM $fe pmfe
                         GROUP BY producto_codigo
                     ) pm ON pm.producto_codigo = f.producto_codigo
                     $where
@@ -293,10 +381,10 @@
                     ORDER BY $orderBy
                     $limit";
 
-            // El primer '?' es el empresa_id de la subconsulta pm; luego van los de $where
-            // (que ya empieza por el empresa_id de la consulta externa).
+            // Orden de placeholders (por posición en el texto): main $fe (4x empresa), pm $fe
+            // (4x empresa), luego los de $where (que empieza por f.empresa_id).
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute(array_merge([$this->empresaId], $params));
+            $stmt->execute(array_merge([$e, $e, $e, $e, $e, $e, $e, $e], $params));
 
             return $stmt->fetchAll();
         }

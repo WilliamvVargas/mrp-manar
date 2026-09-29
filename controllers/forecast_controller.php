@@ -411,12 +411,18 @@ switch ($action) {
                 require_once __DIR__ . '/../models/forecast_ajuste_model.php';
                 $mapaAjustes = (new ForecastAjuste($pdo, $_SESSION['empresa_id'] ?? null))->mapaPorProducto($itemCode);
 
+                // Si el producto tiene carga personalizada VIGENTE (forecast_x_producto_custom con
+                // semanas >= la semana actual), el gráfico usa SOLO ese forecast manual y no el de
+                // Prophet (mismo criterio que el mantenedor / serieSemanalProducto). Origen deducido.
+                $empId     = $_SESSION['empresa_id'] ?? null;
+                $usaCustom = (new Forecast($pdo, $empId))->tieneCustomVigente($itemCode);
+                $tablaFc   = $usaCustom ? 'forecast_x_producto_custom' : 'forecast_x_producto';
                 $st = $pdo->prepare("
                     SELECT semana_inicio, demanda_forecast AS df
-                    FROM forecast_x_producto
+                    FROM $tablaFc
                     WHERE producto_codigo = ? AND empresa_id = ? ORDER BY semana_inicio
                 ");
-                $st->execute([$itemCode, $_SESSION['empresa_id'] ?? null]);
+                $st->execute([$itemCode, $empId]);
                 foreach ($st->fetchAll() as $r) {
                     $sem = (string) $r['semana_inicio'];   // lunes ISO
                     $df  = (float) $r['df'];
