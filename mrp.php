@@ -66,14 +66,6 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'MRP'); ?></h5>
-            <div class="d-flex align-items-center gap-2">
-                <button type="button"
-                        class="btn btn-primary btn-sm"
-                        id="btn-recalcular-pronostico"
-                        title="Recalcular el plan de reposición con los parámetros actuales">
-                    <i class="bi bi-arrow-repeat me-1"></i> Recalcular Pronóstico
-                </button>
-            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">

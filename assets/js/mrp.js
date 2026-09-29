@@ -447,14 +447,6 @@ $(document).ready(function() {
     // Filtro "En Quiebre": no recalcula, solo redibuja (el custom search lo aplica).
     $('#filtro-quiebre').on('change', function() { if (tabla) { tabla.draw(); } });
 
-    // Recalcular Pronóstico: reconstruye el plan con el horizonte actual, con feedback en el botón.
-    $('#btn-recalcular-pronostico').on('click', function() {
-        const $btn = $(this);
-        const original = $btn.html();
-        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Recalculando...');
-        cargarMrp(function() { $btn.prop('disabled', false).html(original); });
-    });
-
     // Botón "Limpiar": vacía filtros y buscador, y redibuja sin filtros.
     $('#btn-limpiar-filtros').on('click', function() {
         $('#consulta-mrp, #filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre').val('');
