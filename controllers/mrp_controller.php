@@ -365,12 +365,21 @@
                         // Consumo de producción (componentes de OP): es adicional a la venta, se resta aparte.
                         $saldo -= (float) ($prodProd[$w['semana']] ?? 0);
                         $rec    = 0;
-                        $segSem = $stockSegSem[$i] ?? 0;   // seguridad rolling de ESTA semana
+                        // POLÍTICA DE TANDA (lot-sizing por cobertura). Punto de reorden = Stock de
+                        // Seguridad ESTADÍSTICO (Z×σ×√LT, por producto). Cuando el saldo cae bajo ese
+                        // piso, se repone DE UNA VEZ hasta un nivel objetivo que cubre la demanda de
+                        // las próximas C semanas (C = lead time) MÁS el Stock de Seguridad. Así las
+                        // compras se espacian ~cada lead time en lugar de gotear semana a semana; el
+                        // colchón para la próxima tanda queda incluido en el pedido.
                         // Una orden NUEVA recién puede llegar en la semana L (antes tendría que
                         // haberse colocado en el pasado). Las semanas 0..L-1 sin stock quedan en
                         // QUIEBRE (saldo negativo): no llega mercadería y no se puede vender.
-                        if ($i >= $leadSem && $saldo < $segSem) {
-                            $rec   = (int) ceil($segSem - $saldo);
+                        if ($i >= $leadSem && $saldo < $stockSegEst) {
+                            $cobertura = 0.0;   // demanda efectiva de las próximas C = leadSem semanas
+                            for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
+                                $cobertura += $demEfect[$j];
+                            }
+                            $rec    = (int) ceil(($stockSegEst + $cobertura) - $saldo);
                             $saldo += $rec;
                         }
                         $recibir[$i]  = $rec;
@@ -397,7 +406,7 @@
                     }
                     if ($estado === 'ok') {
                         foreach ($saldoLead as $i => $s) {
-                            if ($s < ($stockSegSem[$i] ?? 0)) { $estado = 'ajustado'; break; }
+                            if ($s < $stockSegEst) { $estado = 'ajustado'; break; }   // bajo el SS estadístico
                         }
                     }
 
@@ -412,11 +421,14 @@
                         $saldoT += ($entradasProd[$w['semana']] ?? 0);
                         $saldoT -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
                         $saldoT -= (float) ($prodProd[$w['semana']] ?? 0);
-                        $segT = $stockSegSem[$i] ?? 0;
-                        if ($i >= $leadSem && $saldoT < $segT) {
-                            $saldoT += (int) ceil($segT - $saldoT);
+                        if ($i >= $leadSem && $saldoT < $stockSegEst) {
+                            $cobT = 0.0;   // misma política de tanda: SS + demanda próximas C = leadSem semanas
+                            for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
+                                $cobT += $demEfect[$j];
+                            }
+                            $saldoT += (int) ceil(($stockSegEst + $cobT) - $saldoT);
                         }
-                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $segT) ? 'ajustado' : 'ok');
+                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $stockSegEst) ? 'ajustado' : 'ok');
                         $tendencia[$i] = ['d' => round((float) $w['demanda'], 1), 'e' => $e];
                     }
 
