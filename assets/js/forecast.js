@@ -101,6 +101,22 @@ $(document).ready(function() {
         tablaConsulta.ajax.reload();
     });
 
+    // Exportar a Excel: el servidor arma el forecast (cabecera por producto + cada semana) de TODOS
+    // los productos de la empresa (solo filtro por empresa) y devuelve un .xlsx. Descarga vía un
+    // <iframe> oculto para que un posible error no saque al usuario de la página.
+    $('#btn-exportar-forecast').on('click', function() {
+        const $btn = $(this);
+        const original = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Generando...');
+        const restaurar = function() { $btn.prop('disabled', false).html(original); };
+
+        const $ifr = $('<iframe>', { style: 'display:none' });
+        $ifr.on('load', restaurar);
+        $ifr.attr('src', 'controllers/forecast_controller.php?action=exportar').appendTo('body');
+        setTimeout(restaurar, 60000);
+        setTimeout(function() { $ifr.remove(); }, 120000);
+    });
+
     // Botón "Limpiar": deja todos los filtros por defecto y recarga (motor de utils.js).
     inicializarBotonLimpiar({
         boton:  '#btn-limpiar-filtros',

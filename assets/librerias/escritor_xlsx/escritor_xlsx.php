@@ -161,7 +161,7 @@ class EscritorXlsx
         if (is_array($valor)) {
             $relleno = $valor['relleno'] ?? null;
             $valor   = $valor['valor'] ?? '';
-            $mapa    = ['verde' => 2, 'amarillo' => 3, 'rojo' => 4];
+            $mapa    = ['verde' => 2, 'amarillo' => 3, 'rojo' => 4, 'gris' => 5];
             if ($relleno !== null && isset($mapa[$relleno])) { $idxEstilo = $mapa[$relleno]; }
         }
 
@@ -220,11 +220,12 @@ class EscritorXlsx
     /**
      * Estilos. Índices usados en las celdas (s="N"):
      *   0 = normal · 1 = negrita (encabezado)
-     *   2 = relleno verde + texto blanco   (estado "Ok")
-     *   3 = relleno amarillo + texto negro (estado "Ajustado")
-     *   4 = relleno rojo + texto blanco    (estado "Quiebre")
-     * Colores en ARGB (FF + RRGGBB), iguales a la tendencia del MRP:
-     *   verde #198754 · amarillo #ffc107 · rojo #dc3545.
+     *   2 = relleno verde + texto blanco   (estado "Ok" / calidad "Alta")
+     *   3 = relleno amarillo + texto negro (estado "Ajustado" / calidad "Media")
+     *   4 = relleno rojo + texto blanco    (estado "Quiebre" / calidad "Baja")
+     *   5 = relleno gris + texto blanco    (calidad "Manual" / secundario)
+     * Colores en ARGB (FF + RRGGBB), iguales a los badges del MRP/Forecast:
+     *   verde #198754 · amarillo #ffc107 · rojo #dc3545 · gris #6c757d.
      */
     private function xmlStyles()
     {
@@ -235,21 +236,23 @@ class EscritorXlsx
             .   '<font><b/><sz val="11"/><name val="Calibri"/></font>'
             .   '<font><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
             . '</fonts>'
-            . '<fills count="5">'
+            . '<fills count="6">'
             .   '<fill><patternFill patternType="none"/></fill>'
             .   '<fill><patternFill patternType="gray125"/></fill>'
             .   '<fill><patternFill patternType="solid"><fgColor rgb="FF198754"/></patternFill></fill>'
             .   '<fill><patternFill patternType="solid"><fgColor rgb="FFFFC107"/></patternFill></fill>'
             .   '<fill><patternFill patternType="solid"><fgColor rgb="FFDC3545"/></patternFill></fill>'
+            .   '<fill><patternFill patternType="solid"><fgColor rgb="FF6C757D"/></patternFill></fill>'
             . '</fills>'
             . '<borders count="1"><border/></borders>'
             . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="5">'
+            . '<cellXfs count="6">'
             .   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .   '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
             .   '<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
             .   '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>'
             .   '<xf numFmtId="0" fontId="2" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+            .   '<xf numFmtId="0" fontId="2" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
             . '</cellXfs>'
             . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             . '</styleSheet>';

@@ -71,6 +71,61 @@ switch ($action) {
         }
         exit;
 
+    // Exporta el forecast a .xlsx: una fila por producto y semana, con toda la cabecera del producto
+    // (igual que el listado) + la demanda de cada semana. TODOS los productos de la empresa (solo
+    // filtro por empresa). Respeta la carga personalizada (el forecast manual manda sobre Prophet).
+    case 'exportar':
+
+        require_once __DIR__ . '/../assets/librerias/escritor_xlsx/escritor_xlsx.php';
+        try {
+            $model = new Forecast($pdo, $_SESSION['empresa_id'] ?? null);
+
+            // Cabecera por producto (mismas columnas del listado; solo filtro por empresa).
+            $resumen = [];
+            foreach ($model->listarPagina('', '', '', '', [], 0, -1) as $r) {
+                $resumen[$r['producto_codigo']] = $r;
+            }
+
+            $xlsx = new EscritorXlsx('Forecast');
+            $xlsx->encabezados([
+                'Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia',
+                'Calidad', 'Origen', 'Usa Presupuesto', 'Versión Presupuesto', 'Total Forecast',
+                'Semana', 'Año ISO', 'Semana ISO', 'Demanda Forecast',
+            ]);
+            // Color de la celda Calidad, igual que los badges del listado:
+            // Alta -> verde · Media -> amarillo · Baja -> rojo · Manual (u otra) -> gris.
+            $rellenoCalidad = ['Alta' => 'verde', 'Media' => 'amarillo', 'Baja' => 'rojo', 'Manual' => 'gris'];
+            foreach ($model->seriesSemanalesTodos() as $w) {
+                $cod = $w['producto_codigo'];
+                $h   = $resumen[$cod] ?? [];
+                $cal = $h['calidad'] ?? '';
+                $celdaCalidad = ($cal === '')
+                    ? ''
+                    : ['valor' => $cal, 'relleno' => $rellenoCalidad[$cal] ?? 'gris'];
+                $xlsx->fila([
+                    $cod,
+                    $h['producto_nombre'] ?? '',
+                    $h['familia'] ?? '',
+                    $h['sub_familia'] ?? '',
+                    $celdaCalidad,
+                    (($h['origen'] ?? '') === 'manual') ? 'Manual' : 'Prophet',
+                    ((int) ($h['usa_presupuesto'] ?? 0) === 1) ? 'Sí' : 'No',
+                    $h['version'] ?? '',
+                    (int) round((float) ($h['total_forecast'] ?? 0)),
+                    $w['semana_inicio'],
+                    (int) $w['iso_year'],
+                    (int) $w['iso_week'],
+                    (int) round((float) $w['demanda_forecast']),
+                ]);
+            }
+            $xlsx->descargar('Forecast_' . date('Ymd'));
+        } catch (Throwable $e) {
+            error_log('[FORECAST][exportar] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => 'No se pudo generar el Excel.']);
+        }
+        exit;
+
     // Procesa el .xlsx de Carga Forecast Personalizado: lee (Código Producto · Período · Demanda),
     // valida y hace upsert en forecast_x_producto_custom (empresa activa). Período se normaliza al
     // lunes ISO de su semana. Recargar el mismo producto/semana REESCRIBE (unique key).

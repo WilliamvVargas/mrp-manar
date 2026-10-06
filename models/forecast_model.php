@@ -391,4 +391,23 @@
 
             return $stmt->fetchAll();
         }
+
+        /**
+         * Serie semanal del forecast EFECTIVO (Prophet + custom por producto) de TODOS los productos
+         * de la empresa, para exportar. Una fila por producto y semana, ordenada por código y semana.
+         * Solo aplica el filtro por empresa (no familia/sub-familia/calidad/búsqueda).
+         *
+         * @return array Filas ['producto_codigo', 'semana_inicio', 'iso_year', 'iso_week', 'demanda_forecast'].
+         */
+        public function seriesSemanalesTodos()
+        {
+            $fe = $this->forecastEfectivo();
+            $e  = $this->empresaId;
+            $sql = "SELECT f.producto_codigo, f.semana_inicio, f.iso_year, f.iso_week, f.demanda_forecast
+                    FROM $fe f
+                    ORDER BY f.producto_codigo ASC, f.semana_inicio ASC";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$e, $e, $e, $e]);
+            return $stmt->fetchAll();
+        }
     }
