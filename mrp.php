@@ -183,11 +183,17 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body py-2">
+              <div class="row g-3">
 
-                <!-- Resumen del registro (Campo | Valor) -->
-                <table class="table table-sm table-striped align-middle mb-3">
-                    <tbody id="tabla-mrp-detalle"></tbody>
-                </table>
+                <!-- Izquierda: información del producto (Campo | Valor) -->
+                <div class="col-12 col-lg-4">
+                    <table class="table table-sm table-striped align-middle mb-0 small" style="font-size: .78rem;">
+                        <tbody id="tabla-mrp-detalle"></tbody>
+                    </table>
+                </div>
+
+                <!-- Derecha: pestañas de detalle + cuerpo -->
+                <div class="col-12 col-lg-8" style="font-size: .78rem;">
 
                 <!-- Pestañas de detalle por caso (Stock; se irán agregando más) -->
                 <ul class="nav nav-tabs" id="mrp-detalle-tabs" role="tablist">
@@ -307,6 +313,10 @@
                     </div>
                     <div class="tab-pane fade" id="tab-forecast" role="tabpanel" aria-labelledby="tab-forecast-btn">
                         <div id="mrp-forecast-estado" class="text-center text-muted py-3">Cargando...</div>
+                        <!-- Gráfico del forecast semanal (solo forecast, sin venta histórica ni filtros) -->
+                        <div id="mrp-forecast-grafico-wrap" style="display:none;">
+                            <div id="mrp-forecast-grafico" style="width:100%; height:300px;"></div>
+                        </div>
                         <div class="table-responsive small" id="mrp-forecast-wrap" style="display:none;">
                             <table class="table table-sm table-hover align-middle mb-0" style="width:100%">
                                 <thead class="table-dark">
@@ -319,7 +329,7 @@
                                 <tbody id="tabla-mrp-forecast"></tbody>
                                 <tfoot class="table-light fw-bold">
                                     <tr>
-                                        <td colspan="2" class="text-end">Total (52 semanas):</td>
+                                        <td colspan="2" class="text-end">Total (<span id="mrp-forecast-nsem">—</span> semanas):</td>
                                         <td class="text-end" id="mrp-forecast-total">—</td>
                                     </tr>
                                 </tfoot>
@@ -327,6 +337,8 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- /col derecha -->
+              </div><!-- /row -->
             </div>
             <div class="modal-footer bg-light py-2">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -340,6 +352,7 @@
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/fixedheader/3.4.0/js/dataTables.fixedHeader.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/mrp.js?v=<?php echo filemtime(__DIR__ . '/assets/js/mrp.js'); ?>"></script>
 </body>

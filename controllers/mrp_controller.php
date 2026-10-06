@@ -154,6 +154,10 @@
                 // 3.6) Comprometido de VENTAS (OV abiertas) por producto y SEMANA de entrega (lunes
                 // ISO). Habilita el consumo de forecast: por semana, demanda = max(forecast, OV). Las
                 // OV sin fecha de entrega se tratan como backorder (descuento inmediato al saldo).
+                // REGLA (vencidas): igual que En Pedido, las OV con entrega ya pasada pero aún ABIERTAS
+                // (backorder no despachado) se acumulan en la PRIMERA semana ($lunesActual): siguen
+                // pendientes de entregar, así que cuentan desde ya en vez de perderse en una semana
+                // pasada fuera del horizonte.
                 $ovSemana   = [];   // [cod][lunesISO] => cantidad OV con entrega esa semana
                 $ovSinFecha = [];   // [cod] => cantidad OV sin DocDueDate (backorder)
                 foreach ((new ConsultaSap($pdoSqlsrv))->comprometidoVentasPorSemana() as $r) {
@@ -163,6 +167,7 @@
                         $ovSinFecha[$cod] = ($ovSinFecha[$cod] ?? 0) + $qty;
                     } else {
                         $lun = date('Y-m-d', strtotime('monday this week', strtotime($r['Fecha'] . ' 12:00:00')));
+                        if ($lun < $lunesActual) { $lun = $lunesActual; }   // OV vencida y abierta -> a la 1ª semana
                         $ovSemana[$cod][$lun] = ($ovSemana[$cod][$lun] ?? 0) + $qty;
                     }
                 }
@@ -179,6 +184,7 @@
                         $prodSinFecha[$cod] = ($prodSinFecha[$cod] ?? 0) + $qty;
                     } else {
                         $lun = date('Y-m-d', strtotime('monday this week', strtotime($r['Fecha'] . ' 12:00:00')));
+                        if ($lun < $lunesActual) { $lun = $lunesActual; }   // consumo vencido y abierto -> a la 1ª semana
                         $prodSemana[$cod][$lun] = ($prodSemana[$cod][$lun] ?? 0) + $qty;
                     }
                 }
@@ -286,11 +292,11 @@
                     }
 
                     // Arranque de la proyección = Stock Físico, ajustado solo por OV / producción
-                    // SIN fecha (compromisos sin semana asignada). Las OV/producción VENCIDAS (entrega
-                    // con fecha ya pasada) se IGNORAN. Las OC/recepciones vencidas y abiertas NO se
-                    // ignoran: se acumulan en la primera semana (ver bloque 3.5 de Entradas), así que
-                    // entran al saldo vía la recepción de esa semana. El saldo parte del stock real y
-                    // solo se mueve con lo que tiene fecha DENTRO del horizonte (time-phase).
+                    // SIN fecha (compromisos sin semana asignada). Los documentos VENCIDOS y abiertos
+                    // (tanto OV/producción comprometida como OC/recepciones en camino) NO se ignoran:
+                    // se acumulan en la primera semana (ver bloques 3.5–3.7), así que entran al saldo
+                    // en esa semana. El saldo parte del stock real y solo se mueve con lo que tiene
+                    // fecha DENTRO del horizonte (time-phase), con los vencidos arrastrados a la 1ª semana.
                     $saldoInicial = $stock - $ovSF - $prodSF;
 
                     // Proyección TIME-PHASED (lot-for-lot): cada semana SUMA lo que llega esa semana

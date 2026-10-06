@@ -1,5 +1,97 @@
 $(document).ready(function() {
 
+    // ----- Google Charts (gráfico del forecast semanal en el detalle del producto) -----
+    let gchartsListo = false, gchartPend = null;
+    if (window.google && google.charts) {
+        google.charts.load('current', { packages: ['corechart'] });
+        google.charts.setOnLoadCallback(function() {
+            gchartsListo = true;
+            if (gchartPend) { gchartPend(); gchartPend = null; }
+        });
+    }
+    function cuandoGChartsListo(fn) {
+        if (gchartsListo) { fn(); } else { gchartPend = fn; }
+    }
+
+    const MESES_CORTO_MRP = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    // Etiqueta compacta de la semana desde su lunes 'yyyy-MM-dd': "jul-26 S3".
+    function etiquetaSemanaMrp(mondayYmd) {
+        const y = mondayYmd.substring(0, 4);
+        const m = parseInt(mondayYmd.substring(5, 7), 10);
+        const dia = parseInt(mondayYmd.substring(8, 10), 10);
+        return MESES_CORTO_MRP[m] + '-' + y.substring(2) + ' S' + Math.ceil(dia / 7);
+    }
+
+    let serieForecastGrafico = null; // última serie del forecast cargada (para dibujar al mostrar la pestaña)
+
+    // Lunes (ISO) de la semana actual en 'yyyy-mm-dd'. El detalle del forecast arranca aquí: no se
+    // muestran las semanas ya pasadas (no aportan a la reposición y confunden la lectura).
+    function lunesActualMrp() {
+        const d = new Date();
+        const dow = (d.getDay() + 6) % 7; // 0 = lunes
+        d.setDate(d.getDate() - dow);
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    // Índice de semana (lunes ISO) relativo a un lunes de referencia, para rellenar el eje X continuo.
+    const REF_LUNES_MRP = Date.UTC(2020, 0, 6); // 2020-01-06 (lunes)
+    function fechaAIdxSemanaMrp(ymd) {
+        const ms = Date.UTC(+ymd.substring(0, 4), +ymd.substring(5, 7) - 1, +ymd.substring(8, 10));
+        return Math.round((ms - REF_LUNES_MRP) / 604800000);
+    }
+    function idxSemanaAFechaMrp(idx) {
+        const d = new Date(REF_LUNES_MRP + idx * 604800000);
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+    }
+    // Completa las semanas faltantes entre la primera y la última con demanda null (barra en blanco),
+    // para que el eje X sea continuo y no se malinterpreten los saltos entre semanas con forecast.
+    function rellenarSemanasMrp(serie) {
+        if (!serie || !serie.length) { return serie; }
+        const mapa = {};
+        serie.forEach(function(r) { mapa[String(r.semana_inicio)] = r; });
+        const claves = Object.keys(mapa).sort();
+        const desde  = fechaAIdxSemanaMrp(claves[0]);
+        const hasta  = fechaAIdxSemanaMrp(claves[claves.length - 1]);
+        const salida = [];
+        for (let i = desde; i <= hasta; i++) {
+            const sem = idxSemanaAFechaMrp(i);
+            salida.push(mapa[sem] || { semana_inicio: sem, demanda: null });
+        }
+        return salida;
+    }
+
+    // Dibuja el gráfico del forecast semanal (solo la serie de forecast, barras moradas; sin venta
+    // histórica ni filtros). Requiere el contenedor visible (vive en una pestaña), por eso se dibuja
+    // al mostrar la pestaña Forecast, no al cargar los datos.
+    function dibujarForecastGrafico() {
+        const cont = document.getElementById('mrp-forecast-grafico');
+        if (!cont || !serieForecastGrafico || !serieForecastGrafico.length) { return; }
+        cuandoGChartsListo(function() {
+            const lun = lunesActualMrp();
+            const data = new google.visualization.DataTable();
+            data.addColumn('string', 'Semana');
+            data.addColumn('number', 'Demanda Forecast');
+            data.addColumn({ type: 'string', role: 'style' });   // color por barra (semana actual en amarillo)
+            rellenarSemanasMrp(serieForecastGrafico).forEach(function(r) {
+                const dem = (r.demanda === null || r.demanda === undefined) ? null : (parseFloat(r.demanda) || 0);
+                const color = (String(r.semana_inicio) === lun) ? 'color: #ffc107' : 'color: #6f42c1'; // amarillo / morado
+                data.addRow([etiquetaSemanaMrp(String(r.semana_inicio)), dem, color]);
+            });
+            const opciones = {
+                legend:    { position: 'none' },
+                height:    300,
+                chartArea: { left: 70, right: 20, top: 20, bottom: 75 },
+                hAxis:     { slantedText: true, slantedTextAngle: 60, textStyle: { fontSize: 10 } },
+                vAxis:     { minValue: 0, title: 'Demanda (unidades)' },
+                tooltip:   { trigger: 'focus' }
+            };
+            new google.visualization.ColumnChart(cont).draw(data, opciones);
+        });
+    }
+
+    // Al mostrar la pestaña Forecast, (re)dibuja el gráfico con el ancho real del contenedor.
+    $(document).on('shown.bs.tab', '#tab-forecast-btn', dibujarForecastGrafico);
+
     // Redondea a entero con separador de miles (estilo chileno).
     function formatearEntero(valor) {
         if (valor === null || valor === undefined || valor === '') { return ''; }
@@ -472,7 +564,12 @@ $(document).ready(function() {
 
     // Arma el cuerpo del modal de detalle a partir de la fila del DataTable.
     function filasDetalleMrp(f) {
-        const semanas = renderSemanas(null, 'display', f);   // reutiliza el formato de la columna
+        const cod = f.producto_codigo;
+        // Stock Mín/Máx y Stock Seguridad: los MISMOS valores (y tooltip) que la ficha del producto.
+        const minTxt = (Number(f.stock_min) > 0) ? numDet(f.stock_min) : '';
+        const maxTxt = (Number(f.stock_max) > 0) ? numDet(f.stock_max) : '';
+        const segTxt = '<span title="' + tooltipSegFicha(cod).replace(/"/g, '&quot;') + '">'
+                     + numDet(stockSegFicha(cod)) + '</span>';
         return seccionDet('Producto')
              + filaDet('Código',      textoDet(f.producto_codigo))
              + filaDet('Nombre',      textoDet(f.producto_nombre))
@@ -482,7 +579,9 @@ $(document).ready(function() {
              + seccionDet('Planificación')
              + filaDet('Lead Time (semanas)', numDet(f.lead_time))
              + filaDet('Demanda (Forecast)',  numDet(f.demanda_forecast))
-             + filaDet('Semana(s)',           semanas)
+             + filaDet('Stock Mín',           minTxt)
+             + filaDet('Stock Máx',           maxTxt)
+             + filaDet('Stock Seguridad',     segTxt)
              + seccionDet('Disponibilidad')
              + filaDet('Stock Físico',                numDet(f.stock_wms))
              + filaDet('Stock que vence en ≤30 días', numDet(f.stock_por_vencer))
@@ -707,8 +806,11 @@ $(document).ready(function() {
 
         $estado.text('Cargando...').show();
         $wrap.hide();
+        $('#mrp-forecast-grafico-wrap').hide();
+        serieForecastGrafico = null;
         $tbody.empty();
         $('#mrp-forecast-total').text('—');
+        $('#mrp-forecast-nsem').text('—');
 
         $.ajax({
             url: 'controllers/mrp_controller.php?action=detalle_forecast',
@@ -720,7 +822,9 @@ $(document).ready(function() {
                     $estado.text(res.message || 'No se pudo cargar el forecast.').show();
                     return;
                 }
-                const filas = res.data || [];
+                // Solo desde la semana actual en adelante (sin semanas pasadas).
+                const lun   = lunesActualMrp();
+                const filas = (res.data || []).filter(function(r) { return String(r.semana_inicio) >= lun; });
                 if (!filas.length) {
                     $estado.text('Sin forecast para este producto.').show();
                     return;
@@ -730,7 +834,8 @@ $(document).ready(function() {
                     const dem = parseFloat(r.demanda) || 0;
                     total += dem;
                     const semanaIso = r.iso_year + '-W' + String(r.iso_week).padStart(2, '0');
-                    html += '<tr>'
+                    const esActual  = String(r.semana_inicio) === lun;   // resalta la semana en curso
+                    html += '<tr' + (esActual ? ' class="fw-bold"' : '') + '>'
                          + '<td class="text-center">' + textoDet(semanaIso) + '</td>'
                          + '<td class="text-center">' + fmtFecha(r.semana_inicio) + '</td>'
                          + '<td class="text-end">' + formatearEntero(dem) + '</td>'
@@ -738,8 +843,14 @@ $(document).ready(function() {
                 });
                 $tbody.html(html);
                 $('#mrp-forecast-total').text(formatearEntero(total));
+                $('#mrp-forecast-nsem').text(filas.length);
                 $estado.hide();
                 $wrap.show();
+
+                // Serie para el gráfico; se dibuja ahora si la pestaña ya está visible, o al mostrarla.
+                serieForecastGrafico = filas;
+                $('#mrp-forecast-grafico-wrap').show();
+                if ($('#tab-forecast').hasClass('active')) { dibujarForecastGrafico(); }
             },
             error: function() {
                 $estado.text('Error al cargar el forecast.').show();
