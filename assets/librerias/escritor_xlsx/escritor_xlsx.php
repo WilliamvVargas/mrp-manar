@@ -149,10 +149,23 @@ class EscritorXlsx
         return '<row r="' . $numeroFila . '">' . $celdas . '</row>';
     }
 
-    /** XML de una celda (<c>): número si aplica, si no texto (inline string). */
+    /**
+     * XML de una celda (<c>): número si aplica, si no texto (inline string).
+     * El valor puede ser escalar, o un arreglo ['valor'=>x, 'relleno'=>'verde'|'amarillo'|'rojo']
+     * para pintar el fondo de la celda (ver índices en xmlStyles()).
+     */
     private function construirCelda($ref, $valor, $esEncabezado)
     {
-        $estilo = $esEncabezado ? ' s="1"' : '';
+        $idxEstilo = $esEncabezado ? 1 : 0;
+
+        if (is_array($valor)) {
+            $relleno = $valor['relleno'] ?? null;
+            $valor   = $valor['valor'] ?? '';
+            $mapa    = ['verde' => 2, 'amarillo' => 3, 'rojo' => 4];
+            if ($relleno !== null && isset($mapa[$relleno])) { $idxEstilo = $mapa[$relleno]; }
+        }
+
+        $estilo = $idxEstilo ? ' s="' . $idxEstilo . '"' : '';
 
         if ($this->esNumero($valor)) {
             return '<c r="' . $ref . '"' . $estilo . '><v>' . $valor . '</v></c>';
@@ -204,24 +217,39 @@ class EscritorXlsx
             . '</Relationships>';
     }
 
-    /** Estilos mínimos: fuente normal (0) y negrita (1) para el encabezado (s="1"). */
+    /**
+     * Estilos. Índices usados en las celdas (s="N"):
+     *   0 = normal · 1 = negrita (encabezado)
+     *   2 = relleno verde + texto blanco   (estado "Ok")
+     *   3 = relleno amarillo + texto negro (estado "Ajustado")
+     *   4 = relleno rojo + texto blanco    (estado "Quiebre")
+     * Colores en ARGB (FF + RRGGBB), iguales a la tendencia del MRP:
+     *   verde #198754 · amarillo #ffc107 · rojo #dc3545.
+     */
     private function xmlStyles()
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            . '<fonts count="2">'
+            . '<fonts count="3">'
             .   '<font><sz val="11"/><name val="Calibri"/></font>'
             .   '<font><b/><sz val="11"/><name val="Calibri"/></font>'
+            .   '<font><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
             . '</fonts>'
-            . '<fills count="2">'
+            . '<fills count="5">'
             .   '<fill><patternFill patternType="none"/></fill>'
             .   '<fill><patternFill patternType="gray125"/></fill>'
+            .   '<fill><patternFill patternType="solid"><fgColor rgb="FF198754"/></patternFill></fill>'
+            .   '<fill><patternFill patternType="solid"><fgColor rgb="FFFFC107"/></patternFill></fill>'
+            .   '<fill><patternFill patternType="solid"><fgColor rgb="FFDC3545"/></patternFill></fill>'
             . '</fills>'
             . '<borders count="1"><border/></borders>'
             . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="2">'
+            . '<cellXfs count="5">'
             .   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .   '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+            .   '<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+            .   '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>'
+            .   '<xf numFmtId="0" fontId="2" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
             . '</cellXfs>'
             . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             . '</styleSheet>';

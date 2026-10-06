@@ -532,6 +532,22 @@ $(document).ready(function() {
 
     $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor').on('change', aplicarFiltros);
 
+    // Exportar a Excel: el servidor reconstruye el plan (todas las semanas de todos los productos,
+    // sin filtros de pantalla) y devuelve un .xlsx. Se descarga vía un <iframe> oculto para que un
+    // posible error no saque al usuario de la página. El cálculo cruza SAP/WMS, así que puede tardar.
+    $('#btn-exportar-mrp').on('click', function() {
+        const $btn = $(this);
+        const original = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Generando...');
+        const restaurar = function() { $btn.prop('disabled', false).html(original); };
+
+        const $ifr = $('<iframe>', { style: 'display:none' });
+        $ifr.on('load', restaurar);                       // la respuesta (descarga) llegó
+        $ifr.attr('src', 'controllers/mrp_controller.php?action=exportar').appendTo('body');
+        setTimeout(restaurar, 60000);                     // respaldo por si el evento no dispara
+        setTimeout(function() { $ifr.remove(); }, 120000);
+    });
+
     // El horizonte ya NO recalcula: el plan viene calculado sobre una ventana fija (lead time).
     // Cambiarlo solo filtra CUÁNTAS semanas se muestran por producto (client-side, instantáneo).
     $('#mrp-horizonte').on('change', function() { if (tabla) { tabla.draw(); } });

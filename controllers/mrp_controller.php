@@ -24,6 +24,57 @@
     require_once __DIR__ . '/../config/conexion.php';        // $pdo (MySQL)
     require_once __DIR__ . '/../models/forecast_model.php';  // Forecast
 
+    /**
+     * Exporta el plan MRP (filas por producto y semana) a un .xlsx y lo envía como descarga.
+     * Recibe el MISMO $data que construye 'listar' (todas las semanas de todos los productos),
+     * así el Excel refleja exactamente el cálculo del mantenedor. No hace exit (lo hace el caller).
+     */
+    function exportarPlanMrpXlsx(array $data)
+    {
+        require_once __DIR__ . '/../assets/librerias/escritor_xlsx/escritor_xlsx.php';
+        $xlsx = new EscritorXlsx('Pronóstico de Compra');
+        $xlsx->encabezados([
+            'Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Proveedor',
+            'Lead Time (sem)', 'Stock Físico', 'Stock Mín', 'Stock Máx', 'Stock Seguridad', 'Semana',
+            'Demanda Proyectada', 'En Pedido', 'Comprometido', 'Stock Teórico',
+            'Saldo Proyectado', 'Cobertura Lead Time', 'Sugerido a Reponer', 'Estado',
+        ]);
+        // Estado de la semana (igual que el color de la tendencia): la 1ª barra de la tendencia de
+        // la fila corresponde a ESA semana. ok -> Ok, ajustado -> Ajustado, quiebre -> Quiebre.
+        // La celda se pinta con el mismo color (verde/amarillo/rojo).
+        $etiquetaEstado = ['ok' => 'Ok', 'ajustado' => 'Ajustado', 'quiebre' => 'Quiebre'];
+        $rellenoEstado  = ['ok' => 'verde', 'ajustado' => 'amarillo', 'quiebre' => 'rojo'];
+        foreach ($data as $r) {
+            if (empty($r['semana'])) { continue; }   // productos sin semanas de forecast
+            $estSem = $r['tendencia'][0]['e'] ?? '';
+            $celdaEstado = isset($etiquetaEstado[$estSem])
+                ? ['valor' => $etiquetaEstado[$estSem], 'relleno' => $rellenoEstado[$estSem]]
+                : '';
+            $xlsx->fila([
+                $r['producto_codigo'],
+                $r['producto_nombre'],
+                $r['familia'],
+                $r['sub_familia'],
+                $r['proveedor'],
+                (int) $r['lead_time'],
+                (int) $r['stock_wms'],
+                (int) $r['stock_min'],
+                (int) $r['stock_max'],
+                (int) $r['stock_seguridad_est'],
+                $r['semana'],
+                (int) $r['demanda_efectiva'],
+                (int) $r['recepcion'],
+                (int) $r['comprometido_semana'],
+                (int) $r['stock_teorico'],
+                (int) $r['saldo_proyectado'],
+                (int) $r['stock_seguridad'],
+                (int) $r['sugerido'],
+                $celdaEstado,
+            ]);
+        }
+        $xlsx->descargar('Pronostico_de_Compra_' . date('Ymd'));
+    }
+
     switch ($action) {
 
         case 'filtros':
@@ -41,6 +92,7 @@
             }
             exit;
 
+        case 'exportar':   // misma construcción que 'listar'; al final devuelve un .xlsx en vez de JSON
         case 'listar':
 
             // Lista MRP por producto (cruce forecast + WMS + SAP).
@@ -446,9 +498,21 @@
                     }
                 }
 
+                // Exportación: mismo $data, pero como .xlsx descargable (todas las semanas de todos
+                // los productos; los filtros de pantalla son del cliente y aquí no aplican).
+                if ($action === 'exportar') {
+                    exportarPlanMrpXlsx($data);
+                    exit;
+                }
+
                 echo json_encode(['status' => 'success', 'data' => $data]);
             } catch (Throwable $e) {
-                error_log('[MRP][listar] ' . $e->getMessage());
+                error_log('[MRP][' . $action . '] ' . $e->getMessage());
+                if ($action === 'exportar') {
+                    http_response_code(500);
+                    echo json_encode(['status' => 'error', 'message' => 'No se pudo generar el Excel.']);
+                    exit;
+                }
                 echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al construir el MRP.']);
             }
             exit;
