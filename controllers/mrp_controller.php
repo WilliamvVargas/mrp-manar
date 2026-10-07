@@ -375,12 +375,27 @@
                         // haberse colocado en el pasado). Las semanas 0..L-1 sin stock quedan en
                         // QUIEBRE (saldo negativo): no llega mercadería y no se puede vender.
                         if ($i >= $leadSem && $saldo < $stockSegEst) {
-                            $cobertura = 0.0;   // demanda efectiva de las próximas C = leadSem semanas
-                            for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
-                                $cobertura += $demEfect[$j];
+                            // REGLA DE QUIEBRE: si hay quiebre (saldo < 0) antes de que este pedido
+                            // pueda llegar —es decir, en su ventana de lead time [i−L, i]—, el pedido
+                            // = Cobertura Lead Time de la semana en que se ORDENA + Stock de Seguridad,
+                            // y NO arrastra el saldo negativo: las ventas perdidas en el quiebre no se
+                            // reponen. Es el mismo número que el usuario ve en la columna Cobertura LT
+                            // de esa semana más el SS. Si no hay quiebre, sigue la política de tanda.
+                            $hayQuiebre = ($saldo < 0);
+                            for ($k = max(0, $i - $leadSem); $k < $i && !$hayQuiebre; $k++) {
+                                if ($saldoSem[$k] < 0) { $hayQuiebre = true; }
                             }
-                            $rec    = (int) ceil(($stockSegEst + $cobertura) - $saldo);
-                            $saldo += $rec;
+                            if ($hayQuiebre) {
+                                $rec   = (int) ceil(($stockSegSem[$i - $leadSem] ?? 0) + $stockSegEst);
+                                $saldo = max(0.0, $saldo) + $rec;
+                            } else {
+                                $cobertura = 0.0;   // demanda efectiva de las próximas C = leadSem semanas
+                                for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
+                                    $cobertura += $demEfect[$j];
+                                }
+                                $rec    = (int) ceil(($stockSegEst + $cobertura) - $saldo);
+                                $saldo += $rec;
+                            }
                         }
                         $recibir[$i]  = $rec;
                         $saldoSem[$i] = $saldo;
@@ -416,18 +431,30 @@
                     // para que cada fila pueda mostrar una ventana de N semanas HACIA ADELANTE
                     // desde su posición, con el mismo número de barras en todas las filas.
                     $tendencia = [];
-                    $saldoT = $saldoInicial;
+                    $saldoT    = $saldoInicial;
+                    $saldoTSem = [];   // saldo por semana, para detectar quiebre en la ventana del LT
                     foreach ($serieFutura as $i => $w) {
                         $saldoT += ($entradasProd[$w['semana']] ?? 0);
                         $saldoT -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
                         $saldoT -= (float) ($prodProd[$w['semana']] ?? 0);
                         if ($i >= $leadSem && $saldoT < $stockSegEst) {
-                            $cobT = 0.0;   // misma política de tanda: SS + demanda próximas C = leadSem semanas
-                            for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
-                                $cobT += $demEfect[$j];
+                            // Mismas reglas que la proyección: quiebre en el LT -> Cobertura LT + SS
+                            // (sin arrastrar el negativo); si no, tanda (SS + demanda próximas C sem).
+                            $hayQ = ($saldoT < 0);
+                            for ($k = max(0, $i - $leadSem); $k < $i && !$hayQ; $k++) {
+                                if ($saldoTSem[$k] < 0) { $hayQ = true; }
                             }
-                            $saldoT += (int) ceil(($stockSegEst + $cobT) - $saldoT);
+                            if ($hayQ) {
+                                $saldoT = max(0.0, $saldoT) + (int) ceil(($stockSegSem[$i - $leadSem] ?? 0) + $stockSegEst);
+                            } else {
+                                $cobT = 0.0;
+                                for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
+                                    $cobT += $demEfect[$j];
+                                }
+                                $saldoT += (int) ceil(($stockSegEst + $cobT) - $saldoT);
+                            }
                         }
+                        $saldoTSem[$i] = $saldoT;
                         $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $stockSegEst) ? 'ajustado' : 'ok');
                         $tendencia[$i] = ['d' => round((float) $w['demanda'], 1), 'e' => $e];
                     }
