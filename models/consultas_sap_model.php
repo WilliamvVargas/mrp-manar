@@ -1191,6 +1191,26 @@
         }
 
         /**
+         * Productos ACTIVOS del negocio (OITM.U_Sta_Art = 'Activo') con Familia y Sub-Familia de
+         * negocio (UDF U_Familia / U_SubFamilia con descripción en UFD1), tengan o no ventas. Los
+         * usa el forecast para que todo producto activo entre a la explosión, aunque nunca haya
+         * vendido (sin historia recibe participación 0 en su grupo).
+         *
+         * @return array Filas: ['ItemCode', 'ItemName', 'Familia', 'SubFamilia'].
+         */
+        public function productosActivosConFamilia()
+        {
+            $sql = "
+                SELECT IT.ItemCode, IT.ItemName, UF.Descr AS Familia, US.Descr AS SubFamilia
+                FROM OITM IT
+                INNER JOIN UFD1 UF ON UF.TableID = 'OITM' AND UF.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'Familia') AND UF.FldValue = IT.U_Familia
+                INNER JOIN UFD1 US ON US.TableID = 'OITM' AND US.FieldID = (SELECT FieldID FROM CUFD WHERE TableID = 'OITM' AND AliasID = 'SubFamilia') AND US.FldValue = IT.U_SubFamilia
+                WHERE IT.U_Sta_Art = 'Activo'
+            ";
+            return $this->pdo->query($sql)->fetchAll();
+        }
+
+        /**
          * Abastecimiento por producto para el MRP (bodega 010), en versión reducida:
          *   - Comprometido = salidas reservadas: OV abiertas + consumo de producción liberada (bodega 010).
          *   - EnPedido     = entradas por compra (OC pendiente): bodegas 010 + IMP01 (Importaciones),

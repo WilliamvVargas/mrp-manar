@@ -128,6 +128,25 @@ foreach ($ventas as $r) {
 }
 echo "Grupos: " . count($gruposInfo) . "\n";
 
+// ---- 1.1) Productos ACTIVOS sin ventas -------------------------------------------------
+// Todo producto Activo (U_Sta_Art) entra al forecast, tenga o no ventas: se agrega a su grupo
+// (Familia‖Sub-Familia) con historia vacía. En el paso 3 recibe participación 0 (no le quita
+// demanda a sus hermanos), pero queda en la tabla de forecast y en el MRP (y admite carga
+// manual). Solo puede entrar si su grupo existe (tiene historia de ventas): sin serie de grupo
+// no hay pronóstico que repartir.
+$codsConVenta = [];
+foreach ($prodAgg as $prods) { foreach ($prods as $c => $_) { $codsConVenta[trim((string) $c)] = true; } }
+$nSinVenta = 0; $nSinGrupo = 0;
+foreach ($sap->productosActivosConFamilia() as $p) {
+    $c = trim((string) $p['ItemCode']);
+    if (isset($codsConVenta[$c])) { continue; }
+    $key = claveGrupo($p['Familia'], $p['SubFamilia']);
+    if (!isset($grupos[$key])) { $nSinGrupo++; continue; }
+    $prodAgg[$grupos[$key]][$c] = ['nombre' => $p['ItemName'], 'semanas' => []];
+    $nSinVenta++;
+}
+echo "Activos sin ventas agregados: $nSinVenta | sin grupo con historia (fuera): $nSinGrupo\n";
+
 // ---- 1.5) Imputación de demanda CENSURADA por quiebre (estacional del producto) --------
 // El forecast se entrena con VENTA (no demanda real): en semanas de quiebre la venta cae
 // y sesga el modelo a la baja. Se reconstruye el stock (OINM) y se sube la venta de esas
@@ -227,6 +246,9 @@ $fG = fopen("$DIR/grupos.csv", 'w');            fputcsv($fG, ['grupo_id', 'famil
 $fD = fopen("$DIR/grupos_demanda.csv", 'w');    fputcsv($fD, ['grupo_id', 'semana', 'demanda']);
 $fP = fopen("$DIR/grupos_presupuesto.csv", 'w');fputcsv($fP, ['grupo_id', 'semana', 'presupuesto']);
 $fA = fopen("$DIR/productos_demanda.csv", 'w'); fputcsv($fA, ['grupo_id', 'producto_codigo', 'producto_nombre', 'semana', 'demanda']);
+// Lista COMPLETA de productos por grupo (incluye los activos sin ventas, que no tienen filas
+// en productos_demanda.csv). El paso 3 la usa como universo de productos.
+$fL = fopen("$DIR/productos.csv", 'w');         fputcsv($fL, ['grupo_id', 'producto_codigo', 'producto_nombre']);
 
 foreach ($gruposInfo as $id => $g) {
     fputcsv($fG, [$id, $g[0], $g[1]]);
@@ -244,10 +266,11 @@ foreach ($gruposInfo as $id => $g) {
 
     // demanda por producto y semana
     foreach ($prodAgg[$id] as $cod => $info) {
+        fputcsv($fL, [$id, $cod, $info['nombre']]);
         foreach ($info['semanas'] as $sem => $d) { fputcsv($fA, [$id, $cod, $info['nombre'], $sem, round($d, 4)]); }
     }
 }
-fclose($fG); fclose($fD); fclose($fP); fclose($fA);
+fclose($fG); fclose($fD); fclose($fP); fclose($fA); fclose($fL);
 
 // Estado de actividad del NEGOCIO (OITM.U_Sta_Art): activo = 'Activo'. Los 'Descontinuado'
 // se excluirán del forecast (paso 3), redistribuyendo su participación a los activos.

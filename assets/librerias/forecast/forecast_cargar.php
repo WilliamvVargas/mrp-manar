@@ -12,7 +12,8 @@
  *
  *  Participación de cada producto en su grupo = tasa media ponderada de las últimas
  *  52 semanas (peso exponencial alfa^k, más peso a lo reciente), renormalizada entre
- *  los productos activos. Productos sin ventas recientes (discontinuados) -> 0.
+ *  los productos activos. TODO producto Activo (U_Sta_Art) entra, tenga o no ventas: sin
+ *  ventas recientes (o nunca vendido) su participación es 0 -> forecast 0.
  *
  *    demanda_forecast(producto, semana) = forecast_grupo(semana) * participacion(producto)
  *
@@ -83,6 +84,13 @@ try {
     foreach (leerCsv("$DIR/grupos.csv") as $r) { $grupos[(int) $r['grupo_id']] = [$r['familia'], $r['sub_familia']]; }
 
     $prod = []; // [id][cod] => ['nombre'=>, 'semanas'=>[semana=>dem]]
+    // Universo de productos por grupo (incluye los activos SIN ventas, que no tienen filas de
+    // demanda). Si el CSV no existe (export antiguo), el universo sale solo de la demanda.
+    if (is_file("$DIR/productos.csv")) {
+        foreach (leerCsv("$DIR/productos.csv") as $r) {
+            $prod[(int) $r['grupo_id']][$r['producto_codigo']] = ['nombre' => $r['producto_nombre'], 'semanas' => []];
+        }
+    }
     foreach (leerCsv("$DIR/productos_demanda.csv") as $r) {
         $id = (int) $r['grupo_id']; $cod = $r['producto_codigo'];
         if (!isset($prod[$id][$cod])) { $prod[$id][$cod] = ['nombre' => $r['producto_nombre'], 'semanas' => []]; }
@@ -188,14 +196,15 @@ try {
                 $w = pow(ALFA, $k);
                 $np += $w * $dem; $peso += $w;
             }
-            if ($peso <= 0) { continue; }
-            $rate = $np / $peso;
-            if ($rate <= 0) { continue; } // sin ventas recientes -> discontinuado
+            // Todo producto ACTIVO entra al forecast, tenga o no ventas recientes: sin venta en la
+            // ventana (o nunca vendido) su tasa es 0 -> participación 0 (forecast 0, no le quita
+            // demanda a sus hermanos), pero queda en la tabla y en el MRP y admite carga manual.
+            $rate = ($peso > 0) ? max(0.0, $np / $peso) : 0.0;
             $rates[$cod] = $rate; $nombres[$cod] = $info['nombre'];
             $semHist[$cod] = count($info['semanas']);   // semanas con venta real (historia del producto)
         }
-        $suma = array_sum($rates);
-        if ($suma <= 0) { continue; }
+        if (!$rates) { continue; }   // grupo sin productos activos
+        $suma = array_sum($rates);   // puede ser 0 si nadie del grupo vendió en la ventana
         $gruposUsados++;
         $flag = $usaPres[$id] ?? 0;
         // La versión de presupuesto solo aplica si el grupo se pronosticó CON presupuesto
@@ -211,7 +220,7 @@ try {
             $presGrupo = ($flag === 1) ? ($presGrupoSem[$id][$sem] ?? null) : null;
 
             foreach ($rates as $cod => $rate) {
-                $part = $rate / $suma;
+                $part = ($suma > 0) ? $rate / $suma : 0.0;
                 $demF = $f['yhat'] * $part;
                 // Venta presupuestada del producto = participacion × presupuesto de la semana ($).
                 $ventaPres = ($presGrupo !== null) ? $presGrupo * $part : null;
