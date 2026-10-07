@@ -37,7 +37,7 @@
             'Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Proveedor',
             'Lead Time (sem)', 'Stock Físico', 'Stock Mín', 'Stock Máx', 'Stock Seguridad', 'Semana',
             'Demanda Proyectada', 'En Pedido', 'Comprometido', 'Stock Teórico',
-            'Saldo Proyectado', 'Cobertura Lead Time', 'Sugerido a Reponer', 'Estado',
+            'Saldo Proyectado', 'Sugerido a Reponer', 'Estado',
         ]);
         // Estado de la semana (igual que el color de la tendencia): la 1ª barra de la tendencia de
         // la fila corresponde a ESA semana. ok -> Ok, ajustado -> Ajustado, quiebre -> Quiebre.
@@ -67,7 +67,6 @@
                 (int) $r['comprometido_semana'],
                 (int) $r['stock_teorico'],
                 (int) $r['saldo_proyectado'],
-                (int) $r['stock_seguridad'],
                 (int) $r['sugerido'],
                 $celdaEstado,
             ]);
@@ -379,8 +378,8 @@
                             // pueda llegar —es decir, en su ventana de lead time [i−L, i]—, el pedido
                             // = Cobertura Lead Time de la semana en que se ORDENA + Stock de Seguridad,
                             // y NO arrastra el saldo negativo: las ventas perdidas en el quiebre no se
-                            // reponen. Es el mismo número que el usuario ve en la columna Cobertura LT
-                            // de esa semana más el SS. Si no hay quiebre, repone por tanda.
+                            // reponen. (La Cobertura LT se calcula internamente; ya no se muestra como
+                            // columna.) Si no hay quiebre, repone por tanda.
                             // Solo las semanas ANTERIORES a la llegada [i−L, i−1]: el saldo negativo
                             // de la propia semana i (antes de recibir) NO es quiebre, porque el pedido
                             // llega esa semana y la cubre.
@@ -521,9 +520,6 @@
                                 'comprometido_semana' => round($ovSem + $prodSem),
                                 // Stock Teórico acumulado al cierre de esta semana (solo comprometidos).
                                 'stock_teorico'    => round($teoricoSem[$i]),
-                                // Stock de seguridad ROLLING de esta semana (demanda efectiva de las
-                                // próximas leadSem semanas contadas desde ella).
-                                'stock_seguridad'  => round($stockSegSem[$i] ?? 0),
                                 'demanda_efectiva' => round(max((float) $w['demanda'], $ovSem)),
                                 // Recepción = lo EN CAMINO (OC + reserva + producción) que llega en
                                 // ESTA semana según su fecha esperada. Time-phased: 0 en las semanas
@@ -541,7 +537,7 @@
                         $data[] = $filaBase + [
                             'semana' => '', 'sem_idx' => 0, 'demanda_forecast' => 0, 'ov_semana' => 0,
                             'comprometido_semana' => 0, 'stock_teorico' => round($stock),
-                            'stock_seguridad' => 0, 'demanda_efectiva' => 0, 'recepcion' => 0,
+                            'demanda_efectiva' => 0, 'recepcion' => 0,
                             'tendencia' => [], 'saldo_proyectado' => round($saldoInicial), 'sugerido' => 0,
                         ];
                     }

@@ -428,11 +428,11 @@ $(document).ready(function() {
                     // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
                     fixedHeader: true,
                     // Orden FIJO por producto (siempre primero, no lo cambia el usuario): urgencia
-                    // (col. oculta 16) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
+                    // (col. oculta 15) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
                     // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
                     // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
                     // cada producto, como criterio secundario.
-                    orderFixed: { pre: [[16, 'desc'], [1, 'asc']] },
+                    orderFixed: { pre: [[15, 'desc'], [1, 'asc']] },
                     // Orden por defecto (secundario): semana cronológica dentro del producto.
                     order: [[7, 'asc']],
                     // El usuario NO puede reordenar ninguna columna (no hay clic-para-ordenar). El
@@ -459,7 +459,6 @@ $(document).ready(function() {
                         { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
                         { data: 'demanda_efectiva', className: 'text-end mrp-tip-cell mrp-sep-left', render: renderDemanda },
                         { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
-                        { data: 'stock_seguridad',  className: 'text-end',    render: renderNumero },
                         { data: 'sugerido',         className: 'text-end mrp-tip-cell', render: renderSugerido },
                         { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
                         { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
