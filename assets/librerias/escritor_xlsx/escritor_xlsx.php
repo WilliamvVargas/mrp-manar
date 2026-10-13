@@ -21,6 +21,11 @@
  * Detección de tipo por celda: los valores numéricos se escriben como NÚMERO (para que Excel
  * los sume/ordene); el resto como texto. Los "números" con cero a la izquierda (ej. "007") se
  * dejan como texto para no perder el formato del código.
+ *
+ * Fechas (opcional, ver fechasComoFecha()): los textos 'yyyy-mm-dd' (con o sin hora, como
+ * vienen de SQL Server) se escriben como FECHA real de Excel con formato dd-mm-aaaa, para que
+ * se puedan ordenar y filtrar como fecha. Va desactivado por defecto: las plantillas que se
+ * vuelven a cargar (ej. Forecast Personalizado) esperan el texto 'yyyy-mm-dd'.
  */
 class EscritorXlsx
 {
@@ -33,9 +38,22 @@ class EscritorXlsx
     /** @var array Filas de datos (cada una es un arreglo de valores). */
     private $filas = [];
 
+    /** @var bool Escribir los textos 'yyyy-mm-dd[ hh:mm[:ss]]' como fecha de Excel. */
+    private $fechasComoFecha = false;
+
+    /** @var array Columnas con fecha (índice 1-based => true si alguna lleva hora), para su ancho. */
+    private $colsFecha = [];
+
     public function __construct($nombreHoja = 'Hoja1')
     {
         $this->nombreHoja = $this->sanitizarHoja($nombreHoja);
+    }
+
+    /** Activa la escritura de fechas 'yyyy-mm-dd' como fecha real de Excel (dd-mm-aaaa). */
+    public function fechasComoFecha($activar = true)
+    {
+        $this->fechasComoFecha = (bool) $activar;
+        return $this;
     }
 
     /** Define la fila de encabezado (negrita). Llamar una vez, antes o después de las filas. */
@@ -114,24 +132,35 @@ class EscritorXlsx
 
     private function construirSheet()
     {
-        $xml  = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-        $xml .= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
-
+        $this->colsFecha = [];
+        $filasXml   = '';
         $numeroFila = 1;
 
         if ($this->encabezado !== null) {
-            $xml .= $this->construirFila($numeroFila, $this->encabezado, true);
+            $filasXml .= $this->construirFila($numeroFila, $this->encabezado, true);
             $numeroFila++;
         }
 
         foreach ($this->filas as $fila) {
-            $xml .= $this->construirFila($numeroFila, $fila, false);
+            $filasXml .= $this->construirFila($numeroFila, $fila, false);
             $numeroFila++;
         }
 
-        $xml .= '</sheetData></worksheet>';
+        // Ancho de las columnas con fecha: Excel muestra "####" si una fecha no cabe (a
+        // diferencia del texto, que se desborda a la celda vecina).
+        $cols = '';
+        if ($this->colsFecha) {
+            ksort($this->colsFecha);
+            foreach ($this->colsFecha as $col => $conHora) {
+                $ancho = $conHora ? 17 : 12;
+                $cols .= '<col min="' . $col . '" max="' . $col . '" width="' . $ancho . '" customWidth="1"/>';
+            }
+            $cols = '<cols>' . $cols . '</cols>';
+        }
 
-        return $xml;
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . $cols . '<sheetData>' . $filasXml . '</sheetData></worksheet>';
     }
 
     /** XML de una fila (<row>) con sus celdas. */
@@ -142,7 +171,7 @@ class EscritorXlsx
 
         foreach ($valores as $valor) {
             $ref     = $this->letraColumna($columna) . $numeroFila;
-            $celdas .= $this->construirCelda($ref, $valor, $esEncabezado);
+            $celdas .= $this->construirCelda($ref, $valor, $esEncabezado, $columna);
             $columna++;
         }
 
@@ -153,8 +182,10 @@ class EscritorXlsx
      * XML de una celda (<c>): número si aplica, si no texto (inline string).
      * El valor puede ser escalar, o un arreglo ['valor'=>x, 'relleno'=>'verde'|'amarillo'|'rojo']
      * para pintar el fondo de la celda (ver índices en xmlStyles()).
+     * Con fechasComoFecha(), un texto 'yyyy-mm-dd[ hh:mm[:ss]]' sin relleno se escribe como
+     * fecha de Excel (número de serie + formato dd-mm-aaaa).
      */
-    private function construirCelda($ref, $valor, $esEncabezado)
+    private function construirCelda($ref, $valor, $esEncabezado, $columna = 0)
     {
         $idxEstilo = $esEncabezado ? 1 : 0;
 
@@ -163,6 +194,15 @@ class EscritorXlsx
             $valor   = $valor['valor'] ?? '';
             $mapa    = ['verde' => 2, 'amarillo' => 3, 'rojo' => 4, 'gris' => 5];
             if ($relleno !== null && isset($mapa[$relleno])) { $idxEstilo = $mapa[$relleno]; }
+        }
+
+        if ($this->fechasComoFecha && $idxEstilo === 0) {
+            $fecha = $this->serialFecha($valor);
+            if ($fecha !== null) {
+                [$serial, $conHora] = $fecha;
+                $this->colsFecha[$columna] = ($this->colsFecha[$columna] ?? false) || $conHora;
+                return '<c r="' . $ref . '" s="' . ($conHora ? 7 : 6) . '"><v>' . $serial . '</v></c>';
+            }
         }
 
         $estilo = $idxEstilo ? ' s="' . $idxEstilo . '"' : '';
@@ -224,6 +264,7 @@ class EscritorXlsx
      *   3 = relleno amarillo + texto negro (estado "Ajustado" / calidad "Media")
      *   4 = relleno rojo + texto blanco    (estado "Quiebre" / calidad "Baja")
      *   5 = relleno gris + texto blanco    (calidad "Manual" / secundario)
+     *   6 = fecha dd-mm-aaaa · 7 = fecha con hora dd-mm-aaaa hh:mm (ver fechasComoFecha())
      * Colores en ARGB (FF + RRGGBB), iguales a los badges del MRP/Forecast:
      *   verde #198754 · amarillo #ffc107 · rojo #dc3545 · gris #6c757d.
      */
@@ -231,6 +272,10 @@ class EscritorXlsx
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<numFmts count="2">'
+            .   '<numFmt numFmtId="164" formatCode="dd\-mm\-yyyy"/>'
+            .   '<numFmt numFmtId="165" formatCode="dd\-mm\-yyyy\ hh:mm"/>'
+            . '</numFmts>'
             . '<fonts count="3">'
             .   '<font><sz val="11"/><name val="Calibri"/></font>'
             .   '<font><b/><sz val="11"/><name val="Calibri"/></font>'
@@ -246,13 +291,15 @@ class EscritorXlsx
             . '</fills>'
             . '<borders count="1"><border/></borders>'
             . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="6">'
+            . '<cellXfs count="8">'
             .   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             .   '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
             .   '<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
             .   '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>'
             .   '<xf numFmtId="0" fontId="2" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
             .   '<xf numFmtId="0" fontId="2" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+            .   '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+            .   '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
             . '</cellXfs>'
             . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             . '</styleSheet>';
@@ -364,6 +411,30 @@ class EscritorXlsx
             return false;
         }
         return true;
+    }
+
+    /**
+     * Si $valor es un texto de fecha 'yyyy-mm-dd' (opcionalmente con ' hh:mm[:ss[.fff]]' o 'T'),
+     * devuelve [número de serie de Excel, ¿lleva hora distinta de 00:00?]; si no, null.
+     * Serie de Excel = días desde 1899-12-30 (fecha Unix 0 = 25569), más la fracción del día.
+     */
+    private function serialFecha($valor)
+    {
+        if (!is_string($valor)
+            || !preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/', $valor, $m)) {
+            return null;
+        }
+        [$a, $mes, $d] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+        if (!checkdate($mes, $d, $a) || $a < 1900) {
+            return null;
+        }
+        $h = (int) ($m[4] ?? 0); $min = (int) ($m[5] ?? 0); $s = (int) ($m[6] ?? 0);
+        $serial = intdiv(gmmktime(0, 0, 0, $mes, $d, $a), 86400) + 25569;
+        $conHora = ($h || $min || $s);
+        if ($conHora) {
+            $serial += ($h * 3600 + $min * 60 + $s) / 86400;
+        }
+        return [$serial, (bool) $conHora];
     }
 
     /** Escapa texto para XML y quita caracteres de control no válidos en XML 1.0. */

@@ -41,6 +41,7 @@
 
     try {
         $xlsx = new EscritorXlsx($nombre);
+        $xlsx->fechasComoFecha();   // fechas 'yyyy-mm-dd' de las consultas -> fecha real de Excel (dd-mm-aaaa)
         if (!empty($encabezados)) {
             $xlsx->encabezados($encabezados);
         }
