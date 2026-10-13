@@ -242,27 +242,30 @@
                     }
                 }
 
-                // 3.8) VARIABILIDAD de la demanda para el stock de seguridad ESTACIONAL: coeficiente
-                // de variación CV = σ / media de la demanda real semanal (últimas 52 sem completas,
-                // desde la 1ª venta del producto, con 0 en las semanas sin venta). σ se estima por
-                // RANGO MÓVIL (promedio de |semana − semana anterior| / 1,128): mide el ruido de una
-                // semana a otra y NO la ola estacional (la σ clásica de todo el año la incluía y, al
-                // multiplicarla por el forecast, contaba la estacionalidad dos veces).
-                // Con poca historia (< $MIN_SEM_CV semanas) el CV propio no es confiable: se usa la
-                // MEDIANA del CV de los productos maduros de su grupo (Familia‖Sub-Familia) y, si el
-                // grupo no tiene ninguno, la mediana de la empresa.
-                $MIN_SEM_CV = 13;
+                // 3.8) VARIABILIDAD de la demanda real semanal (últimas 52 sem completas, desde la 1ª
+                // venta del producto, con 0 en las semanas sin venta) para el stock de seguridad.
+                // Dos fórmulas según la HISTORIA del producto (semanas desde su 1ª venta):
+                //  - Con historia (>= $MIN_SEM_CV sem): SS CLÁSICO fijo = Z × σ × √LT, con σ = desviación
+                //    estándar muestral de su demanda real.
+                //  - Sin historia suficiente (< $MIN_SEM_CV sem, incluye los que nunca vendieron): su σ
+                //    no es confiable (ej. 3 semanas con un pedido grande disparan el SS). Usa el SS
+                //    ESTACIONAL (ver más abajo) con el CV de su GRUPO: CV = σ / media, mediana de los
+                //    productos con historia del grupo (Familia‖Sub-Familia); si el grupo no tiene
+                //    ninguno, la mediana de la empresa. Ese σ se estima por RANGO MÓVIL (promedio de
+                //    |semana − semana anterior| / 1,128): mide el ruido de una semana a otra y NO la ola
+                //    estacional, que el SS estacional ya toma del forecast (si no, la contaría dos veces).
+                $MIN_SEM_CV = 26;   // ~6 meses: cubre la subida y la bajada de una temporada
                 $mediana = function (array $v) {
                     sort($v); $n = count($v);
                     if (!$n) { return null; }
                     return ($n % 2) ? $v[intdiv($n, 2)] : ($v[$n / 2 - 1] + $v[$n / 2]) / 2;
                 };
-                $varProd = [];   // [cod] => ['n'=>semanas, 'sigma'=>σ rango móvil, 'cv'=>CV propio|null, 'g'=>grupo]
-                $cvGrupo = [];   // [grupo] => [CV de sus productos maduros]
+                $varProd = [];   // [cod] => ['n'=>semanas, 'sigma'=>σ clásica, 'cv'=>CV (rango móvil)|null, 'g'=>grupo]
+                $cvGrupo = [];   // [grupo] => [CV de sus productos con historia]
                 foreach ($base as $b) {
                     $cod = trim($b['producto_codigo']);
                     $g   = $b['familia'] . '||' . $b['sub_familia'];
-                    $n = 0; $media = 0.0; $sigmaMr = 0.0;
+                    $n = 0; $media = 0.0; $sigmaMr = 0.0; $sigma = 0.0;
                     $serieReal = $demRealSem[$cod] ?? [];
                     if ($serieReal) {
                         ksort($serieReal);
@@ -270,16 +273,18 @@
                         // Semanas calendario desde la 1ª venta hasta el fin de ventana (inclusive).
                         $n = max(count($serieReal), (int) floor((strtotime($finSigma) - strtotime($primera)) / (7 * 86400)) + 1);
                         $media = array_sum($serieReal) / $n;
-                        $prev = null; $sumMr = 0.0;
+                        $prev = null; $sumMr = 0.0; $sumSq = 0.0;
                         for ($k = 0; $k < $n; $k++) {
                             $v = (float) ($serieReal[date('Y-m-d', strtotime($primera . " +$k week"))] ?? 0);
+                            $sumSq += ($v - $media) * ($v - $media);
                             if ($prev !== null) { $sumMr += abs($v - $prev); }
                             $prev = $v;
                         }
-                        $sigmaMr = ($n > 1) ? ($sumMr / ($n - 1)) / 1.128 : 0.0;
+                        $sigma   = ($n > 1) ? sqrt($sumSq / ($n - 1)) : 0.0;          // σ clásica (muestral)
+                        $sigmaMr = ($n > 1) ? ($sumMr / ($n - 1)) / 1.128 : 0.0;       // σ por rango móvil
                     }
                     $cvPropio = ($n >= $MIN_SEM_CV && $media > 0) ? $sigmaMr / $media : null;
-                    $varProd[$cod] = ['n' => $n, 'sigma' => $sigmaMr, 'cv' => $cvPropio, 'g' => $g];
+                    $varProd[$cod] = ['n' => $n, 'sigma' => $sigma, 'cv' => $cvPropio, 'g' => $g];
                     if ($cvPropio !== null) { $cvGrupo[$g][] = $cvPropio; }
                 }
                 $cvEmpresa = $mediana(array_merge([], ...array_values($cvGrupo))) ?? 0.0;
@@ -308,15 +313,21 @@
                         $leadSem = $leadDefaultSem;
                     }
 
-                    // CV del producto para el stock de seguridad estacional (ver 3.8): propio si
-                    // tiene historia suficiente; si no, el de su grupo o el de la empresa.
+                    // Fórmula del stock de seguridad según la historia del producto (ver 3.8):
+                    //  - con historia  -> 'clasico'   : SS fijo = Z × σ × √LT.
+                    //  - sin historia  -> 'estacional': SS por semana con el CV de su grupo (o empresa).
                     $vp = $varProd[$cod];
+                    $cvSeg = null; $cvOrigen = null;
                     if ($vp['cv'] !== null) {
-                        $cvSeg = $vp['cv'];                   $cvOrigen = 'propio';
-                    } elseif (isset($cvGrupoMed[$vp['g']])) {
-                        $cvSeg = $cvGrupoMed[$vp['g']];       $cvOrigen = 'grupo';
+                        $ssMetodo = 'clasico';
+                        $ssFijo   = (int) round($zSeg * $vp['sigma'] * sqrt(max(1, $leadSem)));
                     } else {
-                        $cvSeg = $cvEmpresa;                  $cvOrigen = 'empresa';
+                        $ssMetodo = 'estacional';
+                        if (isset($cvGrupoMed[$vp['g']])) {
+                            $cvSeg = $cvGrupoMed[$vp['g']];   $cvOrigen = 'grupo';
+                        } else {
+                            $cvSeg = $cvEmpresa;              $cvOrigen = 'empresa';
+                        }
                     }
 
                     // Ventana futura del forecast (desde la semana actual), acotada al MÁXIMO de
@@ -360,18 +371,22 @@
                         $stockSegSem[$k] = $s;
                     }
 
-                    // Stock de seguridad ESTACIONAL por semana:
-                    //   SS(t) = Z × CV × (demanda efectiva promedio de las LT semanas desde t) × √LT
-                    // Es el SS estadístico clásico (Z × σ × √LT) con σ(t) = CV × demanda esperada en t:
-                    // sigue al forecast, así que sube al entrar a temporada alta y baja (hasta ~0) al
-                    // salir, en vez de quedar congelado con la variabilidad del pasado. Es el punto de
-                    // reorden y el piso de la reposición de la proyección (más abajo).
+                    // Stock de seguridad POR SEMANA (punto de reorden y piso de la reposición de la
+                    // proyección, más abajo):
+                    //  - 'clasico'   : el mismo valor fijo todas las semanas (Z × σ × √LT).
+                    //  - 'estacional': SS(t) = Z × CV × (demanda efectiva promedio de las LT semanas
+                    //    desde t) × √LT. Es el SS clásico con σ(t) = CV × demanda esperada en t: sigue al
+                    //    forecast, así que sube al entrar a temporada alta y baja (hasta ~0) al salir.
                     $ssSem = [];
                     foreach ($stockSegSem as $k => $s) {
-                        $nLt = min($L, $totSF - $k);   // al final de la serie la ventana se acorta
-                        $ssSem[$k] = (int) round($zSeg * $cvSeg * ($nLt > 0 ? $s / $nLt : 0) * sqrt($L));
+                        if ($ssMetodo === 'clasico') {
+                            $ssSem[$k] = $ssFijo;
+                        } else {
+                            $nLt = min($L, $totSF - $k);   // al final de la serie la ventana se acorta
+                            $ssSem[$k] = (int) round($zSeg * $cvSeg * ($nLt > 0 ? $s / $nLt : 0) * sqrt($L));
+                        }
                     }
-                    $ssHoy = $ssSem[0] ?? 0;   // SS de la semana actual (ficha / estado)
+                    $ssHoy = $ssSem[0] ?? ($ssMetodo === 'clasico' ? $ssFijo : 0);   // SS de la semana actual (ficha)
 
                     // Stock Teórico POR SEMANA (columna): balance acumulado considerando solo los
                     // documentos comprometidos (sin forecast ni reposición sugerida). La 1ª semana
@@ -528,12 +543,14 @@
                         'stock_min'        => (float) ($abast[$cod]['StockMin'] ?? 0),
                         'stock_max'        => (float) ($abast[$cod]['StockMax'] ?? 0),
                         'lead_time'        => $leadSem,               // lead time usado (semanas)
-                        // Stock de seguridad ESTACIONAL de la SEMANA ACTUAL (ficha):
-                        // SS = Z × CV × demanda promedio LT × √LT. Z, CV (y su origen) y la demanda
-                        // promedio del LT se envían para el tooltip explicativo.
+                        // Stock de seguridad de la SEMANA ACTUAL (ficha) y los datos de su tooltip:
+                        //  'clasico'    -> Z × σ × √LT (σ, Z, LT).
+                        //  'estacional' -> Z × CV × demanda promedio LT × √LT (CV y su origen, demanda LT).
                         'stock_seguridad_est' => $ssHoy,
-                        'cv_seguridad'     => round($cvSeg, 3),
-                        'cv_origen'        => $cvOrigen,          // 'propio' | 'grupo' | 'empresa'
+                        'ss_metodo'        => $ssMetodo,          // 'clasico' | 'estacional'
+                        'sigma_semanal'    => round($vp['sigma'], 1),
+                        'cv_seguridad'     => ($cvSeg !== null) ? round($cvSeg, 3) : null,
+                        'cv_origen'        => $cvOrigen,          // 'grupo' | 'empresa' | null
                         'cv_semanas_hist'  => $vp['n'],           // semanas de historia del producto
                         'dem_prom_lt'      => round(($stockSegSem[0] ?? 0) / max(1, min($L, $totSF)), 1),
                         'z_seguridad'      => $zSeg,
