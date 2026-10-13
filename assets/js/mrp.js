@@ -219,24 +219,27 @@ $(document).ready(function() {
     }
 
     // Índice por producto: demanda proyectada (efectiva) por semana (sem_idx), lead time y el
-    // stock de seguridad ESTADÍSTICO por producto (con su σ y Z para el tooltip). Alimenta el
-    // Stock de Seguridad de la ficha. Se reconstruye en cada carga de datos.
+    // stock de seguridad ESTACIONAL de la semana actual (con Z, CV y demanda promedio del LT para
+    // el tooltip). Alimenta el Stock de Seguridad de la ficha. Se reconstruye en cada carga.
     let demPorProd  = {};
     let sugPorProd  = {};
     let leadPorProd = {};
-    let segEstPorProd = {};   // SS = Z × σ × √LT (por producto)
-    let sigmaPorProd  = {};   // σ semanal de la demanda real
+    let segEstPorProd = {};   // SS de la semana actual = Z × CV × demanda prom. LT × √LT
+    let segInfoPorProd = {};  // datos del tooltip: CV, origen del CV, semanas de historia, demanda prom. LT
     let zPorProd      = {};   // factor Z (nivel de servicio) de la empresa
     function indexarProductos(filas) {
         demPorProd = {}; sugPorProd = {}; leadPorProd = {};
-        segEstPorProd = {}; sigmaPorProd = {}; zPorProd = {};
+        segEstPorProd = {}; segInfoPorProd = {}; zPorProd = {};
         (filas || []).forEach(function(f) {
             const c = f.producto_codigo;
             if (demPorProd[c] === undefined) {
                 demPorProd[c] = []; sugPorProd[c] = [];
                 leadPorProd[c]   = Number(f.lead_time) || 0;
                 segEstPorProd[c] = Number(f.stock_seguridad_est) || 0;
-                sigmaPorProd[c]  = Number(f.sigma_semanal) || 0;
+                segInfoPorProd[c] = {
+                    cv: Number(f.cv_seguridad) || 0, origen: f.cv_origen || '',
+                    hist: Number(f.cv_semanas_hist) || 0, dem: Number(f.dem_prom_lt) || 0
+                };
                 zPorProd[c]      = Number(f.z_seguridad) || 0;
             }
             if (f.semana) {
@@ -247,11 +250,10 @@ $(document).ready(function() {
         });
     }
 
-    // Stock de Seguridad (FICHA) = SS = Z × σ × √LT (todo en semanas), calculado en el servidor:
-    // Z = nivel de servicio de la empresa, σ = desviación estándar de la demanda REAL semanal
-    // (últimas 52 sem), LT = lead time en semanas. Valor por producto: NO depende del horizonte
-    // de la vista (a diferencia del cálculo anterior). Es distinto de la columna semanal "Stock
-    // de Seguridad" (rolling), que sigue alimentando la proyección time-phased.
+    // Stock de Seguridad (FICHA) = SS ESTACIONAL de la semana actual, calculado en el servidor:
+    // SS = Z × CV × demanda promedio de las LT semanas desde hoy × √LT. Z = nivel de servicio de
+    // la empresa; CV = variabilidad semana a semana de la demanda real (propio, o el de su grupo si
+    // el producto tiene poca historia). Sigue al forecast: sube al entrar a temporada y baja al salir.
     function stockSegFicha(cod) {
         return segEstPorProd[cod] || 0;
     }
@@ -259,11 +261,16 @@ $(document).ready(function() {
     // Tooltip explicativo de la fórmula del stock de seguridad de la ficha.
     function tooltipSegFicha(cod) {
         const z  = zPorProd[cod] || 0;
-        const s  = sigmaPorProd[cod] || 0;
+        const i  = segInfoPorProd[cod] || {};
         const lt = leadPorProd[cod] || 0;
-        return 'SS = Z × σ × √LT = ' + z.toLocaleString('es-CL') + ' × '
-             + formatearEntero(s) + ' × √' + lt + ' = ' + formatearEntero(stockSegFicha(cod))
-             + '  (Z nivel de servicio, σ ' + formatearEntero(s) + '/sem de demanda real, LT ' + lt + ' sem)';
+        const fmt2 = function(v) { return Number(v || 0).toLocaleString('es-CL', { maximumFractionDigits: 2 }); };
+        const origen = (i.origen === 'propio')
+            ? 'propio, ' + i.hist + ' sem de historia'
+            : (i.origen === 'grupo' ? 'del grupo: el producto tiene ' + i.hist + ' sem de historia'
+                                    : 'de la empresa: sin historia en el grupo');
+        return 'SS semana actual = Z × CV × demanda prom. LT × √LT = ' + fmt2(z) + ' × ' + fmt2(i.cv)
+             + ' × ' + formatearEntero(i.dem) + ' × √' + lt + ' = ' + formatearEntero(stockSegFicha(cod))
+             + '  (CV ' + origen + '. Sigue al forecast: cambia semana a semana)';
     }
 
     // Suma ACUMULADA de un valor por semana (mapa cod->[valor por sem_idx]) desde la 1ª semana del

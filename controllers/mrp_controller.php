@@ -60,7 +60,7 @@
                 (int) $r['stock_wms'],
                 (int) $r['stock_min'],
                 (int) $r['stock_max'],
-                (int) $r['stock_seguridad_est'],
+                (int) ($r['stock_seguridad_sem'] ?? $r['stock_seguridad_est']),   // SS de la semana (estacional)
                 $r['semana'],
                 (int) $r['demanda_efectiva'],
                 (int) $r['recepcion'],
@@ -242,6 +242,50 @@
                     }
                 }
 
+                // 3.8) VARIABILIDAD de la demanda para el stock de seguridad ESTACIONAL: coeficiente
+                // de variación CV = σ / media de la demanda real semanal (últimas 52 sem completas,
+                // desde la 1ª venta del producto, con 0 en las semanas sin venta). σ se estima por
+                // RANGO MÓVIL (promedio de |semana − semana anterior| / 1,128): mide el ruido de una
+                // semana a otra y NO la ola estacional (la σ clásica de todo el año la incluía y, al
+                // multiplicarla por el forecast, contaba la estacionalidad dos veces).
+                // Con poca historia (< $MIN_SEM_CV semanas) el CV propio no es confiable: se usa la
+                // MEDIANA del CV de los productos maduros de su grupo (Familia‖Sub-Familia) y, si el
+                // grupo no tiene ninguno, la mediana de la empresa.
+                $MIN_SEM_CV = 13;
+                $mediana = function (array $v) {
+                    sort($v); $n = count($v);
+                    if (!$n) { return null; }
+                    return ($n % 2) ? $v[intdiv($n, 2)] : ($v[$n / 2 - 1] + $v[$n / 2]) / 2;
+                };
+                $varProd = [];   // [cod] => ['n'=>semanas, 'sigma'=>σ rango móvil, 'cv'=>CV propio|null, 'g'=>grupo]
+                $cvGrupo = [];   // [grupo] => [CV de sus productos maduros]
+                foreach ($base as $b) {
+                    $cod = trim($b['producto_codigo']);
+                    $g   = $b['familia'] . '||' . $b['sub_familia'];
+                    $n = 0; $media = 0.0; $sigmaMr = 0.0;
+                    $serieReal = $demRealSem[$cod] ?? [];
+                    if ($serieReal) {
+                        ksort($serieReal);
+                        $primera = array_key_first($serieReal);   // lunes de la 1ª semana con venta
+                        // Semanas calendario desde la 1ª venta hasta el fin de ventana (inclusive).
+                        $n = max(count($serieReal), (int) floor((strtotime($finSigma) - strtotime($primera)) / (7 * 86400)) + 1);
+                        $media = array_sum($serieReal) / $n;
+                        $prev = null; $sumMr = 0.0;
+                        for ($k = 0; $k < $n; $k++) {
+                            $v = (float) ($serieReal[date('Y-m-d', strtotime($primera . " +$k week"))] ?? 0);
+                            if ($prev !== null) { $sumMr += abs($v - $prev); }
+                            $prev = $v;
+                        }
+                        $sigmaMr = ($n > 1) ? ($sumMr / ($n - 1)) / 1.128 : 0.0;
+                    }
+                    $cvPropio = ($n >= $MIN_SEM_CV && $media > 0) ? $sigmaMr / $media : null;
+                    $varProd[$cod] = ['n' => $n, 'sigma' => $sigmaMr, 'cv' => $cvPropio, 'g' => $g];
+                    if ($cvPropio !== null) { $cvGrupo[$g][] = $cvPropio; }
+                }
+                $cvEmpresa = $mediana(array_merge([], ...array_values($cvGrupo))) ?? 0.0;
+                $cvGrupoMed = [];
+                foreach ($cvGrupo as $g => $v) { $cvGrupoMed[$g] = $mediana($v); }
+
                 // 4) Merge + sugerido a reponer.
                 $data = [];
                 foreach ($base as $b) {
@@ -264,29 +308,16 @@
                         $leadSem = $leadDefaultSem;
                     }
 
-                    // Stock de seguridad ESTADÍSTICO (para la FICHA): SS = Z × σ × √LT, todo en
-                    // SEMANAS. σ = desviación estándar MUESTRAL de la demanda real semanal en la
-                    // ventana (últimas 52 sem completas), rellenando con 0 las semanas SIN venta
-                    // desde la primera venta del producto en la ventana (esos ceros son variabilidad
-                    // real). LT en semanas ($leadSem). Es un valor por producto (no depende del
-                    // horizonte de la vista). NO afecta a la proyección time-phased ni a la columna
-                    // semanal "Stock de Seguridad" (rolling), que se calculan aparte más abajo.
-                    $sigmaSem  = 0.0;
-                    $serieReal = $demRealSem[$cod] ?? [];
-                    if ($serieReal) {
-                        ksort($serieReal);
-                        $primera  = array_key_first($serieReal);   // lunes de la 1ª semana con venta
-                        // Semanas calendario desde la 1ª venta hasta el fin de ventana (inclusive).
-                        $nSemReal = (int) floor((strtotime($finSigma) - strtotime($primera)) / (7 * 86400)) + 1;
-                        if ($nSemReal < count($serieReal)) { $nSemReal = count($serieReal); }
-                        $mediaR = array_sum($serieReal) / $nSemReal;
-                        $sumSq  = 0.0;
-                        foreach ($serieReal as $v) { $sumSq += ($v - $mediaR) * ($v - $mediaR); }
-                        $ceros  = $nSemReal - count($serieReal);            // semanas sin venta (=0)
-                        if ($ceros > 0) { $sumSq += $ceros * ($mediaR * $mediaR); }
-                        $sigmaSem = ($nSemReal > 1) ? sqrt($sumSq / ($nSemReal - 1)) : 0.0;
+                    // CV del producto para el stock de seguridad estacional (ver 3.8): propio si
+                    // tiene historia suficiente; si no, el de su grupo o el de la empresa.
+                    $vp = $varProd[$cod];
+                    if ($vp['cv'] !== null) {
+                        $cvSeg = $vp['cv'];                   $cvOrigen = 'propio';
+                    } elseif (isset($cvGrupoMed[$vp['g']])) {
+                        $cvSeg = $cvGrupoMed[$vp['g']];       $cvOrigen = 'grupo';
+                    } else {
+                        $cvSeg = $cvEmpresa;                  $cvOrigen = 'empresa';
                     }
-                    $stockSegEst = (int) round($zSeg * $sigmaSem * sqrt(max(1, $leadSem)));
 
                     // Ventana futura del forecast (desde la semana actual), acotada al MÁXIMO de
                     // cálculo (fijo), no al horizonte de la vista.
@@ -329,6 +360,19 @@
                         $stockSegSem[$k] = $s;
                     }
 
+                    // Stock de seguridad ESTACIONAL por semana:
+                    //   SS(t) = Z × CV × (demanda efectiva promedio de las LT semanas desde t) × √LT
+                    // Es el SS estadístico clásico (Z × σ × √LT) con σ(t) = CV × demanda esperada en t:
+                    // sigue al forecast, así que sube al entrar a temporada alta y baja (hasta ~0) al
+                    // salir, en vez de quedar congelado con la variabilidad del pasado. Es el punto de
+                    // reorden y el piso de la reposición de la proyección (más abajo).
+                    $ssSem = [];
+                    foreach ($stockSegSem as $k => $s) {
+                        $nLt = min($L, $totSF - $k);   // al final de la serie la ventana se acorta
+                        $ssSem[$k] = (int) round($zSeg * $cvSeg * ($nLt > 0 ? $s / $nLt : 0) * sqrt($L));
+                    }
+                    $ssHoy = $ssSem[0] ?? 0;   // SS de la semana actual (ficha / estado)
+
                     // Stock Teórico POR SEMANA (columna): balance acumulado considerando solo los
                     // documentos comprometidos (sin forecast ni reposición sugerida). La 1ª semana
                     // parte del stock físico; cada semana siguiente ARRASTRA el teórico de la semana
@@ -367,15 +411,15 @@
                         // Consumo de producción (componentes de OP): es adicional a la venta, se resta aparte.
                         $saldo -= (float) ($prodProd[$w['semana']] ?? 0);
                         $rec    = 0;
-                        // REPOSICIÓN POR TANDA. Punto de reorden = Stock de Seguridad ESTADÍSTICO
-                        // (Z×σ×√LT, por producto): si en la semana de llegada del pedido el saldo cae
+                        // REPOSICIÓN POR TANDA. Punto de reorden = Stock de Seguridad ESTACIONAL de la
+                        // semana ($ssSem, ver arriba): si en la semana de llegada del pedido el saldo cae
                         // bajo el SS, se repone DE UNA VEZ hasta SS + la demanda de las próximas C
                         // semanas (C = lead time). El pedido dura hasta que pueda llegar el siguiente,
                         // así las compras se espacian ~cada lead time en vez de gotear semana a semana.
                         // Una orden NUEVA recién puede llegar en la semana L (antes tendría que
                         // haberse colocado en el pasado). Las semanas 0..L-1 sin stock quedan en
                         // QUIEBRE (saldo negativo): no llega mercadería y no se puede vender.
-                        if ($i >= $leadSem && $saldo < $stockSegEst) {
+                        if ($i >= $leadSem && $saldo < $ssSem[$i]) {
                             // REGLA DE QUIEBRE: si hay quiebre (saldo < 0) antes de que este pedido
                             // pueda llegar —es decir, en su ventana de lead time [i−L, i]—, el pedido
                             // = Cobertura Lead Time de la semana en que se ORDENA + Stock de Seguridad,
@@ -390,7 +434,7 @@
                                 if ($saldoSem[$k] < 0) { $hayQuiebre = true; }
                             }
                             if ($hayQuiebre) {
-                                $rec   = (int) ceil(($stockSegSem[$i - $leadSem] ?? 0) + $stockSegEst);
+                                $rec   = (int) ceil(($stockSegSem[$i - $leadSem] ?? 0) + $ssSem[$i]);
                                 // El piso en 0 se aplica al negativo ARRASTRADO (ventas perdidas de las
                                 // semanas anteriores); la venta de la propia semana de llegada SÍ se
                                 // atiende con lo que llega, así que se descuenta después.
@@ -403,7 +447,7 @@
                                 for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
                                     $cobertura += $demEfect[$j];
                                 }
-                                $rec    = (int) ceil(($stockSegEst + $cobertura) - $saldo);
+                                $rec    = (int) ceil(($ssSem[$i] + $cobertura) - $saldo);
                                 $saldo += $rec;
                             }
                         }
@@ -431,7 +475,7 @@
                     }
                     if ($estado === 'ok') {
                         foreach ($saldoLead as $i => $s) {
-                            if ($s < $stockSegEst) { $estado = 'ajustado'; break; }   // bajo el SS estadístico
+                            if ($s < ($ssSem[$i] ?? 0)) { $estado = 'ajustado'; break; }   // bajo el SS de esa semana
                         }
                     }
 
@@ -448,7 +492,7 @@
                         $baseT   = $saldoT;   // antes del consumo de la semana (ver proyección)
                         $saldoT -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
                         $saldoT -= (float) ($prodProd[$w['semana']] ?? 0);
-                        if ($i >= $leadSem && $saldoT < $stockSegEst) {
+                        if ($i >= $leadSem && $saldoT < $ssSem[$i]) {
                             // Mismas reglas que la proyección: quiebre en el LT -> Cobertura LT + SS
                             // (sin arrastrar el negativo); si no, repone por tanda.
                             $hayQ = false;   // solo semanas anteriores a la llegada (ver proyección)
@@ -456,17 +500,17 @@
                                 if ($saldoTSem[$k] < 0) { $hayQ = true; }
                             }
                             if ($hayQ) {
-                                $saldoT = max(0.0, $baseT) - ($baseT - $saldoT) + (int) ceil(($stockSegSem[$i - $leadSem] ?? 0) + $stockSegEst);
+                                $saldoT = max(0.0, $baseT) - ($baseT - $saldoT) + (int) ceil(($stockSegSem[$i - $leadSem] ?? 0) + $ssSem[$i]);
                             } else {
                                 $cobT = 0.0;   // por tanda: SS + demanda de las próximas C = leadSem semanas
                                 for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
                                     $cobT += $demEfect[$j];
                                 }
-                                $saldoT += (int) ceil(($stockSegEst + $cobT) - $saldoT);
+                                $saldoT += (int) ceil(($ssSem[$i] + $cobT) - $saldoT);
                             }
                         }
                         $saldoTSem[$i] = $saldoT;
-                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $stockSegEst) ? 'ajustado' : 'ok');
+                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $ssSem[$i]) ? 'ajustado' : 'ok');
                         $tendencia[$i] = ['d' => round((float) $w['demanda'], 1), 'e' => $e];
                     }
 
@@ -484,10 +528,14 @@
                         'stock_min'        => (float) ($abast[$cod]['StockMin'] ?? 0),
                         'stock_max'        => (float) ($abast[$cod]['StockMax'] ?? 0),
                         'lead_time'        => $leadSem,               // lead time usado (semanas)
-                        // Stock de seguridad ESTADÍSTICO de la ficha (SS = Z × σ × √LT, en semanas).
-                        // Valor por producto; σ y Z se envían para el tooltip explicativo.
-                        'stock_seguridad_est' => $stockSegEst,
-                        'sigma_semanal'    => round($sigmaSem, 1),
+                        // Stock de seguridad ESTACIONAL de la SEMANA ACTUAL (ficha):
+                        // SS = Z × CV × demanda promedio LT × √LT. Z, CV (y su origen) y la demanda
+                        // promedio del LT se envían para el tooltip explicativo.
+                        'stock_seguridad_est' => $ssHoy,
+                        'cv_seguridad'     => round($cvSeg, 3),
+                        'cv_origen'        => $cvOrigen,          // 'propio' | 'grupo' | 'empresa'
+                        'cv_semanas_hist'  => $vp['n'],           // semanas de historia del producto
+                        'dem_prom_lt'      => round(($stockSegSem[0] ?? 0) / max(1, min($L, $totSF)), 1),
                         'z_seguridad'      => $zSeg,
                         'stock_wms'        => round($stock),
                         'stock_por_vencer' => round($porVencer),
@@ -532,6 +580,8 @@
                                 // del horizonte de la vista; al final de la serie puede acortarse).
                                 'tendencia'        => array_slice($tendencia, $i, $barsTend),
                                 'saldo_proyectado' => round($saldoSem[$i]),
+                                // Stock de seguridad estacional de ESTA semana (sigue al forecast).
+                                'stock_seguridad_sem' => $ssSem[$i] ?? 0,
                                 'sugerido'         => (int) $ordenar[$i],
                             ];
                         }
