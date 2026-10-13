@@ -58,6 +58,24 @@
         }
 
         /**
+         * Expresión SQL de la Fecha Ingreso Bodega (UDF U_FIngBodega) de una tabla de cabecera
+         * de compras (OPOR / OPCH), tolerante a su ausencia: si la base SAP conectada no tiene
+         * la UDF, devuelve NULL para que la consulta no falle (Invalid column name). Si no se
+         * puede inspeccionar, asume que existe (igual que oitmTieneColumna).
+         *
+         * @param string $tabla 'OPOR' u 'OPCH' (nombre fijo, no viene del usuario).
+         */
+        private function exprFechaIngresoBodega($tabla)
+        {
+            try {
+                $existe = $this->pdo->query("SELECT COL_LENGTH('$tabla', 'U_FIngBodega')")->fetchColumn();
+            } catch (Throwable $e) {
+                $existe = 1;
+            }
+            return ($existe !== null && $existe !== false) ? "$tabla.U_FIngBodega" : 'CAST(NULL AS datetime)';
+        }
+
+        /**
          * Columnas de la consulta de Parámetros para MRP, compartidas por
          * parametrosMrpProducto() (un producto) y parametrosMrp() (todos). Incluye:
          *  - Parámetros estándar SAP: maestro (OITM) y stock por bodega (OITW).
@@ -248,6 +266,10 @@
          */
         public function enPedidoComprasPorProducto($itemCode)
         {
+            // Fecha Ingreso Bodega: NULL si la SAP conectada no tiene la UDF.
+            $fIngOpor = $this->exprFechaIngresoBodega('OPOR');
+            $fIngOpch = $this->exprFechaIngresoBodega('OPCH');
+
             $sql = "
                 SELECT
                     X.TipoDoc, X.OrdenCompra, X.Fecha, X.FechaEntrega, X.FechaIngresoBodega,
@@ -261,7 +283,7 @@
                         OPOR.DocNum                             AS OrdenCompra,
                         CONVERT(char(10), OPOR.DocDate, 126)    AS Fecha,
                         CONVERT(char(10), OPOR.DocDueDate, 126) AS FechaEntrega,
-                        CONVERT(char(10), OPOR.U_FIngBodega, 126) AS FechaIngresoBodega,
+                        CONVERT(char(10), {$fIngOpor}, 126) AS FechaIngresoBodega,
                         LTRIM(RTRIM(POR1.WhsCode))              AS Almacen,
                         LTRIM(RTRIM(OPOR.CardCode))             AS CodProveedor,
                         LTRIM(RTRIM(OPOR.CardName))             AS Proveedor,
@@ -291,7 +313,7 @@
                         OPCH.DocNum                             AS OrdenCompra,
                         CONVERT(char(10), OPCH.DocDate, 126)    AS Fecha,
                         CONVERT(char(10), OPCH.DocDueDate, 126) AS FechaEntrega,
-                        CONVERT(char(10), OPCH.U_FIngBodega, 126) AS FechaIngresoBodega,
+                        CONVERT(char(10), {$fIngOpch}, 126) AS FechaIngresoBodega,
                         LTRIM(RTRIM(PCH1.WhsCode))              AS Almacen,
                         LTRIM(RTRIM(OPCH.CardCode))             AS CodProveedor,
                         LTRIM(RTRIM(OPCH.CardName))             AS Proveedor,
@@ -370,6 +392,10 @@
          */
         public function ordenesCompra()
         {
+            // Fecha Ingreso Bodega: NULL si la SAP conectada no tiene la UDF.
+            $fIngOpor = $this->exprFechaIngresoBodega('OPOR');
+            $fIngOpch = $this->exprFechaIngresoBodega('OPCH');
+
             $sql = "
                 SELECT
                     X.TipoDoc, X.OrdenCompra, X.FechaOC, X.FechaComprometida, X.FechaIngresoBodega,
@@ -386,7 +412,7 @@
                         OPOR.DocNum        AS OrdenCompra,
                         OPOR.DocDate       AS FechaOC,
                         OPOR.DocDueDate    AS FechaComprometida,
-                        OPOR.U_FIngBodega  AS FechaIngresoBodega,
+                        {$fIngOpor} AS FechaIngresoBodega,
                         OPOR.CardCode      AS CodProveedor,
                         OPOR.CardName      AS Proveedor,
                         POR1.LineNum       AS LineaOC,
@@ -425,7 +451,7 @@
                         OPCH.DocNum        AS OrdenCompra,
                         OPCH.DocDate       AS FechaOC,
                         OPCH.DocDueDate    AS FechaComprometida,
-                        OPCH.U_FIngBodega  AS FechaIngresoBodega,
+                        {$fIngOpch} AS FechaIngresoBodega,
                         OPCH.CardCode      AS CodProveedor,
                         OPCH.CardName      AS Proveedor,
                         PCH1.LineNum       AS LineaOC,
