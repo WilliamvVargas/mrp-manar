@@ -284,7 +284,8 @@
                                         <th>N° Documento</th>
                                         <th class="text-center">Tipo Doc.</th>
                                         <th class="text-center">Fecha</th>
-                                        <th class="text-center">Fecha Entrega</th>
+                                        <th class="text-center">Fecha Comprometida</th>
+                                        <th class="text-center">Fecha Ingreso Bodega</th>
                                         <th class="text-center">Almacén</th>
                                         <th>Proveedor</th>
                                         <th>Origen</th>

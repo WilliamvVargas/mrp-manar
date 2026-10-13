@@ -750,6 +750,7 @@ $(document).ready(function() {
                          + '<td class="text-center">' + tipoDoc + '</td>'
                          + '<td class="text-center">' + fmtFecha(r.Fecha) + '</td>'
                          + '<td class="text-center">' + fmtFecha(r.FechaEntrega) + '</td>'
+                         + '<td class="text-center">' + fmtFecha(r.FechaIngresoBodega) + '</td>'
                          + '<td class="text-center">' + almacen + '</td>'
                          + '<td>' + proveedor + '</td>'
                          + '<td>' + origen + '</td>'

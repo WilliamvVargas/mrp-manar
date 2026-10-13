@@ -244,13 +244,13 @@
          * incluye la bodega de importaciones en tránsito). Solo tablas estándar -> cualquier empresa.
          *
          * @param string $itemCode Código de artículo.
-         * @return array Filas ['OrdenCompra','Fecha','FechaEntrega','Almacen','CodProveedor','Proveedor','Pais','PaisCod','Cantidad','Pendiente'].
+         * @return array Filas ['OrdenCompra','Fecha','FechaEntrega','FechaIngresoBodega','Almacen','CodProveedor','Proveedor','Pais','PaisCod','Cantidad','Pendiente'].
          */
         public function enPedidoComprasPorProducto($itemCode)
         {
             $sql = "
                 SELECT
-                    X.TipoDoc, X.OrdenCompra, X.Fecha, X.FechaEntrega,
+                    X.TipoDoc, X.OrdenCompra, X.Fecha, X.FechaEntrega, X.FechaIngresoBodega,
                     X.Almacen, X.CodProveedor, X.Proveedor, X.Pais, X.PaisCod, X.Cantidad, X.Pendiente
                 FROM (
 
@@ -261,6 +261,7 @@
                         OPOR.DocNum                             AS OrdenCompra,
                         CONVERT(char(10), OPOR.DocDate, 126)    AS Fecha,
                         CONVERT(char(10), OPOR.DocDueDate, 126) AS FechaEntrega,
+                        CONVERT(char(10), OPOR.U_FIngBodega, 126) AS FechaIngresoBodega,
                         LTRIM(RTRIM(POR1.WhsCode))              AS Almacen,
                         LTRIM(RTRIM(OPOR.CardCode))             AS CodProveedor,
                         LTRIM(RTRIM(OPOR.CardName))             AS Proveedor,
@@ -290,6 +291,7 @@
                         OPCH.DocNum                             AS OrdenCompra,
                         CONVERT(char(10), OPCH.DocDate, 126)    AS Fecha,
                         CONVERT(char(10), OPCH.DocDueDate, 126) AS FechaEntrega,
+                        CONVERT(char(10), OPCH.U_FIngBodega, 126) AS FechaIngresoBodega,
                         LTRIM(RTRIM(PCH1.WhsCode))              AS Almacen,
                         LTRIM(RTRIM(OPCH.CardCode))             AS CodProveedor,
                         LTRIM(RTRIM(OPCH.CardName))             AS Proveedor,
@@ -370,7 +372,7 @@
         {
             $sql = "
                 SELECT
-                    X.TipoDoc, X.OrdenCompra, X.FechaOC, X.FechaRecepcionOC,
+                    X.TipoDoc, X.OrdenCompra, X.FechaOC, X.FechaComprometida, X.FechaIngresoBodega,
                     X.CodProveedor, X.Proveedor, X.LineaOC, X.CodArticulo, X.Articulo,
                     X.Almacen, X.CantidadOrdenada, X.CantidadPendienteRecepcion,
                     X.EntradaMercanciaRelacionada, X.CantidadRecibidaRelacionada,
@@ -383,7 +385,8 @@
                         'Orden de Compra'  AS TipoDoc,
                         OPOR.DocNum        AS OrdenCompra,
                         OPOR.DocDate       AS FechaOC,
-                        OPOR.DocDueDate    AS FechaRecepcionOC,
+                        OPOR.DocDueDate    AS FechaComprometida,
+                        OPOR.U_FIngBodega  AS FechaIngresoBodega,
                         OPOR.CardCode      AS CodProveedor,
                         OPOR.CardName      AS Proveedor,
                         POR1.LineNum       AS LineaOC,
@@ -421,7 +424,8 @@
                         'Factura de Reserva'  AS TipoDoc,
                         OPCH.DocNum        AS OrdenCompra,
                         OPCH.DocDate       AS FechaOC,
-                        OPCH.DocDueDate    AS FechaRecepcionOC,
+                        OPCH.DocDueDate    AS FechaComprometida,
+                        OPCH.U_FIngBodega  AS FechaIngresoBodega,
                         OPCH.CardCode      AS CodProveedor,
                         OPCH.CardName      AS Proveedor,
                         PCH1.LineNum       AS LineaOC,

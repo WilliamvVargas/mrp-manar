@@ -107,7 +107,8 @@ $(document).ready(function() {
                 { data: 'CantidadPendienteRecepcion',   title: 'Cant. Pendiente', className: 'text-end', render: renderCantidad },
                 { data: 'EntradaMercanciaRelacionada',  title: 'Entrada Merc.',   className: 'text-center', render: renderNumero },
                 { data: 'CantidadRecibidaRelacionada',  title: 'Cant. Recibida',  className: 'text-end', render: renderCantidad },
-                { data: 'FechaRecepcionOC',             title: 'Fecha Recepción', className: 'text-center', render: renderFecha }
+                { data: 'FechaComprometida',            title: 'Fecha Comprometida',    className: 'text-center', render: renderFecha },
+                { data: 'FechaIngresoBodega',           title: 'Fecha Ingreso Bodega',  className: 'text-center', render: renderFecha }
             ]
         },
         facs_ncs: {
