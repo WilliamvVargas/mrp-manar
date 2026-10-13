@@ -63,16 +63,17 @@
          * la UDF, devuelve NULL para que la consulta no falle (Invalid column name). Si no se
          * puede inspeccionar, asume que existe (igual que oitmTieneColumna).
          *
-         * @param string $tabla 'OPOR' u 'OPCH' (nombre fijo, no viene del usuario).
+         * @param string      $tabla 'OPOR' u 'OPCH' (nombre fijo, no viene del usuario).
+         * @param string|null $alias Alias de la tabla en la consulta (por defecto, su nombre).
          */
-        private function exprFechaIngresoBodega($tabla)
+        private function exprFechaIngresoBodega($tabla, $alias = null)
         {
             try {
                 $existe = $this->pdo->query("SELECT COL_LENGTH('$tabla', 'U_FIngBodega')")->fetchColumn();
             } catch (Throwable $e) {
                 $existe = 1;
             }
-            return ($existe !== null && $existe !== false) ? "$tabla.U_FIngBodega" : 'CAST(NULL AS datetime)';
+            return ($existe !== null && $existe !== false) ? ($alias ?: $tabla) . '.U_FIngBodega' : 'CAST(NULL AS datetime)';
         }
 
         /**
@@ -335,7 +336,8 @@
                         AND PCH1.ItemCode   = ?
 
                 ) X
-                ORDER BY X.OrdenTipo, X.FechaEntrega ASC, X.OrdenCompra
+                -- Por la fecha que usa el MRP: Ingreso Bodega, o la Comprometida si falta.
+                ORDER BY X.OrdenTipo, COALESCE(X.FechaIngresoBodega, X.FechaEntrega) ASC, X.OrdenCompra
             ";
 
             $stmt = $this->pdo->prepare($sql);
@@ -1306,19 +1308,25 @@
          * Entradas EN CAMINO por producto con su FECHA de llegada esperada, para el plan
          * time-phased del MRP. Une las mismas fuentes/filtros que "En Pedido" + "En Producción"
          * de abastecimientoPorProducto():
-         *   - OC pendientes (POR1/OPOR, bodegas 010 e IMP01)          -> OPOR.DocDueDate
-         *   - Facturas de reserva de proveedor (PCH1/OPCH, isIns='Y') -> OPCH.DocDueDate
+         *   - OC pendientes (POR1/OPOR, bodegas 010 e IMP01)          -> Fecha Ingreso Bodega
+         *   - Facturas de reserva de proveedor (PCH1/OPCH, isIns='Y') -> Fecha Ingreso Bodega
          *   - Producción liberada (OWOR, Status 'R', bodega 010)      -> OWOR.DueDate
+         * Fecha Ingreso Bodega = UDF U_FIngBodega (fecha esperada de llegada a bodega); si viene
+         * vacía (o la base no tiene la UDF), se usa la Fecha Comprometida (DocDueDate).
          * Devuelve una fila por documento; el controlador las agrupa por semana (lunes ISO).
          *
          * @return array Filas ['ItemCode', 'Fecha'=>'yyyy-mm-dd', 'Cantidad'].
          */
         public function entradasEnCaminoPorSemana()
         {
+            // Llegada a bodega: U_FIngBodega con respaldo DocDueDate (NULL si la SAP no tiene la UDF).
+            $fIngOpor = $this->exprFechaIngresoBodega('OPOR', 'op');
+            $fIngOpch = $this->exprFechaIngresoBodega('OPCH', 'oi');
+
             $sql = "
                 SELECT ItemCode, Fecha, Cantidad FROM (
                     SELECT LTRIM(RTRIM(p.ItemCode))              AS ItemCode,
-                           CONVERT(char(10), op.DocDueDate, 126) AS Fecha,
+                           CONVERT(char(10), COALESCE({$fIngOpor}, op.DocDueDate), 126) AS Fecha,
                            p.OpenQty                             AS Cantidad
                     FROM POR1 p INNER JOIN OPOR op ON op.DocEntry = p.DocEntry
                     WHERE op.CANCELED = 'N' AND op.DocStatus = 'O' AND p.LineStatus = 'O' AND p.OpenQty > 0
@@ -1327,7 +1335,7 @@
                     UNION ALL
 
                     SELECT LTRIM(RTRIM(pi.ItemCode)),
-                           CONVERT(char(10), oi.DocDueDate, 126),
+                           CONVERT(char(10), COALESCE({$fIngOpch}, oi.DocDueDate), 126),
                            pi.OpenQty
                     FROM PCH1 pi INNER JOIN OPCH oi ON oi.DocEntry = pi.DocEntry
                     WHERE oi.isIns = 'Y' AND oi.CANCELED = 'N' AND oi.DocStatus = 'O' AND pi.OpenQty > 0

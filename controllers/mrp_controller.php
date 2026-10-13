@@ -187,7 +187,9 @@
 
                 // 3.5) Entradas EN CAMINO por producto y SEMANA de llegada (lunes ISO): OC +
                 // facturas de reserva + producción, con su fecha esperada. Habilita el time-phase:
-                // cada recepción suma al saldo en la semana en que realmente llega.
+                // cada recepción suma al saldo en la semana en que realmente llega. Para OC y
+                // facturas de reserva la llegada es la Fecha Ingreso Bodega (U_FIngBodega), con la
+                // Fecha Comprometida (DocDueDate) como respaldo si viene vacía.
                 // REGLA (vencidas): las OC/recepciones que DEBIERON llegar semanas atrás pero siguen
                 // ABIERTAS (fecha de llegada anterior a la semana actual) se acumulan en la PRIMERA
                 // semana ($lunesActual), sumándose a lo que llega esa semana. La mercadería atrasada

@@ -745,12 +745,17 @@ $(document).ready(function() {
                     const tipoDoc = (r.TipoDoc === 'Factura de Reserva')
                         ? '<span class="badge bg-warning text-dark">Factura de Reserva</span>'
                         : textoDet(r.TipoDoc);
+                    // El MRP proyecta la llegada en la Fecha Ingreso Bodega; si falta, usa la
+                    // Fecha Comprometida (se marca para que se note de dónde sale la semana).
+                    const fechaIngreso = r.FechaIngresoBodega
+                        ? fmtFecha(r.FechaIngresoBodega)
+                        : '<span class="badge bg-light text-muted border" title="Sin Fecha Ingreso Bodega: el pronóstico usa la Fecha Comprometida">Usa comprometida</span>';
                     html += '<tr>'
                          + '<td>' + textoDet(r.OrdenCompra) + '</td>'
                          + '<td class="text-center">' + tipoDoc + '</td>'
                          + '<td class="text-center">' + fmtFecha(r.Fecha) + '</td>'
                          + '<td class="text-center">' + fmtFecha(r.FechaEntrega) + '</td>'
-                         + '<td class="text-center">' + fmtFecha(r.FechaIngresoBodega) + '</td>'
+                         + '<td class="text-center">' + fechaIngreso + '</td>'
                          + '<td class="text-center">' + almacen + '</td>'
                          + '<td>' + proveedor + '</td>'
                          + '<td>' + origen + '</td>'
