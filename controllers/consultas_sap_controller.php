@@ -52,7 +52,7 @@ switch ($action) {
             require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms + codigoEmpresaWms()
             require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
 
-            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo), controlaVencimientoEmpresa($pdo));
             $datos = $model->stock();
 
             echo json_encode(['status' => 'success', 'data' => $datos]);
@@ -71,7 +71,7 @@ switch ($action) {
             require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms + codigoEmpresaWms()
             require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
 
-            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo), controlaVencimientoEmpresa($pdo));
             $datos = $model->stockPorProducto();
 
             echo json_encode(['status' => 'success', 'data' => $datos]);
@@ -90,7 +90,7 @@ switch ($action) {
             require_once __DIR__ . '/../config/conexion_wms.php';        // expone $pdoWms + codigoEmpresaWms()
             require_once __DIR__ . '/../models/consultas_wms_model.php'; // clase ConsultaWms
 
-            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo), controlaVencimientoEmpresa($pdo));
             $datos = $model->stockVencidosPorProducto();
 
             echo json_encode(['status' => 'success', 'data' => $datos]);
@@ -114,7 +114,7 @@ switch ($action) {
                 exit;
             }
 
-            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo));
+            $model = new ConsultaWms($pdoWms, codigoEmpresaWms($pdo), controlaVencimientoEmpresa($pdo));
             $datos = $model->stockDetallePorProducto($itemCode);
 
             echo json_encode(['status' => 'success', 'data' => $datos]);

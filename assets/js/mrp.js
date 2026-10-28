@@ -315,8 +315,9 @@ $(document).ready(function() {
              +     '<span class="k">Stock Seguridad</span>'
              +     '<span class="v">' + formatearEntero(stockSegFicha(row.producto_codigo)) + '</span>'
              + '</div>'
-             + linea('Próx. Lote por Vencer', (row.dias_prox_venc == null || row.dias_prox_venc === '')
-                     ? '—' : formatearEntero(row.dias_prox_venc) + ' días')
+             + linea('Próx. Lote por Vencer', (row.controla_vencimiento === false) ? 'Sin vencimiento'
+                     : ((row.dias_prox_venc == null || row.dias_prox_venc === '')
+                         ? '—' : formatearEntero(row.dias_prox_venc) + ' días'))
              + '<div class="mrp-acciones">'
              +     '<button type="button" class="btn btn-sm btn-outline-dark btn-mrp-detalle" title="Ver detalle">'
              +         '<i class="bi bi-eye me-1"></i> Ver detalle'
@@ -612,8 +613,8 @@ $(document).ready(function() {
              + filaDet('Stock Seguridad',     segTxt)
              + seccionDet('Disponibilidad')
              + filaDet('Stock Físico',                numDet(f.stock_wms))
-             + filaDet('Stock que vence en ≤30 días', numDet(f.stock_por_vencer))
-             + filaDet('Próximo vencimiento (días)',  renderDiasVenc(f.dias_prox_venc, 'display'))
+             + filaDet('Stock que vence en ≤30 días', (f.controla_vencimiento === false) ? 'Sin vencimiento' : numDet(f.stock_por_vencer))
+             + filaDet('Próximo vencimiento (días)',  (f.controla_vencimiento === false) ? 'Sin vencimiento' : renderDiasVenc(f.dias_prox_venc, 'display'))
              + seccionDet('Compromisos y entradas')
              + filaDet('Comprometido',   numDet(f.comprometido))
              + filaDet('En Pedido',      numDet(f.en_pedido))

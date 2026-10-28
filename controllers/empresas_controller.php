@@ -108,6 +108,8 @@
             $empresaWms = trim($_POST['empresa_wms'] ?? '');
             // Factor Z del stock de seguridad del MRP (acepta coma o punto decimal).
             $zRaw       = str_replace(',', '.', trim($_POST['mrp_z_seguridad'] ?? ''));
+            // Controla vencimiento (switch): solo viaja si está marcado. 0 = productos no perecibles.
+            $controlaVenc = (($_POST['controla_vencimiento'] ?? '') === '1') ? 1 : 0;
 
             $errores = [];
 
@@ -157,7 +159,7 @@
                     }
                 }
 
-                if ($empresaModel->crear($nombre, $logoNombre, $posicion, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal)) {
+                if ($empresaModel->crear($nombre, $logoNombre, $posicion, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal, $controlaVenc)) {
                     echo json_encode(['status' => 'success', 'message' => 'Empresa creada con éxito']);
                 }
             }
@@ -193,6 +195,8 @@
             $empresaWms = trim($_POST['empresa_wms'] ?? '');
             // Factor Z del stock de seguridad del MRP (acepta coma o punto decimal).
             $zRaw       = str_replace(',', '.', trim($_POST['mrp_z_seguridad'] ?? ''));
+            // Controla vencimiento (switch): solo viaja si está marcado. 0 = productos no perecibles.
+            $controlaVenc = (($_POST['controla_vencimiento'] ?? '') === '1') ? 1 : 0;
 
             $errores = [];
 
@@ -242,9 +246,11 @@
                                  && (int) $posicion !== (int) $actual['posicion']);
                 $cambioWms    = ((int) $empresaWms !== (int) $actual['empresa_wms']);
                 $cambioZ      = (round((float) $actual['mrp_z_seguridad'], 2) !== $zVal);
+                $cambioVenc   = ((int) ($actual['controla_vencimiento'] ?? 1) !== $controlaVenc);
 
-                // Sin cambios: mismo nombre, misma Empresa WMS, mismo Z, sin logo nuevo y sin reordenar.
-                if ($actual['nombre'] === $nombre && !$cambioWms && !$cambioZ && !$hayLogoNuevo && !$hayPosicion) {
+                // Sin cambios: mismo nombre, misma Empresa WMS, mismo Z, mismo control de vencimiento,
+                // sin logo nuevo y sin reordenar.
+                if ($actual['nombre'] === $nombre && !$cambioWms && !$cambioZ && !$cambioVenc && !$hayLogoNuevo && !$hayPosicion) {
                     echo json_encode(['status' => 'no_changes', 'message' => 'No se realizaron cambios.']);
                     exit;
                 }
@@ -260,7 +266,7 @@
                     }
                 }
 
-                $empresaModel->actualizar($id, $nombre, $logoFinal, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal);
+                $empresaModel->actualizar($id, $nombre, $logoFinal, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal, $controlaVenc);
 
                 // Reordena si se eligió una posición distinta.
                 if ($hayPosicion) {

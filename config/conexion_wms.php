@@ -58,4 +58,33 @@
             }
         }
     }
+
+    /**
+     * ¿La empresa activa controla vencimiento? (empresas.controla_vencimiento). Se pasa a
+     * ConsultaWms: las empresas de productos no perecibles (ej. Molderil) no lo controlan, y su
+     * stock se trata como "sin vencimiento" en vez de usar las fechas sin sentido del WMS.
+     *
+     * @param PDO         $pdoMysql  Conexión MySQL (donde vive la tabla empresas).
+     * @param string|null $empresaId Empresa a resolver ('' / null = la activa de la sesión).
+     * @return bool|null true/false; null si no se puede resolver (p. ej. una base sin la columna
+     *                   todavía): ConsultaWms usa entonces la corrección anterior por Cod_Emp.
+     */
+    if (!function_exists('controlaVencimientoEmpresa')) {
+        function controlaVencimientoEmpresa(PDO $pdoMysql, $empresaId = null)
+        {
+            $empresaId = $empresaId ?: ($_SESSION['empresa_id'] ?? null);
+            if (empty($empresaId)) {
+                return null;
+            }
+            try {
+                $st = $pdoMysql->prepare("SELECT controla_vencimiento FROM empresas WHERE id = ?");
+                $st->execute([$empresaId]);
+                $v = $st->fetchColumn();
+                return ($v === false || $v === null) ? null : ((int) $v === 1);
+            } catch (Throwable $e) {
+                error_log('[WMS] controlaVencimientoEmpresa: ' . $e->getMessage());
+                return null;
+            }
+        }
+    }
 ?>

@@ -762,7 +762,11 @@ $(document).ready(function() {
                     $estado.text(res.message || 'No se pudieron cargar las líneas.').show();
                     return;
                 }
-                const filas = (res.data || []).filter(function(r) { return r.Vencimiento === estado; });
+                // El stock 'Sin vencimiento' (empresas de productos no perecibles) es stock vigente.
+                const filas = (res.data || []).filter(function(r) {
+                    const v = (r.Vencimiento === 'Sin vencimiento') ? 'Vigente' : r.Vencimiento;
+                    return v === estado;
+                });
                 if (!filas.length) {
                     $estado.text('Sin líneas ' + estado.toLowerCase() + 's para este producto.').show();
                     return;

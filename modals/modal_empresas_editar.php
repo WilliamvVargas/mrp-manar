@@ -67,6 +67,17 @@
                         <div class="invalid-feedback small" id="error-mrp_z_seguridad"></div>
                     </div>
 
+                    <!-- Controla vencimiento: Sí para alimentos (fecha de vencimiento de cada pallet del
+                         WMS); No para productos no perecibles, cuyo stock se muestra "Sin vencimiento". -->
+                    <div class="mb-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="controla_vencimiento_editar" name="controla_vencimiento" value="1">
+                            <label class="form-check-label fw-bold small" for="controla_vencimiento_editar">Controla vencimiento</label>
+                        </div>
+                        <div class="form-text small">Desmárcalo si la empresa vende productos no perecibles: su stock se mostrará "Sin vencimiento" en el MRP y las consultas.</div>
+                    </div>
+
                     <!-- Logo actual -->
                     <div class="mb-2 text-center">
                         <label class="form-label fw-bold small mb-1 d-block">Logo actual</label>

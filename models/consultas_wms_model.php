@@ -13,10 +13,62 @@
          *   empresas comparten el WMS separadas por Cod_Emp (Manar=1, Molderil=2, ...). */
         private $empresaWms;
 
-        public function __construct(PDO $pdo, $empresaWms = 1)
+        /** @var bool|null ¿La empresa controla vencimiento? (empresas.controla_vencimiento).
+         *   true  = usa la fecha de vencimiento del pallet tal cual (alimentos, ej. Manar).
+         *   false = productos no perecibles (ej. Molderil): el WMS graba fechas sin sentido (la
+         *           de ingreso o 1900-01-01), así que el stock se trata como "sin vencimiento".
+         *   null  = no se conoce (base sin la columna): corrección anterior por Cod_Emp = '2'. */
+        private $controlaVencimiento;
+
+        public function __construct(PDO $pdo, $empresaWms = 1, $controlaVencimiento = null)
         {
-            $this->pdo        = $pdo;
-            $this->empresaWms = (int) $empresaWms;
+            $this->pdo                 = $pdo;
+            $this->empresaWms          = (int) $empresaWms;
+            $this->controlaVencimiento = ($controlaVencimiento === null) ? null : (bool) $controlaVencimiento;
+        }
+
+        /**
+         * Expresión SQL de la fecha de vencimiento EFECTIVA del pallet (FV.FechaVencimientoCorregida),
+         * usada por todas las consultas para filtrar vigente / vencido.
+         * Sin control de vencimiento se usa 2999-12-31: el stock siempre cuenta como vigente (las
+         * columnas que se muestran salen vacías / "Sin vencimiento", ver sqlSalidaVencimiento()).
+         */
+        private function sqlFechaVencimiento()
+        {
+            if ($this->controlaVencimiento === false) {
+                return "CONVERT(DATE, '29991231')";
+            }
+            if ($this->controlaVencimiento === true) {
+                return "CAST(T0.PltFArtVto AS DATE)";
+            }
+            // Sin dato de la empresa: corrección anterior, fija para Cod_Emp = '2' (Molderil).
+            return "CASE
+                        WHEN T1.Cod_Emp = '2' AND T0.PltFArtVto <= '20200101'
+                             THEN CONVERT(DATE, '29991231')
+                        WHEN T1.Cod_Emp = '2'
+                             AND CAST(T0.PltDtlDateTime AS DATE) = CAST(T0.PltFArtVto AS DATE)
+                             THEN CONVERT(DATE, '29991231')
+                        ELSE CAST(T0.PltFArtVto AS DATE)
+                    END";
+        }
+
+        /**
+         * Columnas de vencimiento que se MUESTRAN (fecha, estado y días para vencer). Sin control
+         * de vencimiento no se inventa una fecha: fecha y días van NULL y el estado "Sin vencimiento".
+         *
+         * @param string $campo 'fecha' | 'estado' | 'dias'
+         */
+        private function sqlSalidaVencimiento($campo)
+        {
+            $sin = ($this->controlaVencimiento === false);
+            switch ($campo) {
+                case 'fecha':  return $sin ? 'CAST(NULL AS DATE)' : 'FV.FechaVencimientoCorregida';
+                case 'dias':   return $sin ? 'CAST(NULL AS INT)'
+                                           : 'DATEDIFF(DAY, CAST(GETDATE() AS DATE), FV.FechaVencimientoCorregida)';
+                default:       return $sin ? "'Sin vencimiento'"
+                                           : "CASE WHEN FV.FechaVencimientoCorregida >= CAST(GETDATE() AS DATE)
+                                                   THEN 'Vigente' ELSE 'Vencido' END";
+            }
         }
 
         /**
@@ -31,9 +83,9 @@
          *   que están guardados en ingreso (PltIngOPck = 'I').
          * - La ubicación (PltUbicGuardado) viene como 'Zona/Pasillo/Rack/Nivel' y se
          *   descompone con PARSENAME sobre la cadena con '/' reemplazado por '.'.
-         * - Fecha de vencimiento corregida (CROSS APPLY FV): plantilla para la futura
-         *   empresa Vertientes (Cod_Emp='2'), donde ciertas fechas inválidas se llevan a
-         *   '29991231' (sin vencimiento). Para Manar (Cod_Emp='1') no altera el dato.
+         * - Fecha de vencimiento efectiva (CROSS APPLY FV): según si la empresa controla
+         *   vencimiento (ver sqlFechaVencimiento()). Sin control, fecha y días van vacíos y el
+         *   estado es "Sin vencimiento".
          * - Las columnas de texto se limpian con LTRIM(RTRIM(...)) (padding de char en WMS).
          *
          * @return array Lista de filas (arreglos asociativos).
@@ -45,7 +97,7 @@
                     LTRIM(RTRIM(T1.GrpCod))          AS CodArticulo,
                     LTRIM(RTRIM(T1.Artdsc))          AS Articulo,
                     CAST(T0.PltDtlDateTime AS DATE)  AS FIngreso,
-                    FV.FechaVencimientoCorregida     AS FVencimiento,
+                    {$this->sqlSalidaVencimiento('fecha')} AS FVencimiento,
                     LTRIM(RTRIM(T0.PltLotePrd))      AS Lote,
                     LTRIM(RTRIM(T3.PltUbicGuardado)) AS Ubicacion,
 
@@ -61,11 +113,9 @@
                          ELSE 'Otro'
                     END AS EstadoPallet,
 
-                    CASE WHEN FV.FechaVencimientoCorregida >= CAST(GETDATE() AS DATE)
-                         THEN 'Vigente' ELSE 'Vencido'
-                    END AS Vencimiento,
+                    {$this->sqlSalidaVencimiento('estado')} AS Vencimiento,
 
-                    DATEDIFF(DAY, CAST(GETDATE() AS DATE), FV.FechaVencimientoCorregida) AS DiasParaVencer,
+                    {$this->sqlSalidaVencimiento('dias')} AS DiasParaVencer,
                     DATEDIFF(DAY, CAST(T0.PltDtlDateTime AS DATE), CAST(GETDATE() AS DATE)) AS DiasEnInventario,
 
                     SUM(ISNULL(T0.PltPUAQty, 0)) AS Cantidad
@@ -78,14 +128,7 @@
                     ON  T0.PltCod = T3.PltCod
 
                 CROSS APPLY (
-                    SELECT CASE
-                        WHEN T1.Cod_Emp = '2' AND T0.PltFArtVto <= '20200101'
-                             THEN CONVERT(DATE, '29991231')
-                        WHEN T1.Cod_Emp = '2'
-                             AND CAST(T0.PltDtlDateTime AS DATE) = CAST(T0.PltFArtVto AS DATE)
-                             THEN CONVERT(DATE, '29991231')
-                        ELSE CAST(T0.PltFArtVto AS DATE)
-                    END AS FechaVencimientoCorregida
+                    SELECT {$this->sqlFechaVencimiento()} AS FechaVencimientoCorregida
                 ) FV
 
                 WHERE
@@ -144,14 +187,7 @@
                     ON  T0.PltCod = T3.PltCod
 
                 CROSS APPLY (
-                    SELECT CASE
-                        WHEN T1.Cod_Emp = '2' AND T0.PltFArtVto <= '20200101'
-                             THEN CONVERT(DATE, '29991231')
-                        WHEN T1.Cod_Emp = '2'
-                             AND CAST(T0.PltDtlDateTime AS DATE) = CAST(T0.PltFArtVto AS DATE)
-                             THEN CONVERT(DATE, '29991231')
-                        ELSE CAST(T0.PltFArtVto AS DATE)
-                    END AS FechaVencimientoCorregida
+                    SELECT {$this->sqlFechaVencimiento()} AS FechaVencimientoCorregida
                 ) FV
 
                 WHERE
@@ -198,14 +234,7 @@
                     ON  T0.PltCod = T3.PltCod
 
                 CROSS APPLY (
-                    SELECT CASE
-                        WHEN T1.Cod_Emp = '2' AND T0.PltFArtVto <= '20200101'
-                             THEN CONVERT(DATE, '29991231')
-                        WHEN T1.Cod_Emp = '2'
-                             AND CAST(T0.PltDtlDateTime AS DATE) = CAST(T0.PltFArtVto AS DATE)
-                             THEN CONVERT(DATE, '29991231')
-                        ELSE CAST(T0.PltFArtVto AS DATE)
-                    END AS FechaVencimientoCorregida
+                    SELECT {$this->sqlFechaVencimiento()} AS FechaVencimientoCorregida
                 ) FV
 
                 WHERE
@@ -267,7 +296,7 @@
             $sql = "
                 SELECT
                     CAST(T0.PltDtlDateTime AS DATE)  AS FIngreso,
-                    FV.FechaVencimientoCorregida     AS FVencimiento,
+                    {$this->sqlSalidaVencimiento('fecha')} AS FVencimiento,
                     LTRIM(RTRIM(T0.PltLotePrd))      AS Lote,
                     LTRIM(RTRIM(T3.PltUbicGuardado)) AS Ubicacion,
 
@@ -278,11 +307,9 @@
                          ELSE 'Otro'
                     END AS EstadoPallet,
 
-                    CASE WHEN FV.FechaVencimientoCorregida >= CAST(GETDATE() AS DATE)
-                         THEN 'Vigente' ELSE 'Vencido'
-                    END AS Vencimiento,
+                    {$this->sqlSalidaVencimiento('estado')} AS Vencimiento,
 
-                    DATEDIFF(DAY, CAST(GETDATE() AS DATE), FV.FechaVencimientoCorregida) AS DiasParaVencer,
+                    {$this->sqlSalidaVencimiento('dias')} AS DiasParaVencer,
                     DATEDIFF(DAY, CAST(T0.PltDtlDateTime AS DATE), CAST(GETDATE() AS DATE)) AS DiasEnInventario,
 
                     SUM(ISNULL(T0.PltPUAQty, 0)) AS Cantidad
@@ -295,14 +322,7 @@
                     ON  T0.PltCod = T3.PltCod
 
                 CROSS APPLY (
-                    SELECT CASE
-                        WHEN T1.Cod_Emp = '2' AND T0.PltFArtVto <= '20200101'
-                             THEN CONVERT(DATE, '29991231')
-                        WHEN T1.Cod_Emp = '2'
-                             AND CAST(T0.PltDtlDateTime AS DATE) = CAST(T0.PltFArtVto AS DATE)
-                             THEN CONVERT(DATE, '29991231')
-                        ELSE CAST(T0.PltFArtVto AS DATE)
-                    END AS FechaVencimientoCorregida
+                    SELECT {$this->sqlFechaVencimiento()} AS FechaVencimientoCorregida
                 ) FV
 
                 WHERE
@@ -343,7 +363,7 @@
                     SUM(ISNULL(T0.PltPUAQty, 0)) AS Cantidad,
                     SUM(CASE WHEN DATEDIFF(day, $ref, FV.FechaVencimientoCorregida) <= $dias
                              THEN ISNULL(T0.PltPUAQty, 0) ELSE 0 END) AS PorVencer,
-                    MIN(DATEDIFF(day, $ref, FV.FechaVencimientoCorregida)) AS DiasProxVencer
+                    " . ($this->controlaVencimiento === false ? 'CAST(NULL AS INT)' : "MIN(DATEDIFF(day, $ref, FV.FechaVencimientoCorregida))") . " AS DiasProxVencer
 
                 FROM PLTDTL T0
                 INNER JOIN GRPART T1
@@ -353,14 +373,7 @@
                     ON  T0.PltCod = T3.PltCod
 
                 CROSS APPLY (
-                    SELECT CASE
-                        WHEN T1.Cod_Emp = '2' AND T0.PltFArtVto <= '20200101'
-                             THEN CONVERT(DATE, '29991231')
-                        WHEN T1.Cod_Emp = '2'
-                             AND CAST(T0.PltDtlDateTime AS DATE) = CAST(T0.PltFArtVto AS DATE)
-                             THEN CONVERT(DATE, '29991231')
-                        ELSE CAST(T0.PltFArtVto AS DATE)
-                    END AS FechaVencimientoCorregida
+                    SELECT {$this->sqlFechaVencimiento()} AS FechaVencimientoCorregida
                 ) FV
 
                 WHERE

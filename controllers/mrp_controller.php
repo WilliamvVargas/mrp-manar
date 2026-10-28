@@ -133,7 +133,8 @@
 
                 // 2) Stock vigente del WMS por producto (con visibilidad de vencimiento, umbral 30 días).
                 $stockWms = [];
-                foreach ((new ConsultaWms($pdoWms, codigoEmpresaWms($pdo)))->stockVencimientoPorProducto(30, $hoy) as $r) {
+                $controlaVenc = controlaVencimientoEmpresa($pdo);   // null = sin dato (corrección anterior)
+                foreach ((new ConsultaWms($pdoWms, codigoEmpresaWms($pdo), $controlaVenc))->stockVencimientoPorProducto(30, $hoy) as $r) {
                     $stockWms[trim($r['CodArticulo'])] = $r;
                 }
 
@@ -297,7 +298,10 @@
                     $cod          = trim($b['producto_codigo']);
                     $stock        = (float) ($stockWms[$cod]['Cantidad'] ?? 0);
                     $porVencer    = (float) ($stockWms[$cod]['PorVencer'] ?? 0);
-                    $diasProxVenc = isset($stockWms[$cod]) ? (int) $stockWms[$cod]['DiasProxVencer'] : null;
+                    // Días al lote más próximo a vencer (null si no hay stock, o si la empresa no
+                    // controla vencimiento: ver controlaVencimientoEmpresa()).
+                    $diasProxVenc = (isset($stockWms[$cod]) && $stockWms[$cod]['DiasProxVencer'] !== null)
+                                  ? (int) $stockWms[$cod]['DiasProxVencer'] : null;
                     $comprometido = (float) ($abast[$cod]['Comprometido'] ?? 0);
                     $enPedido     = (float) ($abast[$cod]['EnPedido'] ?? 0);
                     $enProduccion = (float) ($abast[$cod]['EnProduccion'] ?? 0);
@@ -557,6 +561,8 @@
                         'stock_wms'        => round($stock),
                         'stock_por_vencer' => round($porVencer),
                         'dias_prox_venc'   => $diasProxVenc,
+                        // false = empresa de productos no perecibles: la ficha muestra "Sin vencimiento".
+                        'controla_vencimiento' => ($controlaVenc !== false),
                         'comprometido'     => round($comprometido),
                         'en_pedido'        => round($enPedido),
                         'en_produccion'    => round($enProduccion),
@@ -644,7 +650,7 @@
                     exit;
                 }
 
-                $datos = (new ConsultaWms($pdoWms, codigoEmpresaWms($pdo)))->stockDetallePorProducto($itemCode);
+                $datos = (new ConsultaWms($pdoWms, codigoEmpresaWms($pdo), controlaVencimientoEmpresa($pdo)))->stockDetallePorProducto($itemCode);
                 echo json_encode(['status' => 'success', 'data' => $datos]);
             } catch (Throwable $e) {
                 error_log('[MRP][detalle_stock] ' . $e->getMessage());

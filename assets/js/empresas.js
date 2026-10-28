@@ -36,6 +36,18 @@ $(document).ready(function() {
                     return coma(pctPorZ(zz)) + '% <span class="text-muted">· Z ' + coma(zz.toFixed(2)) + '</span>';
                 }
             },
+            {
+                // Controla vencimiento: Sí (usa la fecha de cada pallet) / No (productos no perecibles).
+                data: 'controla_vencimiento',
+                orderable: false,
+                searchable: false,
+                className: 'text-center',
+                render: function(v) {
+                    return (String(v ?? '1') === '0')
+                        ? '<span class="badge bg-secondary" title="Productos no perecibles: stock sin vencimiento">No</span>'
+                        : '<span class="badge bg-success" title="Usa la fecha de vencimiento de cada pallet del WMS">Sí</span>';
+                }
+            },
             { data: 'fecha' },
             {
                 // Acciones: Conexión SAP / Editar / Eliminar (Eliminar pendiente).
@@ -337,7 +349,9 @@ $(document).ready(function() {
                     // Nivel de servicio del MRP: ubica el slider en el % más cercano al Z guardado
                     // y sincroniza la lectura y el hidden Z.
                     $('#mrp_nivel_servicio_editar').val(pctPorZ(res.data.mrp_z_seguridad != null ? res.data.mrp_z_seguridad : 1.65));
-                    actualizarNivelServicio();
+                    actualizarNivelServicio('_editar');
+                    // Controla vencimiento (por defecto Sí si la base aún no tiene la columna).
+                    $('#controla_vencimiento_editar').prop('checked', String(res.data.controla_vencimiento ?? '1') !== '0');
 
                     // Posición: muestra la actual; el hidden queda vacío (= sin cambio) hasta
                     // que el usuario elija otra en el selector. Habilita el botón "Asignar".
