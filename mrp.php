@@ -10,20 +10,34 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.4.0/css/fixedHeader.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
     <link href="assets/css/custom.css" rel="stylesheet">
     <style>
-        /* MRP: celda "Producto" con apariencia fusionada (info en la 1ª fila, celdas vacías debajo
-           sin borde interno → se ven como una sola). El separador entre productos es la línea de
-           la fila de inicio de grupo (mrp-fila-inicio). */
-        #tabla-consulta-mrp td.mrp-prod-cell {
-            vertical-align: top; text-align: left;
-            background: #f8f9fa;
-            border-right: 0.5px solid #dee2e6; border-bottom: 0;
-            padding: 8px 10px; min-width: 190px;
+        /* MRP en PANELES: un panel por producto = ficha del producto (columna izquierda, fuera de
+           la tabla, para no estirar filas) + tabla con sus semanas. La ficha queda fija arriba al
+           desplazarse por un producto con muchas semanas. En pantallas angostas va arriba. */
+        .mrp-panel { display: flex; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 12px; }
+        /* Ancho EXACTO (min = max = 240px): el contenido no puede ensancharla, así todas las tablas
+           quedan del mismo ancho y sus columnas alineadas entre paneles. El texto largo se corta. */
+        .mrp-ficha { flex: 0 0 240px; width: 240px; min-width: 240px; max-width: 240px;
+                     background: #f8f9fa; border-right: 2px solid #adb5bd; padding: 8px 10px; border-radius: 6px 0 0 6px;
+                     overflow-wrap: anywhere; }
+        .mrp-ficha .mrp-cod-row { flex-wrap: wrap; }
+        .mrp-ficha .mrp-pl .v { text-align: right; min-width: 0; }
+        .mrp-ficha-inner { position: sticky; top: 8px; }
+        .mrp-panel-tabla { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+        /* Anchos de columna FIJOS e iguales en todos los paneles (los define el <colgroup> del JS);
+           min-width evita que se aprieten demasiado: bajo ese ancho aparece scroll horizontal. */
+        .mrp-tabla { table-layout: fixed; width: 100%; min-width: 860px; }
+        .mrp-tabla th { white-space: normal; vertical-align: middle; line-height: 1.15; }
+        .mrp-tabla td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mrp-tabla thead th { cursor: default; }
+        @media (max-width: 991.98px) {
+            .mrp-panel { flex-direction: column; }
+            .mrp-ficha { flex-basis: auto; width: auto; min-width: 0; max-width: none;
+                         border-right: 0; border-bottom: 2px solid #adb5bd; border-radius: 6px 6px 0 0; }
+            .mrp-ficha-inner { position: static; }
         }
-        #tabla-consulta-mrp tr.mrp-fila-inicio > td { border-top: 2px solid #adb5bd; }
         /* Fila superior de la ficha: código a la izquierda y badge de Estado a la derecha. */
         .mrp-cod-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
         /* Badge del código (nativo bg-secondary): cursor de mano, hover y un tamaño algo mayor. */
@@ -40,16 +54,11 @@
         /* Badge de Estado (Quiebre/Ajustado/OK) más grande y legible; va en la fila del código. */
         .mrp-est .badge { font-size: 0.85rem; padding: 0.45em 0.7em; white-space: nowrap; }
         /* Celdas con tooltip de acumulado (Demanda Proyectada y Sugerido a Reponer): cursor de ayuda. */
-        #tabla-consulta-mrp td.mrp-tip-cell { cursor: help; }
+        .mrp-tabla td.mrp-tip-cell { cursor: help; }
         /* Separador: divide lo COMPROMETIDO (En Pedido, Comprometido, Stock Teórico) de lo
            dependiente del forecast (Demanda Proyectada en adelante). */
-        #tabla-consulta-mrp th.mrp-sep-left,
-        #tabla-consulta-mrp td.mrp-sep-left { border-left: 2px solid #94a3b8; }
-        /* Sin reordenar: oculta las flechas de orden de DataTables en TODOS los encabezados
-           (incluida la columna del orden por defecto) y quita el cursor de mano. */
-        #tabla-consulta-mrp thead th { cursor: default; }
-        #tabla-consulta-mrp thead th::before,
-        #tabla-consulta-mrp thead th::after { display: none !important; }
+        .mrp-tabla th.mrp-sep-left,
+        .mrp-tabla td.mrp-sep-left { border-left: 2px solid #94a3b8; }
         /* Botón "Ver detalle" al pie de la ficha del producto. */
         .mrp-acciones { margin-top: 8px; }
     </style>
@@ -72,7 +81,7 @@
             </button>
         </div>
         <div class="card-body">
-            <div class="table-responsive">
+            <div>
 
                 <div class="row g-2 mb-2 mx-0">
                     <div class="col-md-2">
@@ -144,31 +153,39 @@
                 <div id="mrp-loading" class="text-center text-muted py-5">
                     <div class="spinner-border spinner-border-sm me-2" role="status"></div>Cargando pronóstico...
                 </div>
-                <table class="table align-middle table-sm tabla-compacta d-none" id="tabla-consulta-mrp" style="width:100%">
-                    <thead class="table-dark">
-                        <tr>
-                            <th style="width: 16%">Producto</th>
-                            <th style="width: 14%">Nombre Producto</th>
-                            <th style="width: 9%">Familia</th>
-                            <th style="width: 9%">Sub-Familia</th>
-                            <th style="width: 11%">Proveedor</th>
-                            <th style="width: 6%"  class="text-end" title="Lead time usado (semanas): mediana real del producto OC→recepción; si no hay historia, U_LeadTime o un default">Lead Time (sem)</th>
-                            <th style="width: 4%"  class="text-center" title="Número correlativo de semana desde la actual (1 = esta semana, 2 = la próxima…), en orden por fecha">N° Sem</th>
-                            <th style="width: 8%"  class="text-center" title="Semana del forecast (lunes ISO)">Semana</th>
-                            <th style="width: 6%"  class="text-end" title="Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada. Las OC vencidas y aún abiertas (debieron llegar semanas atrás) se acumulan en la primera semana.">En Pedido</th>
-                            <th style="width: 6%"  class="text-end" title="Sale de bodega esa semana: Órdenes de Venta (por fecha de entrega) + consumo de componentes por órdenes de producción">Comprometido</th>
-                            <th style="width: 6%"  class="text-end" title="Inventario teórico acumulado al cierre de esa semana, solo con documentos comprometidos: arranca del stock físico y cada semana suma En Pedido y resta Comprometido (OV + producción). No incluye forecast ni reposición sugerida.">Stock Teórico</th>
-                            <th style="width: 7%"  class="text-end mrp-sep-left" title="Demanda efectiva de esa semana = mayor entre el forecast y las OV firmes con entrega esa semana. En azul cuando manda una OV.">Demanda Proyectada</th>
-                            <th style="width: 7%"  class="text-end" title="Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)">Saldo Proyectado de Inventario</th>
-                            <th style="width: 8%"  class="text-end" title="Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)">Sugerido a Reponer</th>
-                            <th style="width: 9%"  class="text-center" title="Tendencia de la demanda: próximas 16 semanas hacia adelante (altura = demanda, color = estado: rojo quiebre / amarillo ajustado / verde ok)">Tendencia</th>
-                            <th>Urgencia</th>
-                            <th style="width: 7%"  class="text-center" title="Estado de abastecimiento del producto en el horizonte">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+                <!-- Vista en PANELES: un panel por producto (ficha a la izquierda + tabla de semanas),
+                     armada por assets/js/mrp.js (renderPaneles), con paginación POR PRODUCTO. Usa la
+                     misma estructura y clases que la paginación de DataTables del resto del sistema
+                     (dataTables_wrapper / _length / _info / _paginate), así hereda su estética y el
+                     tono oscuro de custom.css. Arriba: cantidad por página | info; abajo: paginación. -->
+                <div id="mrp-vista" class="dataTables_wrapper dt-bootstrap5 d-none">
+                    <div id="mrp-toolbar" class="row align-items-center">
+                        <div class="col-sm-12 col-md-6">
+                            <div class="dataTables_length">
+                                <label>Mostrar
+                                    <select id="mrp-por-pagina" class="form-select form-select-sm">
+                                        <option value="10">10</option>
+                                        <option value="25" selected>25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="-1">Todos</option>
+                                    </select>
+                                    productos</label>
+                            </div>
+                        </div>
+                        <div class="col-sm-12 col-md-6 text-md-end">
+                            <div class="dataTables_info" id="mrp-info" role="status" aria-live="polite"></div>
+                        </div>
+                    </div>
+                    <div class="row"><div class="col-sm-12"><div id="mrp-paneles"></div></div></div>
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <div class="dataTables_paginate paging_simple_numbers">
+                                <ul id="mrp-paginacion" class="pagination"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -354,7 +371,6 @@
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.datatables.net/fixedheader/3.4.0/js/dataTables.fixedHeader.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://www.gstatic.com/charts/loader.js"></script>
 <script src="assets/js/utils.js"></script>

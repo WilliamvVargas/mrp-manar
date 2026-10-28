@@ -350,14 +350,19 @@ $(document).ready(function() {
         return formatearEntero(d);
     }
 
-    const escaparTexto = $.fn.dataTable.render.text();
+    // ============================================================
+    //  Vista en PANELES: un panel por producto = ficha (columna izquierda, FUERA de la tabla)
+    //  + tabla con sus semanas. Los datos se cargan una vez (client-side) y aquí se agrupan,
+    //  filtran y paginan POR PRODUCTO. Reemplaza al DataTable de una fila por producto × semana,
+    //  donde la ficha vivía dentro de la 1ª celda y estiraba la fila de la semana 1.
+    // ============================================================
 
-    // Índices de columna Familia / Sub-Familia (para el filtro client-side).
-    const COL_FAMILIA    = 2;
-    const COL_SUBFAMILIA = 3;
-    const COL_PROVEEDOR  = 4;
+    let productos      = [];   // [{ cod, base, semanas: [filas por sem_idx] }] en orden de urgencia
+    let productoPorCod = {};   // cod -> producto
+    let paginaActual   = 1;
 
-    let tabla = null;
+    // Escapa texto para insertarlo como HTML.
+    function esc(s) { return $('<div>').text(s == null ? '' : String(s)).html(); }
 
     function mostrarAlerta(msg) {
         $('#alert-container').html(
@@ -367,36 +372,186 @@ $(document).ready(function() {
         );
     }
 
-    // Filtro de HORIZONTE (client-side): muestra solo las primeras N semanas de cada producto,
-    // donde N = valor del <select>. NO recalcula nada — el servidor ya devuelve todas las semanas
-    // con el plan calculado sobre una ventana fija (lead time); esto solo decide cuántas se ven.
-    $.fn.dataTable.ext.search.push(function(settings, dataArr, dataIndex) {
-        if (settings.nTable.id !== 'tabla-consulta-mrp') { return true; }
-        const row = settings.aoData[dataIndex]._aData;
-        const h   = parseInt($('#mrp-horizonte').val() || '4', 10);
-        return (Number(row && row.sem_idx) || 0) < h;
+    // Agrupa las filas (producto × semana) por producto. Orden de productos = el mismo de la vista
+    // anterior: urgencia (sugerido_total, desc) y luego nombre. Dentro del producto, semana
+    // cronológica. 'base' = fila de su 1ª semana (los campos de la ficha se repiten en todas).
+    function agruparProductos(filas) {
+        const mapa  = {};
+        const lista = [];
+        (filas || []).forEach(function(f) {
+            const c = f.producto_codigo;
+            if (!mapa[c]) { mapa[c] = { cod: c, base: f, semanas: [] }; lista.push(mapa[c]); }
+            if (f.semana) { mapa[c].semanas.push(f); }
+        });
+        lista.forEach(function(p) {
+            p.semanas.sort(function(a, b) { return (Number(a.sem_idx) || 0) - (Number(b.sem_idx) || 0); });
+            if (p.semanas.length) { p.base = p.semanas[0]; }
+        });
+        lista.sort(function(a, b) {
+            const u = (Number(b.base.sugerido_total) || 0) - (Number(a.base.sugerido_total) || 0);
+            if (u !== 0) { return u; }
+            return String(a.base.producto_nombre || '').localeCompare(String(b.base.producto_nombre || ''), 'es');
+        });
+        productos      = lista;
+        productoPorCod = mapa;
+    }
+
+    // ¿El producto pasa los filtros de la consulta? (todos a nivel PRODUCTO)
+    function productoPasaFiltros(p) {
+        const b = p.base;
+
+        // Familia / Sub-Familia / Proveedor: coincidencia exacta.
+        const fam = $('#filtro-familia').val() || '';
+        const sub = $('#filtro-sub-familia').val() || '';
+        const prv = $('#filtro-proveedor').val() || '';
+        if (fam && (b.familia || '') !== fam)     { return false; }
+        if (sub && (b.sub_familia || '') !== sub) { return false; }
+        if (prv && (b.proveedor || '') !== prv)   { return false; }
+
+        // En Quiebre: ''=Ver Todo · 'con' · 'sin' · '0'..'7' = quiebre en N semanas · '8+'.
+        // estado_sem solo es válido si estado === 'quiebre'.
+        const q = $('#filtro-quiebre').val() || '';
+        if (q !== '') {
+            const enQuiebre = (b.estado === 'quiebre');
+            if (q === 'con') { if (!enQuiebre) { return false; } }
+            else if (q === 'sin') { if (enQuiebre) { return false; } }
+            else {
+                const sem = Number(b.estado_sem) || 0;
+                if (!enQuiebre) { return false; }
+                if (q === '8+' ? sem < 8 : sem !== parseInt(q, 10)) { return false; }
+            }
+        }
+
+        // Consulta: todas las palabras deben aparecer en código, nombre, familia, sub-familia o proveedor.
+        const txt = ($('#consulta-mrp').val() || '').trim().toLowerCase();
+        if (txt) {
+            const hay = [b.producto_codigo, b.producto_nombre, b.familia, b.sub_familia, b.proveedor]
+                .join(' ').toLowerCase();
+            const ok = txt.split(/\s+/).every(function(t) { return hay.indexOf(t) !== -1; });
+            if (!ok) { return false; }
+        }
+        return true;
+    }
+
+    // Columnas de la tabla de semanas de cada panel (mismas de la vista anterior). 'w' = ancho FIJO
+    // (%): todas las tablas usan los mismos anchos (table-layout: fixed + colgroup), así las
+    // columnas quedan alineadas entre paneles sin importar el contenido de cada producto.
+    const COLS_MRP = [
+        { th: 'N° Sem', w: 6, cls: 'text-center', tip: 'Número correlativo de semana desde la actual (1 = esta semana, 2 = la próxima…), en orden por fecha' },
+        { th: 'Semana', w: 10, cls: 'text-center', tip: 'Semana del forecast (lunes ISO)' },
+        { th: 'En Pedido', w: 11, cls: 'text-end', tip: 'Mercadería EN CAMINO (OC + reserva + producción) que llega esa semana, según su fecha esperada. Las OC vencidas y aún abiertas se acumulan en la primera semana.' },
+        { th: 'Comprometido', w: 11, cls: 'text-end', tip: 'Sale de bodega esa semana: Órdenes de Venta (por fecha de entrega) + consumo de componentes por órdenes de producción' },
+        { th: 'Stock Teórico', w: 10, cls: 'text-end', tip: 'Inventario teórico acumulado al cierre de esa semana, solo con documentos comprometidos: arranca del stock físico y cada semana suma En Pedido y resta Comprometido. No incluye forecast ni reposición sugerida.' },
+        { th: 'Demanda Proyectada', w: 11, cls: 'text-end mrp-sep-left', tip: 'Demanda efectiva de esa semana = mayor entre el forecast y las OV firmes con entrega esa semana. En azul cuando manda una OV.' },
+        { th: 'Saldo Proyectado de Inventario', w: 12, cls: 'text-end', tip: 'Saldo disponible proyectado al cierre de esa semana (tras la demanda, las recepciones en camino y las reposiciones planificadas)' },
+        { th: 'Sugerido a Reponer', w: 11, cls: 'text-end', tip: 'Cantidad a ORDENAR esa semana para no quebrar stock (ya desfasada por el lead time)' },
+        { th: 'Tendencia', w: 18, cls: 'text-center', tip: 'Tendencia de la demanda: próximas 16 semanas hacia adelante (altura = demanda, color = estado: rojo quiebre / amarillo ajustado / verde ok)' }
+    ];
+    const THEAD_MRP = '<colgroup>'
+        + COLS_MRP.map(function(c) { return '<col style="width:' + c.w + '%">'; }).join('')
+        + '</colgroup>'
+        + '<thead class="table-dark"><tr>'
+        + COLS_MRP.map(function(c) { return '<th class="' + c.cls + '" title="' + esc(c.tip) + '">' + c.th + '</th>'; }).join('')
+        + '</tr></thead>';
+
+    // Una fila de semana (reutiliza los mismos renders de la vista anterior).
+    function filaSemanaHtml(r) {
+        return '<tr>'
+             + '<td class="text-center">' + ((Number(r.sem_idx) || 0) + 1) + '</td>'
+             + '<td class="text-center">' + fmtFecha(r.semana) + '</td>'
+             + '<td class="text-end">' + renderRecepcion(r.recepcion, 'display') + '</td>'
+             + '<td class="text-end">' + renderSalidaOV(r.comprometido_semana, 'display') + '</td>'
+             + '<td class="text-end">' + renderNumero(r.stock_teorico, 'display') + '</td>'
+             + '<td class="text-end mrp-tip-cell mrp-sep-left">' + renderDemanda(r.demanda_efectiva, 'display', r) + '</td>'
+             + '<td class="text-end">' + renderSaldo(r.saldo_proyectado, 'display') + '</td>'
+             + '<td class="text-end mrp-tip-cell">' + renderSugerido(r.sugerido, 'display', r) + '</td>'
+             + '<td class="text-center">' + renderTendencia(r.tendencia, 'display') + '</td>'
+             + '</tr>';
+    }
+
+    // Panel de un producto: ficha a la izquierda + tabla con las semanas del horizonte (h).
+    function panelHtml(p, h) {
+        const visibles = p.semanas.filter(function(r) { return (Number(r.sem_idx) || 0) < h; });
+        const cuerpo = visibles.length
+            ? visibles.map(filaSemanaHtml).join('')
+            : '<tr><td colspan="' + COLS_MRP.length + '" class="text-center text-muted">Sin semanas de forecast</td></tr>';
+        return '<div class="mrp-panel" data-cod="' + esc(p.cod) + '">'
+             +   '<aside class="mrp-ficha"><div class="mrp-ficha-inner">' + celdaProducto(p.base) + '</div></aside>'
+             +   '<div class="mrp-panel-tabla">'
+             +     '<table class="table table-sm table-hover align-middle tabla-compacta mb-0 mrp-tabla">'
+             +       THEAD_MRP + '<tbody>' + cuerpo + '</tbody>'
+             +     '</table>'
+             +   '</div>'
+             + '</div>';
+    }
+
+    // Dibuja la página actual de paneles + info + paginación (todo client-side).
+    function renderPaneles() {
+        const h      = parseInt($('#mrp-horizonte').val() || '4', 10);
+        const porPag = parseInt($('#mrp-por-pagina').val() || '25', 10);   // -1 = todos
+        const filtrados = productos.filter(productoPasaFiltros);
+        const total   = filtrados.length;
+        const tam     = (porPag > 0) ? porPag : Math.max(total, 1);
+        const paginas = Math.max(1, Math.ceil(total / tam));
+        if (paginaActual > paginas) { paginaActual = paginas; }
+        if (paginaActual < 1)       { paginaActual = 1; }
+        const ini = (paginaActual - 1) * tam;
+        const pag = filtrados.slice(ini, ini + tam);
+
+        $('#mrp-paneles').html(pag.length
+            ? pag.map(function(p) { return panelHtml(p, h); }).join('')
+            : '<div class="text-center text-muted py-4">No hay productos que coincidan con los filtros.</div>');
+
+        // Mismos textos que el resto del sistema (idioma es-ES de DataTables), con "productos".
+        const filtrado = (total !== productos.length)
+            ? ' (filtrado de un total de ' + formatearEntero(productos.length) + ' productos)' : '';
+        $('#mrp-info').text(total
+            ? 'Mostrando ' + formatearEntero(ini + 1) + ' a ' + formatearEntero(ini + pag.length)
+              + ' de ' + formatearEntero(total) + ' productos' + filtrado
+            : 'Mostrando productos del 0 al 0' + filtrado);
+        renderPaginacion(paginas);
+    }
+
+    // Botones de número igual que DataTables ("simple_numbers", máx. 7): todas si caben; si no,
+    // primera … vecinas de la actual … última. Índices 0-based; 'e' = puntos suspensivos.
+    function numerosPaginacion(pag, paginas) {
+        const BOTONES = 7, MITAD = 3;
+        const rango = function(a, b) { const r = []; for (let i = a; i < b; i++) { r.push(i); } return r; };
+        if (paginas <= BOTONES) { return rango(0, paginas); }
+        if (pag <= MITAD) { return rango(0, BOTONES - 2).concat(['e', paginas - 1]); }
+        if (pag >= paginas - 1 - MITAD) { return [0, 'e'].concat(rango(paginas - (BOTONES - 2), paginas)); }
+        return [0, 'e', pag - 1, pag, pag + 1, 'e', paginas - 1];
+    }
+
+    // Paginación con el mismo marcado que DataTables (paginate_button page-item / page-link):
+    // Anterior · números · Siguiente. Se muestra siempre (con una sola página, deshabilitada).
+    function renderPaginacion(paginas) {
+        const item = function(label, pag, clase, disabled, active) {
+            return '<li class="paginate_button page-item' + (clase ? ' ' + clase : '')
+                 + (disabled ? ' disabled' : '') + (active ? ' active' : '') + '">'
+                 + '<a href="#" class="page-link"' + (disabled ? '' : ' data-pag="' + pag + '"') + '>' + label + '</a></li>';
+        };
+        let html = item('Anterior', paginaActual - 1, 'previous', paginaActual <= 1, false);
+        numerosPaginacion(paginaActual - 1, paginas).forEach(function(n) {
+            html += (n === 'e')
+                ? item('…', 0, '', true, false)
+                : item(String(n + 1), n + 1, '', false, (n + 1) === paginaActual);
+        });
+        html += item('Siguiente', paginaActual + 1, 'next', paginaActual >= paginas, false);
+        $('#mrp-paginacion').html(html);
+    }
+
+    $('#mrp-paginacion').on('click', 'a.page-link', function(e) {
+        e.preventDefault();
+        const li = $(this).closest('.page-item');
+        if (li.hasClass('disabled') || li.hasClass('active') || $(this).attr('data-pag') === undefined) { return; }
+        paginaActual = parseInt($(this).attr('data-pag'), 10) || 1;
+        renderPaneles();
+        const tb = document.getElementById('mrp-toolbar');
+        if (tb) { tb.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     });
 
-    // Filtro "En Quiebre" (client-side, a nivel PRODUCTO: usa estado/estado_sem de la fila, que
-    // se repiten en todas las semanas del producto). Opciones:
-    //   ''=Ver Todo · 'con'=con quiebre · 'sin'=sin quiebre · '0'=quiebre esta semana ·
-    //   '1'..'7'=quiebre exactamente en N semanas · '8+'=quiebre en 8 semanas o más.
-    //   estado_sem solo es válido si estado==='quiebre'.
-    $.fn.dataTable.ext.search.push(function(settings, dataArr, dataIndex) {
-        if (settings.nTable.id !== 'tabla-consulta-mrp') { return true; }
-        const val = $('#filtro-quiebre').val() || '';
-        if (val === '') { return true; }                 // Ver Todo
-        const row = settings.aoData[dataIndex]._aData;
-        const enQuiebre = (row && row.estado === 'quiebre');
-        if (val === 'con') { return enQuiebre; }
-        if (val === 'sin') { return !enQuiebre; }
-        const sem = Number(row.estado_sem) || 0;
-        if (val === '8+') { return enQuiebre && sem >= 8; }   // 8 semanas o más
-        // Valor numérico: semana exacta del quiebre (0 = actual, 1..7).
-        return enQuiebre && sem === parseInt(val, 10);
-    });
-
-    // Carga los datos del MRP (una sola vez; DataTable pagina/busca/ordena client-side).
+    // Carga los datos del MRP (una sola vez; se agrupan, filtran y paginan client-side).
     function cargarMrp(onDone) {
         const horizonte = $('#mrp-horizonte').val() || '4';
         $.ajax({
@@ -414,93 +569,11 @@ $(document).ready(function() {
                     return;
                 }
                 const filas = res.data || [];
-                indexarProductos(filas);   // antes del draw: la ficha usa demPorProd/leadPorProd
+                indexarProductos(filas);   // la ficha y los tooltips usan demPorProd/sugPorProd/...
                 poblarProveedores(filas);
-
-                if (tabla) {
-                    tabla.clear().rows.add(filas).draw();
-                    aplicarFiltros();   // reaplica el filtro de proveedor si seguía seleccionado
-                    return;
-                }
-
-                tabla = $('#tabla-consulta-mrp').DataTable({
-                    data: filas,
-                    // Revela la tabla recién cuando DataTables ya ocultó las columnas de producto
-                    // (evita el "flash" de todas las columnas durante la carga). Reajusta anchos.
-                    initComplete: function() {
-                        $('#tabla-consulta-mrp').removeClass('d-none');
-                        this.api().columns.adjust();
-                    },
-                    dom: "<'row align-items-center'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-end'i>>" +
-                         "<'row'<'col-sm-12'tr>>" +
-                         "<'row'<'col-sm-12'p>>",
-                    autoWidth: false,
-                    // Por defecto muestra 100 registros por página.
-                    pageLength: 100,
-                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'Todos']],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-                    // Mantiene la fila de encabezados visible al desplazarse hacia abajo.
-                    fixedHeader: true,
-                    // Orden FIJO por producto (siempre primero, no lo cambia el usuario): urgencia
-                    // (col. oculta 15) + nombre (col. 1). Así las filas de un producto quedan SIEMPRE
-                    // contiguas y la celda "Producto" fusionada no se rompe, ordene lo que ordene el
-                    // usuario. Cualquier orden que elija (clic en una columna) se aplica DENTRO de
-                    // cada producto, como criterio secundario.
-                    orderFixed: { pre: [[15, 'desc'], [1, 'asc']] },
-                    // Orden por defecto (secundario): semana cronológica dentro del producto.
-                    order: [[7, 'asc']],
-                    // El usuario NO puede reordenar ninguna columna (no hay clic-para-ordenar). El
-                    // orden interno (orderFixed por urgencia + semana) se sigue aplicando por código.
-                    columnDefs: [{ targets: '_all', orderable: false }],
-                    columns: [
-                        {
-                            data: 'producto_codigo', className: 'mrp-prod-cell', orderable: false,
-                            render: function(d, type, row) { return (type === 'display') ? celdaProducto(row) : (d || ''); }
-                        },
-                        { data: 'producto_nombre',  visible: false, render: escaparTexto },
-                        { data: 'familia',          visible: false, render: escaparTexto },
-                        { data: 'sub_familia',      visible: false, render: escaparTexto },
-                        { data: 'proveedor',        visible: false, render: escaparTexto },
-                        { data: 'lead_time',        visible: false, render: renderNumero },
-                        { data: 'sem_idx',          className: 'text-center', render: function(d, type, row) {
-                            if (type === 'sort' || type === 'type') { return Number(d) || 0; }
-                            if (!row.semana) { return '<span class="text-muted">—</span>'; }
-                            return Number(d) + 1;   // correlativo 1-based, en orden por fecha
-                        } },
-                        { data: 'semana',           className: 'text-center', render: function(d, type) { return (type === 'display') ? fmtFecha(d) : (d || ''); } },
-                        { data: 'recepcion',        className: 'text-end',    render: renderRecepcion },
-                        { data: 'comprometido_semana', className: 'text-end', render: renderSalidaOV },
-                        { data: 'stock_teorico',    className: 'text-end',    render: renderNumero },
-                        { data: 'demanda_efectiva', className: 'text-end mrp-tip-cell mrp-sep-left', render: renderDemanda },
-                        { data: 'saldo_proyectado', className: 'text-end',    render: renderSaldo },
-                        { data: 'sugerido',         className: 'text-end mrp-tip-cell', render: renderSugerido },
-                        { data: 'tendencia',        className: 'text-center', orderable: false, render: renderTendencia },
-                        { data: 'sugerido_total',   visible: false },   // clave de orden por producto (oculta)
-                        { data: 'estado',           visible: false, render: renderEstado }   // se muestra en la celda Producto
-                    ],
-                    // Camino 1 (robusto): celda "Producto" con apariencia fusionada SIN eliminar
-                    // celdas (eso corrompía los nodos que DataTables reutiliza al paginar/ordenar).
-                    // La info del producto se pinta solo en la 1ª fila de cada grupo; en las demás
-                    // se VACÍA la celda (nunca se quita). Sin bordes internos → parece una sola celda.
-                    // Idempotente: se recalcula en cada draw a partir del orden actual.
-                    drawCallback: function() {
-                        const api = this.api();
-                        let prev = null;
-                        api.rows({ page: 'current' }).every(function() {
-                            const d     = this.data();
-                            const $tr   = $(this.node());
-                            const $cell = $tr.children('td').eq(0);
-                            if (d.producto_codigo === prev) {
-                                $cell.empty();
-                                $tr.removeClass('mrp-fila-inicio');
-                            } else {
-                                $cell.html(celdaProducto(d));
-                                $tr.addClass('mrp-fila-inicio');
-                            }
-                            prev = d.producto_codigo;
-                        });
-                    }
-                });
+                agruparProductos(filas);
+                $('#mrp-vista').removeClass('d-none');
+                renderPaneles();
             },
             error: function() {
                 mostrarAlerta('Error al cargar el MRP.');
@@ -508,7 +581,6 @@ $(document).ready(function() {
         });
     }
 
-    // Filtro client-side por Familia / Sub-Familia (búsqueda exacta por columna).
     // Puebla el combo de Proveedor con los proveedores DISTINTOS presentes en los datos
     // cargados (que son solo los productos con forecast). Conserva la selección si sigue.
     function poblarProveedores(filas) {
@@ -526,24 +598,14 @@ $(document).ready(function() {
         if (prev && set[prev]) { $sel.val(prev); }
     }
 
+    // Cualquier cambio de filtro vuelve a la página 1.
     function aplicarFiltros() {
-        if (!tabla) { return; }
-        const fam = $('#filtro-familia').val();
-        const sub = $('#filtro-sub-familia').val();
-        const prv = $('#filtro-proveedor').val();
-        const rx  = function(v) { return v ? '^' + $.fn.dataTable.util.escapeRegex(v) + '$' : ''; };
-        tabla.column(COL_FAMILIA).search(rx(fam), true, false);
-        tabla.column(COL_SUBFAMILIA).search(rx(sub), true, false);
-        tabla.column(COL_PROVEEDOR).search(rx(prv), true, false);
-        tabla.draw();
+        paginaActual = 1;
+        renderPaneles();
     }
 
-    // Buscador propio -> búsqueda global de DataTables.
-    $('#consulta-mrp').on('input', function() {
-        if (tabla) { tabla.search(this.value).draw(); }
-    });
-
-    $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor').on('change', aplicarFiltros);
+    $('#consulta-mrp').on('input', aplicarFiltros);
+    $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre, #mrp-por-pagina').on('change', aplicarFiltros);
 
     // Exportar a Excel: el servidor reconstruye el plan (todas las semanas de todos los productos,
     // sin filtros de pantalla) y devuelve un .xlsx. Se descarga vía un <iframe> oculto para que un
@@ -561,19 +623,14 @@ $(document).ready(function() {
         setTimeout(function() { $ifr.remove(); }, 120000);
     });
 
-    // El horizonte ya NO recalcula: el plan viene calculado sobre una ventana fija (lead time).
-    // Cambiarlo solo filtra CUÁNTAS semanas se muestran por producto (client-side, instantáneo).
-    $('#mrp-horizonte').on('change', function() { if (tabla) { tabla.draw(); } });
-
-    // Filtro "En Quiebre": no recalcula, solo redibuja (el custom search lo aplica).
-    $('#filtro-quiebre').on('change', function() { if (tabla) { tabla.draw(); } });
+    // El horizonte NO recalcula: el plan viene calculado sobre una ventana fija. Cambiarlo solo
+    // decide CUÁNTAS semanas se ven por producto (mantiene la página actual).
+    $('#mrp-horizonte').on('change', renderPaneles);
 
     // Botón "Limpiar": vacía filtros y buscador, y redibuja sin filtros.
     $('#btn-limpiar-filtros').on('click', function() {
         $('#consulta-mrp, #filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre').val('');
-        if (tabla) {
-            tabla.search('').columns().search('').draw();
-        }
+        aplicarFiltros();
     });
 
     // ============================================================
@@ -893,9 +950,15 @@ $(document).ready(function() {
         });
     }
 
-    // Botón "Ver detalle": toma la fila del DataTable, llena el resumen y carga las pestañas.
-    $('#tabla-consulta-mrp tbody').on('click', '.btn-mrp-detalle', function() {
-        const f = tabla ? tabla.row($(this).closest('tr')).data() : null;
+    // Producto del panel donde ocurrió el clic (sus datos de ficha = fila de su 1ª semana).
+    function productoDelPanel(el) {
+        const p = productoPorCod[$(el).closest('.mrp-panel').attr('data-cod')];
+        return p ? p.base : null;
+    }
+
+    // Botón "Ver detalle": toma el producto del panel, llena el resumen y carga las pestañas.
+    $('#mrp-paneles').on('click', '.btn-mrp-detalle', function() {
+        const f = productoDelPanel(this);
         if (!f) { return; }
         $('#mrp-detalle-titulo').text('— ' + (f.producto_codigo || '') + ' · ' + (f.producto_nombre || ''));
         $('#tabla-mrp-detalle').html(filasDetalleMrp(f));
@@ -912,15 +975,13 @@ $(document).ready(function() {
     // Clic en la badge del código (ficha): vuelca las características del producto (Familia,
     // Sub-Familia, Proveedor) a los filtros de la consulta y aplica. Limpia el buscador de texto
     // para no restringir a un solo producto: muestra todos los de esas mismas características.
-    $('#tabla-consulta-mrp tbody').on('click', '.mrp-cod-badge', function(e) {
+    $('#mrp-paneles').on('click', '.mrp-cod-badge', function(e) {
         e.stopPropagation();
-        if (!tabla) { return; }
-        const d = tabla.row($(this).closest('tr')).data();
+        const d = productoDelPanel(this);
         if (!d) { return; }
         // El código va al buscador de Consulta; las características a sus filtros. Borrar el código
         // del buscador deja ver toda la familia/sub-familia/proveedor de ese producto.
         $('#consulta-mrp').val(d.producto_codigo || '');
-        tabla.search(d.producto_codigo || '');
         $('#filtro-familia').val(d.familia || '');
         $('#filtro-sub-familia').val(d.sub_familia || '');
         $('#filtro-proveedor').val(d.proveedor || '');
