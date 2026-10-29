@@ -29,7 +29,10 @@
         /* Anchos de columna FIJOS e iguales en todos los paneles (los define el <colgroup> del JS);
            min-width evita que se aprieten demasiado: bajo ese ancho aparece scroll horizontal. */
         .mrp-tabla { table-layout: fixed; width: 100%; min-width: 860px; }
-        .mrp-tabla th { white-space: normal; vertical-align: middle; line-height: 1.15; }
+        /* "thead th" para ganarle a .tabla-compacta thead th (custom.css), que fuerza los títulos
+           en una línea: con columnas de ancho fijo y pantallas angostas (notebook con escala
+           125-150%) los títulos se montaban sobre la columna vecina. Aquí bajan de línea. */
+        .mrp-tabla thead th { white-space: normal; overflow-wrap: break-word; vertical-align: middle; line-height: 1.15; }
         .mrp-tabla td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mrp-tabla thead th { cursor: default; }
         @media (max-width: 991.98px) {
