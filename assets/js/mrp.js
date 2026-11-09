@@ -239,7 +239,8 @@ $(document).ready(function() {
                 segInfoPorProd[c] = {
                     metodo: f.ss_metodo || 'clasico', sigma: Number(f.sigma_semanal) || 0,
                     cv: Number(f.cv_seguridad) || 0, origen: f.cv_origen || '',
-                    hist: Number(f.cv_semanas_hist) || 0, dem: Number(f.dem_prom_lt) || 0
+                    hist: Number(f.cv_semanas_hist) || 0, dem: Number(f.dem_prom_lt) || 0,
+                    ratio: Number(f.ratio_estacional) || 0
                 };
                 zPorProd[c]      = Number(f.z_seguridad) || 0;
             }
@@ -252,10 +253,11 @@ $(document).ready(function() {
     }
 
     // Stock de Seguridad (FICHA) = SS de la semana actual, calculado en el servidor. Dos fórmulas:
-    //  - Producto CON historia (>= 26 sem): clásico fijo, SS = Z × σ × √LT (σ de su demanda real).
-    //  - Producto SIN historia suficiente: estacional, SS = Z × CV × demanda promedio de las LT
-    //    semanas desde hoy × √LT, con el CV (variabilidad) de su grupo. Sigue al forecast: sube al
-    //    entrar a temporada y baja al salir.
+    //  - Producto con un año de historia y ESTABLE (σ <= 1,5 × media): clásico fijo,
+    //    SS = Z × σ × √LT (σ de su demanda real).
+    //  - Resto: estacional, SS = Z × CV × demanda promedio de las LT semanas desde hoy × √LT. Sigue
+    //    al forecast: sube al entrar a temporada y baja al salir. CV propio si tiene >= 26 sem de
+    //    historia (estacional, o sin un año completo); si no, el de su grupo (o de la empresa).
     // Z = nivel de servicio de la empresa; LT = lead time en semanas.
     function stockSegFicha(cod) {
         return segEstPorProd[cod] || 0;
@@ -270,13 +272,25 @@ $(document).ready(function() {
         if (i.metodo !== 'estacional') {
             return 'SS = Z × σ × √LT = ' + fmt2(z) + ' × ' + formatearEntero(i.sigma) + ' × √' + lt
                  + ' = ' + formatearEntero(stockSegFicha(cod))
-                 + '  (σ ' + formatearEntero(i.sigma) + '/sem de demanda real, ' + i.hist + ' sem de historia)';
+                 + '  (σ ' + formatearEntero(i.sigma) + '/sem de demanda real, ' + i.hist + ' sem de historia,'
+                 + ' producto estable: σ/media ' + fmt2(i.ratio) + ')';
         }
-        const origen = (i.origen === 'grupo') ? 'de su grupo' : 'de la empresa (su grupo no tiene productos con historia)';
-        return 'Producto con poca historia (' + i.hist + ' sem): SS estacional de la semana actual = '
+        const motivos = {
+            propio:       'Producto estacional (σ/media ' + fmt2(i.ratio) + ' > 1,5)',
+            propio_corto: 'Producto sin un año completo de historia (' + i.hist + ' sem)',
+            grupo:        'Producto con poca historia (' + i.hist + ' sem)',
+            empresa:      'Producto con poca historia (' + i.hist + ' sem)'
+        };
+        const origenCv = {
+            propio:       'CV propio',
+            propio_corto: 'CV propio',
+            grupo:        'CV de su grupo',
+            empresa:      'CV de la empresa (su grupo no tiene productos con historia)'
+        };
+        return (motivos[i.origen] || 'Producto') + ': SS estacional de la semana actual = '
              + 'Z × CV × demanda prom. LT × √LT = ' + fmt2(z) + ' × ' + fmt2(i.cv) + ' × '
              + formatearEntero(i.dem) + ' × √' + lt + ' = ' + formatearEntero(stockSegFicha(cod))
-             + '  (CV ' + origen + '. Sigue al forecast: cambia semana a semana)';
+             + '  (' + (origenCv[i.origen] || 'CV') + '. Sigue al forecast: cambia semana a semana)';
     }
 
     // Suma ACUMULADA de un valor por semana (mapa cod->[valor por sem_idx]) desde la 1ª semana del
