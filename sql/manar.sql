@@ -64,6 +64,7 @@ CREATE TABLE `empresas` (
   `forecast_ensamble` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Ensamble Prophet+seasonal-naive 50/50 en el forecast (validado por empresa)',
   `mrp_z_seguridad` decimal(4,2) NOT NULL DEFAULT 1.65 COMMENT 'Factor Z (nivel de servicio) del stock de seguridad estadistico del MRP: SS = Z x sigma x sqrt(LT). 1.65=95%',
   `controla_vencimiento` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Controla vencimiento del stock (1) o productos no perecibles (0): sin vencimiento en MRP/consultas',
+  `mrp_semanas_cobertura` tinyint(3) unsigned NOT NULL DEFAULT 0 COMMENT 'MRP: semanas que cubre cada pedido sugerido despues de su llegada (ademas del stock de seguridad)',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

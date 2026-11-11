@@ -44,7 +44,7 @@
          * @param string|null $creadoPor Id del usuario que la crea (auditoría).
          * @return bool
          */
-        public function crear($nombre, $logo = null, $posicion = null, $creadoPor = null, $empresaWms = null, $zSeguridad = null, $controlaVencimiento = 1)
+        public function crear($nombre, $logo = null, $posicion = null, $creadoPor = null, $empresaWms = null, $zSeguridad = null, $controlaVencimiento = 1, $semCobertura = 0)
         {
             $this->pdo->beginTransaction();
             try {
@@ -65,9 +65,9 @@
                 // Factor Z (nivel de servicio del MRP): default 1,65 (95%) si no se indicó.
                 $z = ($zSeguridad === null) ? 1.65 : round((float) $zSeguridad, 2);
                 $insert = $this->pdo->prepare(
-                    "INSERT INTO empresas (nombre, empresa_wms, logo, posicion, mrp_z_seguridad, controla_vencimiento, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                    "INSERT INTO empresas (nombre, empresa_wms, logo, posicion, mrp_z_seguridad, controla_vencimiento, mrp_semanas_cobertura, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
                 );
-                $ok = $insert->execute([trim($nombre), $empresaWms, $logo, $posicion, $z, $controlaVencimiento ? 1 : 0, $creadoPor]);
+                $ok = $insert->execute([trim($nombre), $empresaWms, $logo, $posicion, $z, $controlaVencimiento ? 1 : 0, (int) $semCobertura, $creadoPor]);
 
                 $this->pdo->commit();
                 return $ok;
@@ -252,7 +252,7 @@
          */
         public function buscarPorId($id)
         {
-            $stmt = $this->pdo->prepare("SELECT id, nombre, empresa_wms, logo, posicion, mrp_z_seguridad, controla_vencimiento FROM empresas WHERE id = ?");
+            $stmt = $this->pdo->prepare("SELECT id, nombre, empresa_wms, logo, posicion, mrp_z_seguridad, controla_vencimiento, mrp_semanas_cobertura FROM empresas WHERE id = ?");
             $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         }
@@ -264,11 +264,11 @@
          *
          * @return int Filas afectadas.
          */
-        public function actualizar($id, $nombre, $logo = null, $modificadoPor = null, $empresaWms = null, $zSeguridad = null, $controlaVencimiento = 1)
+        public function actualizar($id, $nombre, $logo = null, $modificadoPor = null, $empresaWms = null, $zSeguridad = null, $controlaVencimiento = 1, $semCobertura = 0)
         {
-            $sql  = "UPDATE empresas SET nombre = ?, empresa_wms = ?, logo = ?, mrp_z_seguridad = ?, controla_vencimiento = ?, updated_by = ? WHERE id = ?";
+            $sql  = "UPDATE empresas SET nombre = ?, empresa_wms = ?, logo = ?, mrp_z_seguridad = ?, controla_vencimiento = ?, mrp_semanas_cobertura = ?, updated_by = ? WHERE id = ?";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([trim($nombre), $empresaWms, $logo, $zSeguridad, $controlaVencimiento ? 1 : 0, $modificadoPor, $id]);
+            $stmt->execute([trim($nombre), $empresaWms, $logo, $zSeguridad, $controlaVencimiento ? 1 : 0, (int) $semCobertura, $modificadoPor, $id]);
             return $stmt->rowCount();
         }
 

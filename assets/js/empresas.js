@@ -352,6 +352,8 @@ $(document).ready(function() {
                     actualizarNivelServicio('_editar');
                     // Controla vencimiento (por defecto Sí si la base aún no tiene la columna).
                     $('#controla_vencimiento_editar').prop('checked', String(res.data.controla_vencimiento ?? '1') !== '0');
+                    // Semanas de cobertura del MRP (por defecto 0 si la base aún no tiene la columna).
+                    $('#mrp_semanas_cobertura_editar').val(res.data.mrp_semanas_cobertura ?? 0);
 
                     // Posición: muestra la actual; el hidden queda vacío (= sin cambio) hasta
                     // que el usuario elija otra en el selector. Habilita el botón "Asignar".

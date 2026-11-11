@@ -110,6 +110,8 @@
             $zRaw       = str_replace(',', '.', trim($_POST['mrp_z_seguridad'] ?? ''));
             // Controla vencimiento (switch): solo viaja si está marcado. 0 = productos no perecibles.
             $controlaVenc = (($_POST['controla_vencimiento'] ?? '') === '1') ? 1 : 0;
+            // Semanas de cobertura del pedido sugerido del MRP (entero 0..52).
+            $coberturaRaw = trim($_POST['mrp_semanas_cobertura'] ?? '');
 
             $errores = [];
 
@@ -137,6 +139,14 @@
                 $zVal = round((float) $zRaw, 2);
             }
 
+            // Semanas de cobertura (obligatorio): entero entre 0 y 52.
+            $coberturaVal = null;
+            if (!preg_match('/^\d{1,2}$/', $coberturaRaw) || (int) $coberturaRaw > 52) {
+                $errores['mrp_semanas_cobertura'] = 'Ingrese las <b>semanas de cobertura</b> como un entero entre <b>0</b> y <b>52</b>.';
+            } else {
+                $coberturaVal = (int) $coberturaRaw;
+            }
+
             // Logo (opcional).
             $ext      = null;
             $logoFile = $_FILES['logo'] ?? ['error' => UPLOAD_ERR_NO_FILE];
@@ -159,7 +169,7 @@
                     }
                 }
 
-                if ($empresaModel->crear($nombre, $logoNombre, $posicion, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal, $controlaVenc)) {
+                if ($empresaModel->crear($nombre, $logoNombre, $posicion, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal, $controlaVenc, $coberturaVal)) {
                     echo json_encode(['status' => 'success', 'message' => 'Empresa creada con éxito']);
                 }
             }
@@ -197,6 +207,8 @@
             $zRaw       = str_replace(',', '.', trim($_POST['mrp_z_seguridad'] ?? ''));
             // Controla vencimiento (switch): solo viaja si está marcado. 0 = productos no perecibles.
             $controlaVenc = (($_POST['controla_vencimiento'] ?? '') === '1') ? 1 : 0;
+            // Semanas de cobertura del pedido sugerido del MRP (entero 0..52).
+            $coberturaRaw = trim($_POST['mrp_semanas_cobertura'] ?? '');
 
             $errores = [];
 
@@ -224,6 +236,14 @@
                 $zVal = round((float) $zRaw, 2);
             }
 
+            // Semanas de cobertura (obligatorio): entero entre 0 y 52.
+            $coberturaVal = null;
+            if (!preg_match('/^\d{1,2}$/', $coberturaRaw) || (int) $coberturaRaw > 52) {
+                $errores['mrp_semanas_cobertura'] = 'Ingrese las <b>semanas de cobertura</b> como un entero entre <b>0</b> y <b>52</b>.';
+            } else {
+                $coberturaVal = (int) $coberturaRaw;
+            }
+
             // Logo nuevo (opcional).
             $ext      = null;
             $logoFile = $_FILES['logo'] ?? ['error' => UPLOAD_ERR_NO_FILE];
@@ -247,10 +267,11 @@
                 $cambioWms    = ((int) $empresaWms !== (int) $actual['empresa_wms']);
                 $cambioZ      = (round((float) $actual['mrp_z_seguridad'], 2) !== $zVal);
                 $cambioVenc   = ((int) ($actual['controla_vencimiento'] ?? 1) !== $controlaVenc);
+                $cambioCob    = ((int) ($actual['mrp_semanas_cobertura'] ?? 0) !== $coberturaVal);
 
                 // Sin cambios: mismo nombre, misma Empresa WMS, mismo Z, mismo control de vencimiento,
-                // sin logo nuevo y sin reordenar.
-                if ($actual['nombre'] === $nombre && !$cambioWms && !$cambioZ && !$cambioVenc && !$hayLogoNuevo && !$hayPosicion) {
+                // mismas semanas de cobertura, sin logo nuevo y sin reordenar.
+                if ($actual['nombre'] === $nombre && !$cambioWms && !$cambioZ && !$cambioVenc && !$cambioCob && !$hayLogoNuevo && !$hayPosicion) {
                     echo json_encode(['status' => 'no_changes', 'message' => 'No se realizaron cambios.']);
                     exit;
                 }
@@ -266,7 +287,7 @@
                     }
                 }
 
-                $empresaModel->actualizar($id, $nombre, $logoFinal, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal, $controlaVenc);
+                $empresaModel->actualizar($id, $nombre, $logoFinal, $_SESSION['usuario_id'] ?? null, (int) $empresaWms, $zVal, $controlaVenc, $coberturaVal);
 
                 // Reordena si se eligió una posición distinta.
                 if ($hayPosicion) {

@@ -121,6 +121,17 @@
                     if ($zVal !== false && $zVal !== null) { $zSeg = (float) $zVal; }
                 } catch (Throwable $e) { /* se mantiene el default */ }
 
+                // Semanas de COBERTURA del pedido (parámetro de la empresa): cada pedido sugerido
+                // cubre la demanda hasta su llegada + estas semanas después. Default 0 si la empresa
+                // no lo tiene fijado o la base aún no tiene la columna.
+                $semCobertura = 0;
+                try {
+                    $stC = $pdo->prepare("SELECT mrp_semanas_cobertura FROM empresas WHERE id = ?");
+                    $stC->execute([$_SESSION['empresa_id'] ?? null]);
+                    $cVal = $stC->fetchColumn();
+                    if ($cVal !== false && $cVal !== null) { $semCobertura = max(0, (int) $cVal); }
+                } catch (Throwable $e) { /* se mantiene el default */ }
+
                 // Serie semanal del forecast por producto (ordenada), para sumar el horizonte del
                 // lead time. Guarda la semana (lunes ISO) y la demanda de cada punto.
                 $serie = [];
@@ -165,10 +176,8 @@
                 // semanas ya pasadas, que no deben contar para la reposición.
                 $lunesActual = date('Y-m-d', strtotime('monday this week', strtotime($hoy . ' 12:00:00')));
 
-                // Parámetros del plan: stock de seguridad = (lead time del producto, en semanas) ×
-                // demanda promedio semanal → se mantiene como colchón tantas semanas de demanda como
-                // dure la reposición. Lot-for-lot; lead time por defecto si el producto no tiene
-                // historia propia ni U_LeadTime.
+                // Lead time por defecto (semanas) si el producto no tiene historia propia de OC ni
+                // U_LeadTime. (El stock de seguridad se calcula en 3.8.)
                 $leadDefaultSem = 4;
 
                 // 3.4) DEMANDA REAL semanal por producto (SAP: facturas − NC), últimas 52 semanas
@@ -426,70 +435,66 @@
                     // fecha DENTRO del horizonte (time-phase), con los vencidos arrastrados a la 1ª semana.
                     $saldoInicial = $stock - $ovSF - $prodSF;
 
-                    // Proyección TIME-PHASED (lot-for-lot): cada semana SUMA lo que llega esa semana
-                    // (OC/reserva/producción por su fecha), resta la demanda, y si el saldo caería bajo
-                    // el stock de seguridad (y ya pasó el lead time) planifica una recepción.
-                    $saldo    = $saldoInicial;
-                    $recibir  = [];   // recepción planificada por índice de semana
-                    $saldoSem = [];   // saldo proyectado al cierre de cada semana
-                    foreach ($ventana as $i => $w) {
-                        $saldo += ($entradasProd[$w['semana']] ?? 0);
-                        $saldoBase = $saldo;   // saldo arrastrado + lo que llega, ANTES del consumo de la semana
-                        // Consumo de forecast: la demanda efectiva de la semana es la MAYOR entre el
-                        // forecast y las OV firmes con entrega esa semana (evita doble conteo).
-                        $saldo -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
-                        // Consumo de producción (componentes de OP): es adicional a la venta, se resta aparte.
-                        $saldo -= (float) ($prodProd[$w['semana']] ?? 0);
-                        $rec    = 0;
-                        // REPOSICIÓN POR TANDA. Punto de reorden = Stock de Seguridad ESTACIONAL de la
-                        // semana ($ssSem, ver arriba): si en la semana de llegada del pedido el saldo cae
-                        // bajo el SS, se repone DE UNA VEZ hasta SS + la demanda de las próximas C
-                        // semanas (C = lead time). El pedido dura hasta que pueda llegar el siguiente,
-                        // así las compras se espacian ~cada lead time en vez de gotear semana a semana.
-                        // Una orden NUEVA recién puede llegar en la semana L (antes tendría que
-                        // haberse colocado en el pasado). Las semanas 0..L-1 sin stock quedan en
-                        // QUIEBRE (saldo negativo): no llega mercadería y no se puede vender.
-                        if ($i >= $leadSem && $saldo < $ssSem[$i]) {
-                            // REGLA DE QUIEBRE: si hay quiebre (saldo < 0) antes de que este pedido
-                            // pueda llegar —es decir, en su ventana de lead time [i−L, i]—, las ventas
-                            // del quiebre se dan por PERDIDAS: el saldo negativo NO se arrastra y
-                            // TAMPOCO se compra (antes se pedía la cobertura LT de la semana en que se
-                            // ORDENA, que en un producto que sale de temporada compraba la demanda ya
-                            // perdida y la dejaba como stock). El pedido repone como una tanda desde
-                            // saldo 0: SS de la semana de llegada + demanda de las C semanas siguientes.
-                            // Si no hay quiebre, repone por tanda sobre el saldo arrastrado.
-                            // Solo las semanas ANTERIORES a la llegada [i−L, i−1]: el saldo negativo
-                            // de la propia semana i (antes de recibir) NO es quiebre, porque el pedido
-                            // llega esa semana y la cubre.
-                            $hayQuiebre = false;
-                            for ($k = max(0, $i - $leadSem); $k < $i && !$hayQuiebre; $k++) {
-                                if ($saldoSem[$k] < 0) { $hayQuiebre = true; }
+                    // PUNTO DE PEDIDO (clásico), UN pedido sugerido a la vez, con COBERTURA de X
+                    // semanas. Cada semana t de la proyección, al inicio de la semana:
+                    //  1) Solo se puede pedir si NO hay un pedido SUGERIDO en camino: el siguiente se
+                    //     emite recién cuando llega el anterior, y ahí empieza su lead time. Las OC ya
+                    //     emitidas en SAP no bloquean (las decidió el comprador y pueden no alcanzar),
+                    //     pero SÍ se descuentan: Posición(t) = saldo + OC de SAP en camino.
+                    //  2) Se pide si la posición no alcanza para el PUNTO DE PEDIDO:
+                    //       Punto de pedido(t) = demanda efectiva desde t hasta la llegada (t + LT) + SS(t)
+                    //  3) Cantidad: cubre la demanda hasta la llegada más X semanas después, más el SS de
+                    //     la semana en que se EMITE el pedido (el SS vigente hoy es el que debe quedar
+                    //     cuando el pedido llegue):
+                    //       Pedido = demanda(t .. t+LT+X) + SS(t) − Posición(t)
+                    //     con X = $semCobertura (parámetro de la empresa). Con X = 0 el pedido llega
+                    //     dejando el saldo en el SS; mientras viene el pedido siguiente (otro LT) se
+                    //     consume ese stock de seguridad.
+                    // Las ventas siguen aunque no haya stock: el saldo negativo se ARRASTRA (pedido
+                    // pendiente del cliente) y lo cubre la compra, que ya incluye esa demanda.
+                    // Se proyecta sobre TODA la serie futura: la tabla usa las primeras $nSem semanas
+                    // y la mini-tendencia, todas.
+                    $entIdx   = [];   // OC / reservas / producción que llegan, por índice de semana
+                    $enCamino   = 0.0;   // OC de SAP en camino aún no recibidas (se descuentan del pedido)
+                    $planCamino = 0.0;   // pedido sugerido en camino aún no recibido (bloquea uno nuevo)
+                    $xCob       = $semCobertura;   // semanas que cubre el pedido tras su llegada
+                    foreach ($serieFutura as $k => $w) {
+                        $entIdx[$k] = (float) ($entradasProd[$w['semana']] ?? 0);
+                        $enCamino  += $entIdx[$k];
+                    }
+                    // OC con llegada posterior al horizonte del forecast: igual están en camino.
+                    $ultSemSF = $totSF ? $serieFutura[$totSF - 1]['semana'] : '';
+                    foreach ($entradasProd as $semE => $qE) {
+                        if ($semE > $ultSemSF) { $enCamino += (float) $qE; }
+                    }
+                    $saldo     = $saldoInicial;
+                    $llegaPlan = [];   // recepción de los pedidos sugeridos, por índice de semana
+                    $ordenar   = array_fill(0, max(1, $totSF), 0);   // sugerido a comprar en cada semana
+                    $saldoAll  = [];   // saldo proyectado al cierre de cada semana (toda la serie)
+                    for ($i = 0; $i < $totSF; $i++) {
+                        $saldo      += $entIdx[$i] + ($llegaPlan[$i] ?? 0);
+                        $enCamino   -= $entIdx[$i];
+                        $planCamino -= ($llegaPlan[$i] ?? 0);
+                        if ($planCamino < 0.5) {   // sin pedido sugerido en camino: se puede emitir uno
+                            $posicion = $saldo + $enCamino;
+                            // Demanda desde t hasta la semana de LLEGADA (t + LT) inclusive.
+                            $puntoPedido = ($stockSegSem[$i] ?? 0) + ($demEfect[$i + $L] ?? 0) + $ssSem[$i];
+                            if ($posicion < $puntoPedido) {
+                                $cubre = 0.0;   // demanda desde t hasta la llegada + X semanas
+                                for ($j = $i; $j <= $i + $L + $xCob && $j < $totSF; $j++) { $cubre += $demEfect[$j]; }
+                                $q = max(0, (int) ceil($cubre + $ssSem[$i] - $posicion));
+                                if ($q > 0) {
+                                    $ordenar[$i] = $q;
+                                    $llegaPlan[$i + $L] = ($llegaPlan[$i + $L] ?? 0) + $q;
+                                    $planCamino += $q;
+                                }
                             }
-                            if ($hayQuiebre) {
-                                // El piso en 0 se aplica al negativo ARRASTRADO (ventas perdidas de las
-                                // semanas anteriores); la venta de la propia semana de llegada SÍ se
-                                // atiende con lo que llega, así que se descuenta después.
-                                $saldo = max(0.0, $saldoBase) - ($saldoBase - $saldo);
-                            }
-                            // POR TANDA: repone hasta SS + demanda de las próximas C semanas
-                            // (C = lead time), así el pedido dura hasta que pueda llegar el
-                            // siguiente y no hay compras semanales chicas.
-                            $cobertura = 0.0;
-                            for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
-                                $cobertura += $demEfect[$j];
-                            }
-                            $rec    = max(0, (int) ceil(($ssSem[$i] + $cobertura) - $saldo));
-                            $saldo += $rec;
                         }
-                        $recibir[$i]  = $rec;
-                        $saldoSem[$i] = $saldo;
+                        // Consumo: demanda efectiva = max(forecast, OV) + consumo de producción.
+                        $saldo -= $demEfect[$i];
+                        $saldoAll[$i] = $saldo;
                     }
-
-                    // La recepción de la semana i (i >= L) se ORDENA en la semana i − L (>= 0).
-                    $ordenar = array_fill(0, max(1, $nSem), 0);
-                    foreach ($recibir as $i => $rec) {
-                        if ($rec > 0) { $ordenar[$i - $leadSem] += $rec; }
-                    }
+                    $saldoSem = array_slice($saldoAll, 0, max(1, $nSem));
 
                     // Estado sobre la VENTANA DEL LEAD TIME (no la vista): ¿quiebra o baja del stock
                     // de seguridad ANTES de poder reponer? Es la ventana donde la situación ya es
@@ -511,35 +516,13 @@
 
                     // Tendencia (para las barras): por semana, demanda (altura) + estado de esa
                     // semana (color, igual que los badges): quiebre / ajustado / ok.
-                    // Se proyecta el saldo sobre TODA la serie futura (no solo el horizonte),
+                    // Usa el saldo de la proyección sobre TODA la serie futura (no solo el horizonte),
                     // para que cada fila pueda mostrar una ventana de N semanas HACIA ADELANTE
                     // desde su posición, con el mismo número de barras en todas las filas.
                     $tendencia = [];
-                    $saldoT    = $saldoInicial;
-                    $saldoTSem = [];   // saldo por semana, para detectar quiebre en la ventana del LT
                     foreach ($serieFutura as $i => $w) {
-                        $saldoT += ($entradasProd[$w['semana']] ?? 0);
-                        $baseT   = $saldoT;   // antes del consumo de la semana (ver proyección)
-                        $saldoT -= max((float) $w['demanda'], (float) ($ovProd[$w['semana']] ?? 0));
-                        $saldoT -= (float) ($prodProd[$w['semana']] ?? 0);
-                        if ($i >= $leadSem && $saldoT < $ssSem[$i]) {
-                            // Mismas reglas que la proyección: quiebre en el LT -> no arrastra el
-                            // negativo (ventas perdidas); en ambos casos repone por tanda.
-                            $hayQ = false;   // solo semanas anteriores a la llegada (ver proyección)
-                            for ($k = max(0, $i - $leadSem); $k < $i && !$hayQ; $k++) {
-                                if ($saldoTSem[$k] < 0) { $hayQ = true; }
-                            }
-                            if ($hayQ) {
-                                $saldoT = max(0.0, $baseT) - ($baseT - $saldoT);
-                            }
-                            $cobT = 0.0;   // por tanda: SS + demanda de las próximas C = leadSem semanas
-                            for ($j = $i + 1; $j <= $i + $leadSem && $j < $totSF; $j++) {
-                                $cobT += $demEfect[$j];
-                            }
-                            $saldoT += max(0, (int) ceil(($ssSem[$i] + $cobT) - $saldoT));
-                        }
-                        $saldoTSem[$i] = $saldoT;
-                        $e = ($saldoT < 0) ? 'quiebre' : (($saldoT < $ssSem[$i]) ? 'ajustado' : 'ok');
+                        $sT = $saldoAll[$i];
+                        $e  = ($sT < 0) ? 'quiebre' : (($sT < $ssSem[$i]) ? 'ajustado' : 'ok');
                         $tendencia[$i] = ['d' => round((float) $w['demanda'], 1), 'e' => $e];
                     }
 
@@ -570,6 +553,7 @@
                         'cv_semanas_hist'  => $vp['n'],           // semanas de historia del producto
                         'dem_prom_lt'      => round(($stockSegSem[0] ?? 0) / max(1, min($L, $totSF)), 1),
                         'z_seguridad'      => $zSeg,
+                        'semanas_cobertura' => $semCobertura,   // X: semanas que cubre cada pedido tras su llegada
                         'stock_wms'        => round($stock),
                         'stock_por_vencer' => round($porVencer),
                         'dias_prox_venc'   => $diasProxVenc,
@@ -584,7 +568,7 @@
                         // Urgencia del producto = total a ORDENAR dentro de la ventana del lead time
                         // (decisiones inminentes), no sobre toda la vista. Ordena la tabla por
                         // producto sin depender del horizonte mostrado ni dispersar sus semanas.
-                        'sugerido_total'   => (int) array_sum(array_slice($ordenar, 0, max(1, $leadSem))),
+                        'sugerido_total'   => (int) $ordenar[0],   // compra sugerida de la semana actual
                     ];
 
                     // Una fila por semana: demanda, saldo proyectado, y sugerido a ORDENAR esa semana.

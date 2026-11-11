@@ -67,6 +67,17 @@
                         <div class="invalid-feedback small" id="error-mrp_z_seguridad"></div>
                     </div>
 
+                    <!-- Semanas de cobertura del MRP: cada pedido sugerido cubre la demanda hasta su
+                         llegada + estas semanas después (más el stock de seguridad). -->
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small mb-1" for="mrp_semanas_cobertura_editar">Semanas de cobertura — MRP <span class="text-danger">*</span></label>
+                        <input type="number" min="0" max="52" step="1"
+                               class="form-control form-control-sm"
+                               id="mrp_semanas_cobertura_editar" name="mrp_semanas_cobertura" value="0">
+                        <div class="form-text small">Cada pedido sugerido cubre la demanda hasta su llegada + estas semanas después (más el stock de seguridad).</div>
+                        <div class="invalid-feedback small" id="error-mrp_semanas_cobertura"></div>
+                    </div>
+
                     <!-- Controla vencimiento: Sí para alimentos (fecha de vencimiento de cada pallet del
                          WMS); No para productos no perecibles, cuyo stock se muestra "Sin vencimiento". -->
                     <div class="mb-2">
