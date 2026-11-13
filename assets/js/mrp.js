@@ -662,20 +662,53 @@ $(document).ready(function() {
     $('#consulta-mrp').on('input', aplicarFiltros);
     $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre, #filtro-compra, #mrp-por-pagina').on('change', aplicarFiltros);
 
-    // Exportar a Excel: el servidor reconstruye el plan (todas las semanas de todos los productos,
-    // sin filtros de pantalla) y devuelve un .xlsx. Se descarga vía un <iframe> oculto para que un
-    // posible error no saque al usuario de la página. El cálculo cruza SAP/WMS, así que puede tardar.
-    $('#btn-exportar-mrp').on('click', function() {
-        const $btn = $(this);
+    // Descarga un .xlsx del controlador MRP vía un <iframe> oculto, para que un posible error no
+    // saque al usuario de la página. Deshabilita el botón mientras tanto y lo restaura cuando la
+    // descarga empieza.
+    //
+    // El evento 'load' del iframe NO dispara en una descarga adjunta (Content-Disposition), así que
+    // no sirve para saber cuándo terminó. En su lugar, el servidor deja una cookie 'mrp_descarga'
+    // con un token justo antes de enviar el archivo, y aquí la sondeamos. El 'load' se conserva
+    // igual: en el caso de ERROR el servidor responde un JSON navegable y ese sí dispara 'load'.
+    function descargarExcelMrp(accion, $btn) {
         const original = $btn.html();
         $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Generando...');
-        const restaurar = function() { $btn.prop('disabled', false).html(original); };
+
+        const token = 'd' + Date.now() + Math.floor(Math.random() * 1e6);
+        let hecho = false;
+        let poll;
+        const restaurar = function() {
+            if (hecho) { return; }
+            hecho = true;
+            clearInterval(poll);
+            $btn.prop('disabled', false).html(original);
+        };
+
+        // Sondea la cookie-señal del servidor (y la limpia al encontrarla).
+        poll = setInterval(function() {
+            if (document.cookie.indexOf('mrp_descarga=' + token) !== -1) {
+                document.cookie = 'mrp_descarga=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                restaurar();
+            }
+        }, 250);
 
         const $ifr = $('<iframe>', { style: 'display:none' });
-        $ifr.on('load', restaurar);                       // la respuesta (descarga) llegó
-        $ifr.attr('src', 'controllers/mrp_controller.php?action=exportar').appendTo('body');
-        setTimeout(restaurar, 60000);                     // respaldo por si el evento no dispara
-        setTimeout(function() { $ifr.remove(); }, 120000);
+        $ifr.on('load', restaurar);                       // respuesta navegable (p. ej. JSON de error)
+        $ifr.attr('src', 'controllers/mrp_controller.php?action=' + accion + '&dl=' + token).appendTo('body');
+        setTimeout(restaurar, 120000);                    // respaldo final por si nada dispara
+        setTimeout(function() { $ifr.remove(); }, 125000);
+    }
+
+    // Exportar a Excel: el servidor reconstruye el plan (todas las semanas de todos los productos,
+    // sin filtros de pantalla) y devuelve un .xlsx. El cálculo cruza SAP/WMS, así que puede tardar.
+    $('#btn-exportar-mrp').on('click', function() {
+        descargarExcelMrp('exportar', $(this));
+    });
+
+    // Exportar Comprados: lista simple (proveedor, producto, cantidad a comprar) de las compras
+    // registradas pendientes. Sale directo de la tabla, así que es rápida (no recalcula el MRP).
+    $('#btn-exportar-comprados').on('click', function() {
+        descargarExcelMrp('exportar_comprados', $(this));
     });
 
     // El horizonte NO recalcula: el plan viene calculado sobre una ventana fija. Cambiarlo solo

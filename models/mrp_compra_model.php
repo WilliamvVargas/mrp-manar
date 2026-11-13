@@ -47,6 +47,25 @@
         }
 
         /**
+         * Compras PENDIENTES de una empresa para la lista simple de compras (export "Comprados"):
+         * una fila por compra, ordenada por proveedor, producto y cantidad. Los proveedores sin
+         * asignar quedan al final. No cruza el MRP: sale directo de la tabla.
+         *
+         * @return array Filas ['proveedor','producto_codigo','producto_nombre','cantidad'].
+         */
+        public function listarPendientes($empresaId)
+        {
+            $stmt = $this->pdo->prepare(
+                "SELECT proveedor, producto_codigo, producto_nombre, cantidad
+                 FROM mrp_compras
+                 WHERE empresa_id = ? AND estado = 'pendiente'
+                 ORDER BY (proveedor IS NULL OR proveedor = ''), proveedor, producto_codigo, cantidad"
+            );
+            $stmt->execute([$empresaId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        /**
          * ¿El producto ya tiene una compra pendiente en la empresa?
          */
         public function tienePendiente($empresaId, $productoCodigo)

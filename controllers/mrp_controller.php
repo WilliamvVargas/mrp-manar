@@ -29,50 +29,194 @@
      * Exporta el plan MRP (filas por producto y semana) a un .xlsx y lo envía como descarga.
      * Recibe el MISMO $data que construye 'listar' (todas las semanas de todos los productos),
      * así el Excel refleja exactamente el cálculo del mantenedor. No hace exit (lo hace el caller).
+     *
+     * El libro se parte en DOS hojas según el filtro "Estado Compra" de la pantalla:
+     *   - "Comprados"  : productos con una compra registrada pendiente (botón Comprar, aún sin OC).
+     *                    Incluye el detalle de la compra (cantidad, fecha, usuario, días sin OC).
+     *   - "Sin Comprar": el resto. Mismas columnas, sin el bloque de la compra.
+     * La clave 'compra' (igual en todas las filas-semana de un producto) decide la hoja.
      */
     function exportarPlanMrpXlsx(array $data)
     {
         require_once __DIR__ . '/../assets/librerias/escritor_xlsx/escritor_xlsx.php';
-        $xlsx = new EscritorXlsx('Pronóstico de Compra');
-        $xlsx->encabezados([
-            'Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Proveedor',
-            'Lead Time (sem)', 'Stock Físico', 'Stock Mín', 'Stock Máx', 'Stock Seguridad', 'Semana',
-            'Demanda Proyectada', 'En Pedido', 'Comprometido', 'Stock Teórico',
-            'Saldo Proyectado', 'Sugerido a Reponer', 'Estado',
-        ]);
+
+        // Separa las filas por producto comprado / no comprado (saltando las sin semana de forecast).
+        $comprados = [];
+        $sinComprar = [];
+        foreach ($data as $r) {
+            if (empty($r['semana'])) { continue; }        // productos sin semanas de forecast
+            if (!empty($r['compra'])) { $comprados[] = $r; } else { $sinComprar[] = $r; }
+        }
+
+        $xlsx = new EscritorXlsx('Comprados');
+        escribirHojaMrp($xlsx, $comprados, true);         // hoja activa inicial: "Comprados"
+        $xlsx->hoja('Sin Comprar');
+        escribirHojaMrp($xlsx, $sinComprar, false);
+        $xlsx->hoja('Glosario');
+        escribirHojaGlosarioMrp($xlsx);
+        $xlsx->descargar('Pronostico_de_Compra_' . date('Ymd'));
+    }
+
+    /**
+     * Escribe la hoja "Glosario" en la hoja ACTIVA: qué significa cada hoja y cada columna del
+     * Pronóstico de Compra. Se mantiene en sincronía con las columnas de escribirHojaMrp().
+     *
+     * @param EscritorXlsx $xlsx Escritor (ya posicionado en la hoja "Glosario").
+     */
+    function escribirHojaGlosarioMrp(EscritorXlsx $xlsx)
+    {
+        $xlsx->encabezados(['Grupo', 'Columna', 'Descripción']);
+
+        // [grupo, columna, descripción]. 'columna' vacío = fila de título de grupo (se resalta).
+        $items = [
+            ['Hojas', 'Comprados',   'Productos con una compra registrada pendiente (botón "Comprar", aún sin OC emitida en SAP). Incluye el detalle de la compra.'],
+            ['Hojas', 'Sin Comprar', 'Resto de los productos (sin compra registrada). Mismas columnas, sin el bloque de la compra.'],
+
+            ['Producto', 'Código Producto', 'Código del producto (SKU).'],
+            ['Producto', 'Nombre Producto', 'Descripción del producto.'],
+            ['Producto', 'Familia',         'Familia a la que pertenece el producto.'],
+            ['Producto', 'Sub-Familia',     'Sub-familia del producto.'],
+            ['Producto', 'Proveedor',       'Proveedor habitual del producto (SAP).'],
+            ['Producto', 'Lead Time (sem)', 'Semanas entre que se emite la orden de compra y llega la mercadería.'],
+            ['Producto', 'Origen Forecast', '"Manual": la demanda viene de una carga personalizada vigente (manda sobre Prophet). "Prophet": pronóstico automático.'],
+
+            ['Compra (solo hoja "Comprados")', 'Cant. Comprada', 'Cantidad registrada con el botón "Comprar". Mientras está pendiente cuenta en el MRP como pedido en camino. El bloque de compra se muestra una vez por producto (en su primera semana).'],
+            ['Compra (solo hoja "Comprados")', 'Fecha Compra',   'Fecha y hora en que se registró la compra.'],
+            ['Compra (solo hoja "Comprados")', 'Usuario Compra', 'Usuario que registró la compra.'],
+            ['Compra (solo hoja "Comprados")', 'Días sin OC',    'Días transcurridos desde la compra sin emitir la OC en SAP (se marca en amarillo desde 7 días).'],
+
+            ['Stock de seguridad', 'Stock Físico',       'Stock disponible actual según el WMS.'],
+            ['Stock de seguridad', 'Stock Mín',          'Stock mínimo definido en SAP (bodega 010).'],
+            ['Stock de seguridad', 'Stock Máx',          'Stock máximo definido en SAP (bodega 010).'],
+            ['Stock de seguridad', 'Stock Seguridad',    'Colchón de la semana para absorber la variabilidad de la demanda. Es el piso de la reposición y el punto de reorden.'],
+            ['Stock de seguridad', 'Método SS',          '"Clásico": SS fijo (producto estable). "Estacional": SS por semana que sigue al forecast (sube en temporada alta).'],
+            ['Stock de seguridad', 'Sigma Semanal',      'Desviación estándar semanal de la demanda histórica (σ). Base del SS clásico.'],
+            ['Stock de seguridad', 'CV',                 'Coeficiente de variación (σ / media) usado en el SS estacional.'],
+            ['Stock de seguridad', 'Z',                  'Factor del nivel de servicio objetivo de la empresa (1,65 ≈ 95%).'],
+            ['Stock de seguridad', 'Dem. Prom. (LT+X)',  'Demanda promedio de las semanas del período de protección = lead time + semanas de cobertura.'],
+            ['Stock de seguridad', 'Semanas Cobertura',  'Semanas adicionales (X) que debe cubrir cada pedido después de su llegada.'],
+
+            ['Plan semanal', 'Semana',             'Semana del plan (lunes de la semana ISO).'],
+            ['Plan semanal', 'Demanda Forecast',   'Demanda pronosticada de la semana (Manual o Prophet según el origen).'],
+            ['Plan semanal', 'Demanda Efectiva',   'Demanda usada en la proyección = máximo entre el forecast y los pedidos en firme (OV).'],
+            ['Plan semanal', 'Recepción (semana)', 'Mercadería en camino que LLEGA esa semana (OC + reservas + producción), según su fecha esperada.'],
+            ['Plan semanal', 'Comprometido',       'Salidas comprometidas de la semana (órdenes de venta + consumo de producción).'],
+            ['Plan semanal', 'Stock Teórico',      'Stock proyectado al cierre de la semana considerando solo lo ya comprometido.'],
+            ['Plan semanal', 'Saldo Proyectado',   'Saldo proyectado al cierre de la semana (stock + recepciones − demanda efectiva).'],
+            ['Plan semanal', 'Sugerido a Reponer', 'Cantidad sugerida a comprar o pedir esa semana para no caer bajo el stock de seguridad.'],
+            ['Plan semanal', 'Estado',             'Situación de la semana: Ok (verde), Ajustado (amarillo: bajo el stock de seguridad) o Quiebre (rojo: saldo negativo).'],
+        ];
+
+        foreach ($items as $it) {
+            $xlsx->fila([
+                $it[0],
+                $it[1],
+                $it[2],
+            ]);
+        }
+    }
+
+    /**
+     * Escribe el encabezado y las filas del plan MRP en la hoja ACTIVA del escritor.
+     *
+     * @param EscritorXlsx $xlsx          Escritor (ya posicionado en la hoja destino).
+     * @param array        $filas         Filas-semana (subconjunto del $data de 'listar').
+     * @param bool         $incluirCompra Agrega el bloque de la compra registrada (hoja "Comprados").
+     */
+    function escribirHojaMrp(EscritorXlsx $xlsx, array $filas, $incluirCompra)
+    {
         // Estado de la semana (igual que el color de la tendencia): la 1ª barra de la tendencia de
         // la fila corresponde a ESA semana. ok -> Ok, ajustado -> Ajustado, quiebre -> Quiebre.
         // La celda se pinta con el mismo color (verde/amarillo/rojo).
         $etiquetaEstado = ['ok' => 'Ok', 'ajustado' => 'Ajustado', 'quiebre' => 'Quiebre'];
         $rellenoEstado  = ['ok' => 'verde', 'ajustado' => 'amarillo', 'quiebre' => 'rojo'];
-        foreach ($data as $r) {
-            if (empty($r['semana'])) { continue; }   // productos sin semanas de forecast
+        $metodoSs       = ['clasico' => 'Clásico', 'estacional' => 'Estacional'];
+
+        // Encabezado: Producto · [Compra] · Stock de seguridad (con su detalle) · Plan semanal.
+        $enc = ['Código Producto', 'Nombre Producto', 'Familia', 'Sub-Familia', 'Proveedor',
+                'Lead Time (sem)', 'Origen Forecast'];
+        if ($incluirCompra) {
+            array_push($enc, 'Cant. Comprada', 'Fecha Compra', 'Usuario Compra', 'Días sin OC');
+        }
+        array_push($enc,
+            'Stock Físico', 'Stock Mín', 'Stock Máx',
+            'Stock Seguridad', 'Método SS', 'Sigma Semanal', 'CV', 'Z', 'Dem. Prom. (LT+X)', 'Semanas Cobertura',
+            'Semana', 'Demanda Forecast', 'Demanda Efectiva', 'Recepción (semana)', 'Comprometido',
+            'Stock Teórico', 'Saldo Proyectado', 'Sugerido a Reponer', 'Estado'
+        );
+        $xlsx->encabezados($enc);
+
+        // La compra es UN dato por producto, no por semana: se escribe solo en la primera fila de
+        // cada producto (las filas-semana de un producto vienen seguidas) y en blanco en el resto,
+        // para no repetir el mismo valor en todas las semanas de forecast.
+        $codAnterior = null;
+
+        foreach ($filas as $r) {
             $estSem = $r['tendencia'][0]['e'] ?? '';
             $celdaEstado = isset($etiquetaEstado[$estSem])
                 ? ['valor' => $etiquetaEstado[$estSem], 'relleno' => $rellenoEstado[$estSem]]
                 : '';
-            $xlsx->fila([
+
+            $fila = [
                 $r['producto_codigo'],
                 $r['producto_nombre'],
                 $r['familia'],
                 $r['sub_familia'],
                 $r['proveedor'],
                 (int) $r['lead_time'],
+                (($r['origen'] ?? 'prophet') === 'manual') ? 'Manual' : 'Prophet',
+            ];
+            if ($incluirCompra) {
+                if ($r['producto_codigo'] !== $codAnterior) {
+                    $c = $r['compra'];   // no es null en la hoja "Comprados"
+                    array_push($fila,
+                        (int) $c['cantidad'],
+                        $c['fecha'],                               // 'd/m/Y H:i' (texto)
+                        $c['usuario'] ?? '',
+                        (int) $c['dias']
+                    );
+                } else {
+                    array_push($fila, '', '', '', '');             // mismas celdas, en blanco
+                }
+            }
+            $codAnterior = $r['producto_codigo'];
+            array_push($fila,
                 (int) $r['stock_wms'],
                 (int) $r['stock_min'],
                 (int) $r['stock_max'],
-                (int) ($r['stock_seguridad_sem'] ?? $r['stock_seguridad_est']),   // SS de la semana (estacional)
+                (int) ($r['stock_seguridad_sem'] ?? $r['stock_seguridad_est']),   // SS de la semana
+                $metodoSs[$r['ss_metodo'] ?? ''] ?? '',
+                $r['sigma_semanal'],
+                ($r['cv_seguridad'] === null) ? '' : $r['cv_seguridad'],
+                $r['z_seguridad'],
+                $r['dem_prom_lt'],
+                (int) $r['semanas_cobertura'],
                 $r['semana'],
+                (int) $r['demanda_forecast'],
                 (int) $r['demanda_efectiva'],
                 (int) $r['recepcion'],
                 (int) $r['comprometido_semana'],
                 (int) $r['stock_teorico'],
                 (int) $r['saldo_proyectado'],
                 (int) $r['sugerido'],
-                $celdaEstado,
-            ]);
+                $celdaEstado
+            );
+            $xlsx->fila($fila);
         }
-        $xlsx->descargar('Pronostico_de_Compra_' . date('Ymd'));
+    }
+
+    /**
+     * Deja una cookie "mrp_descarga" con el token que mandó el cliente (?dl=...), justo antes de
+     * enviar un .xlsx. El JS la detecta para saber que la descarga empezó y restaurar el botón: el
+     * evento 'load' del <iframe> oculto NO dispara en una descarga adjunta. Debe llamarse antes de
+     * cualquier salida (headers del archivo). Si no viene token, no hace nada.
+     */
+    function marcarDescargaMrp()
+    {
+        $token = $_GET['dl'] ?? '';
+        if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,40}$/', $token)) {
+            setcookie('mrp_descarga', $token, ['expires' => time() + 120, 'path' => '/']);
+        }
     }
 
     switch ($action) {
@@ -657,6 +801,7 @@
                 // Exportación: mismo $data, pero como .xlsx descargable (todas las semanas de todos
                 // los productos; los filtros de pantalla son del cliente y aquí no aplican).
                 if ($action === 'exportar') {
+                    marcarDescargaMrp();   // señal para que el cliente restaure el botón
                     exportarPlanMrpXlsx($data);
                     exit;
                 }
@@ -670,6 +815,35 @@
                     exit;
                 }
                 echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al construir el MRP.']);
+            }
+            exit;
+
+        case 'exportar_comprados':
+
+            // Lista SIMPLE de las compras registradas pendientes (botón "Exportar Comprados"): una
+            // fila por compra, ordenada por proveedor, producto y cantidad. Es la lista que se le
+            // pasa al comprador (qué pedir a cada proveedor). NO recalcula el MRP: sale directo de
+            // la tabla mrp_compras, así que es rápida y no depende de SAP/WMS.
+            require_once __DIR__ . '/../assets/librerias/escritor_xlsx/escritor_xlsx.php';
+            try {
+                $filas = (new MrpCompra($pdo))->listarPendientes($_SESSION['empresa_id'] ?? null);
+
+                marcarDescargaMrp();   // señal para que el cliente restaure el botón
+                $xlsx = new EscritorXlsx('Comprados');
+                $xlsx->encabezados(['Proveedor', 'Código Producto', 'Producto', 'Cantidad a Comprar']);
+                foreach ($filas as $f) {
+                    $xlsx->fila([
+                        ($f['proveedor'] === null || $f['proveedor'] === '') ? 'Sin proveedor' : $f['proveedor'],
+                        $f['producto_codigo'],
+                        $f['producto_nombre'] ?? '',
+                        (int) $f['cantidad'],
+                    ]);
+                }
+                $xlsx->descargar('Comprados_' . date('Ymd'));
+            } catch (Throwable $e) {
+                error_log('[MRP][exportar_comprados] ' . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['status' => 'error', 'message' => 'No se pudo generar el Excel de comprados.']);
             }
             exit;
 

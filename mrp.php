@@ -80,10 +80,16 @@
     <div class="card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0 text-black"><?php echo encabezadoMantenedor($pdo, 'MRP'); ?></h5>
-            <button type="button" class="btn btn-success btn-sm" id="btn-exportar-mrp"
-                    title="Exportar el pronóstico de compra (todas las semanas de todos los productos) a Excel">
-                <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
-            </button>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success btn-sm" id="btn-exportar-comprados"
+                        title="Exportar la lista simple de productos comprados (proveedor, producto y cantidad a comprar) a Excel">
+                    <i class="bi bi-cart-check me-1"></i> Exportar Comprados
+                </button>
+                <button type="button" class="btn btn-success btn-sm" id="btn-exportar-mrp"
+                        title="Exportar el pronóstico de compra (todas las semanas de todos los productos) a Excel">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div>

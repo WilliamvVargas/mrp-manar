@@ -18,6 +18,13 @@
  *     $xlsx->descargar('consulta.xlsx');   // envía el archivo al navegador
  *     exit;
  *
+ * Varias hojas (opcional): la primera la crea el constructor; hoja('Nombre') inicia otra y la
+ * vuelve la hoja activa (las siguientes llamadas a encabezados()/fila() van ahí):
+ *     $xlsx = new EscritorXlsx('Comprados');
+ *     $xlsx->encabezados([...]);  $xlsx->fila([...]);
+ *     $xlsx->hoja('Sin Comprar'); $xlsx->encabezados([...]);  $xlsx->fila([...]);
+ *     $xlsx->descargar('plan.xlsx');
+ *
  * Detección de tipo por celda: los valores numéricos se escriben como NÚMERO (para que Excel
  * los sume/ordene); el resto como texto. Los "números" con cero a la izquierda (ej. "007") se
  * dejan como texto para no perder el formato del código.
@@ -29,16 +36,13 @@
  */
 class EscritorXlsx
 {
-    /** @var string Nombre de la hoja (saneado, máx 31 caracteres). */
-    private $nombreHoja;
+    /** @var array Hojas del libro: cada una ['nombre'=>, 'encabezado'=>array|null, 'filas'=>array]. */
+    private $hojas = [];
 
-    /** @var array|null Fila de encabezado (se pinta en negrita). */
-    private $encabezado = null;
+    /** @var int Índice (0-based) de la hoja activa: a ella van encabezados()/fila()/filas(). */
+    private $idxActual = 0;
 
-    /** @var array Filas de datos (cada una es un arreglo de valores). */
-    private $filas = [];
-
-    /** @var bool Escribir los textos 'yyyy-mm-dd[ hh:mm[:ss]]' como fecha de Excel. */
+    /** @var bool Escribir los textos 'yyyy-mm-dd[ hh:mm[:ss]]' como fecha de Excel (todas las hojas). */
     private $fechasComoFecha = false;
 
     /** @var array Columnas con fecha (índice 1-based => true si alguna lleva hora), para su ancho. */
@@ -46,7 +50,21 @@ class EscritorXlsx
 
     public function __construct($nombreHoja = 'Hoja1')
     {
-        $this->nombreHoja = $this->sanitizarHoja($nombreHoja);
+        $this->nuevaHojaInterna($nombreHoja);
+    }
+
+    /** Agrega una hoja al libro y la deja como activa. */
+    private function nuevaHojaInterna($nombre)
+    {
+        $this->hojas[]   = ['nombre' => $this->sanitizarHoja($nombre), 'encabezado' => null, 'filas' => []];
+        $this->idxActual = count($this->hojas) - 1;
+    }
+
+    /** Inicia una NUEVA hoja y la vuelve la hoja activa (las siguientes filas van ahí). */
+    public function hoja($nombre)
+    {
+        $this->nuevaHojaInterna($nombre);
+        return $this;
     }
 
     /** Activa la escritura de fechas 'yyyy-mm-dd' como fecha real de Excel (dd-mm-aaaa). */
@@ -56,17 +74,17 @@ class EscritorXlsx
         return $this;
     }
 
-    /** Define la fila de encabezado (negrita). Llamar una vez, antes o después de las filas. */
+    /** Define la fila de encabezado (negrita) de la hoja activa. Antes o después de sus filas. */
     public function encabezados(array $titulos)
     {
-        $this->encabezado = array_values($titulos);
+        $this->hojas[$this->idxActual]['encabezado'] = array_values($titulos);
         return $this;
     }
 
-    /** Agrega una fila de datos. */
+    /** Agrega una fila de datos a la hoja activa. */
     public function fila(array $valores)
     {
-        $this->filas[] = array_values($valores);
+        $this->hojas[$this->idxActual]['filas'][] = array_values($valores);
         return $this;
     }
 
@@ -85,16 +103,16 @@ class EscritorXlsx
      */
     public function generar()
     {
-        $sheet = $this->construirSheet();
-
         $archivos = [
             '[Content_Types].xml'         => $this->xmlContentTypes(),
             '_rels/.rels'                 => $this->xmlRelsRaiz(),
             'xl/workbook.xml'             => $this->xmlWorkbook(),
             'xl/_rels/workbook.xml.rels'  => $this->xmlWorkbookRels(),
             'xl/styles.xml'               => $this->xmlStyles(),
-            'xl/worksheets/sheet1.xml'    => $sheet,
         ];
+        foreach ($this->hojas as $i => $hoja) {
+            $archivos['xl/worksheets/sheet' . ($i + 1) . '.xml'] = $this->construirSheet($hoja);
+        }
 
         return $this->construirZip($archivos);
     }
@@ -130,18 +148,18 @@ class EscritorXlsx
     //  Construcción de la hoja (sheet1.xml)
     // ==========================================================================
 
-    private function construirSheet()
+    private function construirSheet(array $hoja)
     {
         $this->colsFecha = [];
         $filasXml   = '';
         $numeroFila = 1;
 
-        if ($this->encabezado !== null) {
-            $filasXml .= $this->construirFila($numeroFila, $this->encabezado, true);
+        if ($hoja['encabezado'] !== null) {
+            $filasXml .= $this->construirFila($numeroFila, $hoja['encabezado'], true);
             $numeroFila++;
         }
 
-        foreach ($this->filas as $fila) {
+        foreach ($hoja['filas'] as $fila) {
             $filasXml .= $this->construirFila($numeroFila, $fila, false);
             $numeroFila++;
         }
@@ -221,12 +239,18 @@ class EscritorXlsx
 
     private function xmlContentTypes()
     {
+        $hojasOverride = '';
+        foreach ($this->hojas as $i => $hoja) {
+            $hojasOverride .= '<Override PartName="/xl/worksheets/sheet' . ($i + 1) . '.xml" '
+                . 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+        }
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
             . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
             . '<Default Extension="xml" ContentType="application/xml"/>'
             . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            . $hojasOverride
             . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
             . '</Types>';
     }
@@ -241,19 +265,37 @@ class EscritorXlsx
 
     private function xmlWorkbook()
     {
+        $sheets = '';
+        $usados = [];
+        foreach ($this->hojas as $i => $hoja) {
+            $nombre  = $this->nombreUnico($hoja['nombre'], $usados);
+            $sheets .= '<sheet name="' . $this->escaparXml($nombre) . '" sheetId="' . ($i + 1)
+                . '" r:id="rId' . ($i + 1) . '"/>';
+        }
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
             . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            . '<sheets><sheet name="' . $this->escaparXml($this->nombreHoja) . '" sheetId="1" r:id="rId1"/></sheets>'
+            . '<sheets>' . $sheets . '</sheets>'
             . '</workbook>';
     }
 
     private function xmlWorkbookRels()
     {
+        $rels = '';
+        foreach ($this->hojas as $i => $hoja) {
+            $rels .= '<Relationship Id="rId' . ($i + 1) . '" '
+                . 'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+                . 'Target="worksheets/sheet' . ($i + 1) . '.xml"/>';
+        }
+        // La hoja de estilos va después de las hojas (rId siguiente).
+        $rels .= '<Relationship Id="rId' . (count($this->hojas) + 1) . '" '
+            . 'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" '
+            . 'Target="styles.xml"/>';
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-            . '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            . $rels
             . '</Relationships>';
     }
 
@@ -454,5 +496,24 @@ class EscritorXlsx
             $n = 'Hoja1';
         }
         return mb_substr($n, 0, 31);
+    }
+
+    /**
+     * Garantiza un nombre de hoja único en el libro (Excel no admite dos hojas con el mismo
+     * nombre, sin distinguir mayúsculas). Si se repite, agrega un sufijo " (2)", " (3)"…
+     * respetando el máximo de 31 caracteres. Registra el nombre usado en $usados (por referencia).
+     */
+    private function nombreUnico($nombre, array &$usados)
+    {
+        $base   = ($nombre === '') ? 'Hoja' : $nombre;
+        $nombre = $base;
+        $n      = 2;
+        while (isset($usados[mb_strtolower($nombre)])) {
+            $sufijo = ' (' . $n . ')';
+            $nombre = mb_substr($base, 0, 31 - mb_strlen($sufijo)) . $sufijo;
+            $n++;
+        }
+        $usados[mb_strtolower($nombre)] = true;
+        return $nombre;
     }
 }
