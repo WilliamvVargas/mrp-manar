@@ -227,9 +227,10 @@ $(document).ready(function() {
     let segEstPorProd = {};   // SS de la semana actual (clásico o estacional, ver tooltipSegFicha)
     let segInfoPorProd = {};  // datos del tooltip: método, σ, CV y su origen, semanas de historia, demanda prom. LT
     let zPorProd      = {};   // factor Z (nivel de servicio) de la empresa
+    let xPorProd      = {};   // X: semanas de cobertura de la empresa (período de protección LT + X)
     function indexarProductos(filas) {
         demPorProd = {}; sugPorProd = {}; leadPorProd = {};
-        segEstPorProd = {}; segInfoPorProd = {}; zPorProd = {};
+        segEstPorProd = {}; segInfoPorProd = {}; zPorProd = {}; xPorProd = {};
         (filas || []).forEach(function(f) {
             const c = f.producto_codigo;
             if (demPorProd[c] === undefined) {
@@ -243,6 +244,7 @@ $(document).ready(function() {
                     ratio: Number(f.ratio_estacional) || 0
                 };
                 zPorProd[c]      = Number(f.z_seguridad) || 0;
+                xPorProd[c]      = Number(f.semanas_cobertura) || 0;
             }
             if (f.semana) {
                 const i = Number(f.sem_idx) || 0;
@@ -254,11 +256,11 @@ $(document).ready(function() {
 
     // Stock de Seguridad (FICHA) = SS de la semana actual, calculado en el servidor. Dos fórmulas:
     //  - Producto con un año de historia y ESTABLE (σ <= 1,5 × media): clásico fijo,
-    //    SS = Z × σ × √LT (σ de su demanda real).
-    //  - Resto: estacional, SS = Z × CV × demanda promedio de las LT semanas desde hoy × √LT. Sigue
+    //    SS = Z × σ × √(LT + X) (σ de su demanda real).
+    //  - Resto: estacional, SS = Z × CV × demanda promedio de las LT + X semanas desde hoy × √(LT + X). Sigue
     //    al forecast: sube al entrar a temporada y baja al salir. CV propio si tiene >= 26 sem de
     //    historia (estacional, o sin un año completo); si no, el de su grupo (o de la empresa).
-    // Z = nivel de servicio de la empresa; LT = lead time en semanas.
+    // Z = nivel de servicio de la empresa; LT = lead time en semanas; X = semanas de cobertura.
     function stockSegFicha(cod) {
         return segEstPorProd[cod] || 0;
     }
@@ -268,9 +270,13 @@ $(document).ready(function() {
         const z  = zPorProd[cod] || 0;
         const i  = segInfoPorProd[cod] || {};
         const lt = leadPorProd[cod] || 0;
+        const x  = xPorProd[cod] || 0;
+        // Período de protección: LT, o LT + X cuando la empresa tiene semanas de cobertura.
+        const pTxt = x > 0 ? '(LT + X)' : 'LT';
+        const pNum = x > 0 ? '(' + lt + ' + ' + x + ')' : String(lt);
         const fmt2 = function(v) { return Number(v || 0).toLocaleString('es-CL', { maximumFractionDigits: 2 }); };
         if (i.metodo !== 'estacional') {
-            return 'SS = Z × σ × √LT = ' + fmt2(z) + ' × ' + formatearEntero(i.sigma) + ' × √' + lt
+            return 'SS = Z × σ × √' + pTxt + ' = ' + fmt2(z) + ' × ' + formatearEntero(i.sigma) + ' × √' + pNum
                  + ' = ' + formatearEntero(stockSegFicha(cod))
                  + '  (σ ' + formatearEntero(i.sigma) + '/sem de demanda real, ' + i.hist + ' sem de historia,'
                  + ' producto estable: σ/media ' + fmt2(i.ratio) + ')';
@@ -288,8 +294,8 @@ $(document).ready(function() {
             empresa:      'CV de la empresa (su grupo no tiene productos con historia)'
         };
         return (motivos[i.origen] || 'Producto') + ': SS estacional de la semana actual = '
-             + 'Z × CV × demanda prom. LT × √LT = ' + fmt2(z) + ' × ' + fmt2(i.cv) + ' × '
-             + formatearEntero(i.dem) + ' × √' + lt + ' = ' + formatearEntero(stockSegFicha(cod))
+             + 'Z × CV × demanda prom. ' + (x > 0 ? 'LT + X' : 'LT') + ' × √' + pTxt + ' = ' + fmt2(z) + ' × ' + fmt2(i.cv) + ' × '
+             + formatearEntero(i.dem) + ' × √' + pNum + ' = ' + formatearEntero(stockSegFicha(cod))
              + '  (' + (origenCv[i.origen] || 'CV') + '. Sigue al forecast: cambia semana a semana)';
     }
 
@@ -332,10 +338,39 @@ $(document).ready(function() {
              + linea('Próx. Lote por Vencer', (row.controla_vencimiento === false) ? 'Sin vencimiento'
                      : ((row.dias_prox_venc == null || row.dias_prox_venc === '')
                          ? '—' : formatearEntero(row.dias_prox_venc) + ' días'))
+             + bloqueCompra(row)
              + '<div class="mrp-acciones">'
              +     '<button type="button" class="btn btn-sm btn-outline-dark btn-mrp-detalle" title="Ver detalle">'
              +         '<i class="bi bi-eye me-1"></i> Ver detalle'
              +     '</button>'
+             +     (row.compra
+                     ? '<button type="button" class="btn btn-sm btn-outline-primary btn-mrp-oc" title="Ya se emitió la OC en SAP: la compra deja de contar y manda la OC">'
+                       +     '<i class="bi bi-receipt me-1"></i> OC emitida'
+                       + '</button>'
+                       + '<button type="button" class="btn btn-sm btn-outline-danger btn-mrp-anular" title="Anular la compra registrada">'
+                       +     '<i class="bi bi-x-circle me-1"></i> Anular'
+                       + '</button>'
+                     : '<button type="button" class="btn btn-sm btn-outline-success btn-mrp-comprar" title="Registrar la compra de esta semana">'
+                       +     '<i class="bi bi-cart-plus me-1"></i> Comprar'
+                       + '</button>')
+             + '</div>';
+    }
+
+    // Compra registrada pendiente (sin OC en SAP): cantidad, quién y cuándo, y los días que
+    // lleva sin OC (amarillo desde 7 días).
+    function bloqueCompra(row) {
+        const c = row.compra;
+        if (!c) { return ''; }
+        const atrasada = (Number(c.dias) || 0) >= 7;
+        const esc = function(s) { return $('<div>').text(s == null ? '' : String(s)).html(); };
+        const dias = (Number(c.dias) || 0) === 0 ? 'hoy' : 'hace ' + c.dias + (Number(c.dias) === 1 ? ' día' : ' días');
+        return '<div class="mrp-compra ' + (atrasada ? 'alert-warning' : 'alert-success') + '" '
+             +      'title="' + esc(c.observacion ? 'Observación: ' + c.observacion : 'Compra registrada, pendiente de OC en SAP') + '">'
+             +     '<div class="fw-semibold"><i class="bi bi-cart-check me-1"></i>Comprado: ' + formatearEntero(c.cantidad)
+             +         (c.sugerida != null && Number(c.sugerida) !== Number(c.cantidad) ? ' <span class="fw-normal">(sugerido ' + formatearEntero(c.sugerida) + ')</span>' : '')
+             +     '</div>'
+             +     '<div>' + esc(c.fecha) + (c.usuario ? ' · ' + esc(c.usuario) : '') + '</div>'
+             +     '<div>' + (atrasada ? '<i class="bi bi-exclamation-triangle me-1"></i>' : '') + 'OC pendiente ' + dias + '</div>'
              + '</div>';
     }
 
@@ -435,6 +470,12 @@ $(document).ready(function() {
                 if (q === '8+' ? sem < 8 : sem !== parseInt(q, 10)) { return false; }
             }
         }
+
+        // Estado de compra: ''=Todos · 'sin' = sin compra registrada · 'comprado' = con compra
+        // registrada pendiente de OC (botón Comprar).
+        const ec = $('#filtro-compra').val() || '';
+        if (ec === 'sin' && b.compra)       { return false; }
+        if (ec === 'comprado' && !b.compra) { return false; }
 
         // Consulta: todas las palabras deben aparecer en código, nombre, familia, sub-familia o proveedor.
         const txt = ($('#consulta-mrp').val() || '').trim().toLowerCase();
@@ -619,7 +660,7 @@ $(document).ready(function() {
     }
 
     $('#consulta-mrp').on('input', aplicarFiltros);
-    $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre, #mrp-por-pagina').on('change', aplicarFiltros);
+    $('#filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre, #filtro-compra, #mrp-por-pagina').on('change', aplicarFiltros);
 
     // Exportar a Excel: el servidor reconstruye el plan (todas las semanas de todos los productos,
     // sin filtros de pantalla) y devuelve un .xlsx. Se descarga vía un <iframe> oculto para que un
@@ -643,7 +684,7 @@ $(document).ready(function() {
 
     // Botón "Limpiar": vacía filtros y buscador, y redibuja sin filtros.
     $('#btn-limpiar-filtros').on('click', function() {
-        $('#consulta-mrp, #filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre').val('');
+        $('#consulta-mrp, #filtro-familia, #filtro-sub-familia, #filtro-proveedor, #filtro-quiebre, #filtro-compra').val('');
         aplicarFiltros();
     });
 
@@ -984,6 +1025,141 @@ $(document).ready(function() {
         cargarDetalleEnProduccion(f.producto_codigo);
         cargarDetalleForecast(f.producto_codigo);
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMrpDetalle')).show();
+    });
+
+    // ============================================================
+    //  COMPRAR (registro de la compra de la semana actual)
+    // ============================================================
+
+    // Aviso en la parte superior (éxito / información).
+    function mostrarAviso(msg, tipo) {
+        $('#alert-container').html(
+            '<div class="alert alert-' + (tipo || 'success') + ' alert-dismissible fade show" role="alert">' +
+            msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'
+        );
+    }
+
+    // Fecha de hoy + n semanas como dd-mm-yyyy (llegada estimada de la compra).
+    function fechaMasSemanas(n) {
+        const d = new Date();
+        d.setDate(d.getDate() + 7 * (Number(n) || 0));
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return dd + '-' + mm + '-' + d.getFullYear();
+    }
+
+    // Botón "Comprar": precarga el sugerido de hoy (editable) y la llegada estimada.
+    $('#mrp-paneles').on('click', '.btn-mrp-comprar', function() {
+        const f = productoDelPanel(this);
+        if (!f) { return; }
+        limpiarFormularioCompleto('#form-mrp-comprar', '#modal-mensajes-mrp-comprar', true);
+        const sug = Number(f.sugerido_total) || 0;
+        $('#mrp-c-codigo').val(f.producto_codigo);
+        $('#mrp-c-nombre').val(f.producto_nombre || '');
+        $('#mrp-c-proveedor').val(f.proveedor || '');
+        $('#mrp-c-sugerida').val(sug);
+        $('#mrp-c-lead').val(f.lead_time || 0);
+        $('#mrp-c-producto-txt').val((f.producto_codigo || '') + ' · ' + (f.producto_nombre || ''));
+        $('#mrp-c-proveedor-txt').val(f.proveedor || '—');
+        $('#mrp-c-lead-txt').val((f.lead_time || 0) + ' sem');
+        $('#mrp-c-sugerido-txt').val(formatearEntero(sug));
+        $('#mrp-c-llegada-txt').val(fechaMasSemanas(f.lead_time));
+        $('#mrp-c-cantidad').val(sug > 0 ? sug : '');
+        $('#btnMrpComprar').prop('disabled', false);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMrpComprar')).show();
+    });
+
+    $('#form-mrp-comprar').on('submit', function(e) {
+        e.preventDefault();
+        const btn = $('#btnMrpComprar');
+        const formulario = '#form-mrp-comprar';
+        const modalMensaje = '#modal-mensajes-mrp-comprar';
+        $(formulario).find('.is-invalid').removeClass('is-invalid');
+        $(formulario).find('.invalid-feedback').html('').removeClass('d-block');
+        setBtnLoading(btn, 'Registrando...');
+        $.ajax({
+            url: 'controllers/mrp_controller.php?action=comprar',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                resetBtnLoading(btn);
+                if (res.status === 'success') {
+                    // El mensaje queda en el mismo modal; el botón se deshabilita para no registrar
+                    // dos veces, y el pronóstico se recalcula de fondo (la compra cuenta como
+                    // pedido en camino).
+                    btn.prop('disabled', true);
+                    mostrarMensajeFormulario(modalMensaje, 'Éxito',
+                        'Compra registrada para <b>' + esc($('#mrp-c-codigo').val()) + '</b> por <b>'
+                        + formatearEntero($('#mrp-c-cantidad').val()) + '</b>.', 'success', 400);
+                    cargarMrp();
+                } else {
+                    if (res.type === 'fields') { renderizarErroresCampos(formulario, res.errors); }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                resetBtnLoading(btn);
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            }
+        });
+    });
+
+    // Botones "OC emitida" / "Anular" de una compra pendiente: abren el modal de cierre.
+    function abrirCierreCompra(el, accion) {
+        const f = productoDelPanel(el);
+        if (!f || !f.compra) { return; }
+        const esOc = (accion === 'compra_oc_emitida');
+        limpiarFormularioCompleto('#form-mrp-compra-cerrar', '#modal-mensajes-mrp-cerrar', true);
+        $('#mrp-cc-id').val(f.compra.id);
+        $('#mrp-cc-accion').val(accion);
+        $('#mrp-cc-header').removeClass('bg-primary bg-danger').addClass(esOc ? 'bg-primary' : 'bg-danger');
+        $('#mrp-cc-titulo').html(esOc ? '<i class="bi bi-receipt me-2"></i>Marcar OC emitida'
+                                      : '<i class="bi bi-x-circle me-2"></i>Anular compra');
+        $('#mrp-cc-texto').text(esOc
+            ? 'La compra deja de contar en el pronóstico: desde ahora manda la OC de SAP (En Pedido).'
+            : 'La compra se descarta y el pronóstico vuelve a sugerir la reposición del producto.');
+        $('#mrp-cc-producto-txt').val((f.producto_codigo || '') + ' · ' + (f.producto_nombre || ''));
+        $('#mrp-cc-compra-txt').val(formatearEntero(f.compra.cantidad) + ' · ' + (f.compra.fecha || '')
+                                    + (f.compra.usuario ? ' · ' + f.compra.usuario : ''));
+        $('#mrp-cc-oc-wrap').toggleClass('d-none', !esOc);
+        $('#btnMrpCompraCerrar').removeClass('btn-primary btn-danger').addClass(esOc ? 'btn-primary' : 'btn-danger')
+            .html(esOc ? '<i class="bi bi-check2 me-1"></i> OC emitida' : '<i class="bi bi-x-circle me-1"></i> Anular');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMrpCompraCerrar')).show();
+    }
+    $('#mrp-paneles').on('click', '.btn-mrp-oc', function() { abrirCierreCompra(this, 'compra_oc_emitida'); });
+    $('#mrp-paneles').on('click', '.btn-mrp-anular', function() { abrirCierreCompra(this, 'compra_anular'); });
+
+    $('#form-mrp-compra-cerrar').on('submit', function(e) {
+        e.preventDefault();
+        const btn = $('#btnMrpCompraCerrar');
+        const formulario = '#form-mrp-compra-cerrar';
+        const modalMensaje = '#modal-mensajes-mrp-cerrar';
+        const accion = $('#mrp-cc-accion').val();
+        $(formulario).find('.is-invalid').removeClass('is-invalid');
+        $(formulario).find('.invalid-feedback').html('').removeClass('d-block');
+        setBtnLoading(btn, 'Guardando...');
+        $.ajax({
+            url: 'controllers/mrp_controller.php?action=' + encodeURIComponent(accion),
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(res) {
+                resetBtnLoading(btn);
+                if (res.status === 'success') {
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMrpCompraCerrar')).hide();
+                    mostrarAviso(esc(res.message) + ' Actualizando el pronóstico...', 'success');
+                    cargarMrp();
+                } else {
+                    if (res.type === 'fields') { renderizarErroresCampos(formulario, res.errors); }
+                    mostrarMensajeFormulario(modalMensaje, 'Atención', res.message, 'danger');
+                }
+            },
+            error: function(jqXHR, textStatus) {
+                resetBtnLoading(btn);
+                manejarErrorAjax(jqXHR, textStatus, modalMensaje);
+            }
+        });
     });
 
     // Clic en la badge del código (ficha): vuelca las características del producto (Familia,

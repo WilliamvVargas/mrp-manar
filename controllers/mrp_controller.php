@@ -23,6 +23,7 @@
 
     require_once __DIR__ . '/../config/conexion.php';        // $pdo (MySQL)
     require_once __DIR__ . '/../models/forecast_model.php';  // Forecast
+    require_once __DIR__ . '/../models/mrp_compra_model.php'; // MrpCompra (compras registradas)
 
     /**
      * Exporta el plan MRP (filas por producto y semana) a un .xlsx y lo envía como descarga.
@@ -131,6 +132,15 @@
                     $cVal = $stC->fetchColumn();
                     if ($cVal !== false && $cVal !== null) { $semCobertura = max(0, (int) $cVal); }
                 } catch (Throwable $e) { /* se mantiene el default */ }
+
+                // Compras PENDIENTES registradas con el botón "Comprar" (aún sin OC en SAP), por
+                // producto. Sin la tabla (migración pendiente) no hay compras.
+                $comprasPend = [];
+                try {
+                    $comprasPend = (new MrpCompra($pdo))->pendientesPorProducto($_SESSION['empresa_id'] ?? null);
+                } catch (Throwable $e) {
+                    error_log('[MRP][compras] ' . $e->getMessage());
+                }
 
                 // Serie semanal del forecast por producto (ordenada), para sumar el horizonte del
                 // lead time. Guarda la semana (lunes ISO) y la demanda de cada punto.
@@ -333,7 +343,9 @@
                     }
 
                     // Fórmula del stock de seguridad según la historia del producto (ver 3.8):
-                    //  - año completo y estable   -> 'clasico'   : SS fijo = Z × σ × √LT.
+                    //  - año completo y estable   -> 'clasico'   : SS fijo = Z × σ × √(LT + X).
+                    // El período de protección es LT + X (X = semanas de cobertura de la empresa): el
+                    // pedido debe durar hasta su llegada y X semanas más sin que se emita otro.
                     //  - con historia (>= 26 sem) -> 'estacional': SS por semana con su propio CV.
                     //  - sin historia             -> 'estacional': SS por semana con el CV de su grupo (o empresa).
                     $vp = $varProd[$cod];
@@ -341,7 +353,7 @@
                     $ratioEst = ($vp['media'] > 0) ? $vp['sigma'] / $vp['media'] : 0.0;   // σ / media
                     if ($vp['cv'] !== null && $vp['n'] >= $SEM_CICLO && $ratioEst <= $RATIO_ESTACIONAL) {
                         $ssMetodo = 'clasico';
-                        $ssFijo   = (int) round($zSeg * $vp['sigma'] * sqrt(max(1, $leadSem)));
+                        $ssFijo   = (int) round($zSeg * $vp['sigma'] * sqrt(max(1, $leadSem) + $semCobertura));
                     } elseif ($vp['cv'] !== null) {
                         $ssMetodo = 'estacional';
                         $cvSeg = $vp['cv'];   $cvOrigen = ($vp['n'] < $SEM_CICLO) ? 'propio_corto' : 'propio';
@@ -396,18 +408,25 @@
                     }
 
                     // Stock de seguridad POR SEMANA (punto de reorden y piso de la reposición de la
-                    // proyección, más abajo):
-                    //  - 'clasico'   : el mismo valor fijo todas las semanas (Z × σ × √LT).
-                    //  - 'estacional': SS(t) = Z × CV × (demanda efectiva promedio de las LT semanas
-                    //    desde t) × √LT. Es el SS clásico con σ(t) = CV × demanda esperada en t: sigue al
+                    // proyección, más abajo). Período de protección P = LT + X (X = semanas de cobertura):
+                    //  - 'clasico'   : el mismo valor fijo todas las semanas (Z × σ × √P).
+                    //  - 'estacional': SS(t) = Z × CV × (demanda efectiva promedio de las P semanas
+                    //    desde t) × √P. Es el SS clásico con σ(t) = CV × demanda esperada en t: sigue al
                     //    forecast, así que sube al entrar a temporada alta y baja (hasta ~0) al salir.
+                    // $stockSegSem (demanda de las LT semanas) sigue siendo la del punto de pedido; el
+                    // SS usa su propia ventana de P semanas ($demProtSem).
+                    $P = $L + $semCobertura;
+                    $demProtSem = [];
                     $ssSem = [];
                     foreach ($stockSegSem as $k => $s) {
+                        $sP = 0.0;
+                        for ($j = $k; $j < $k + $P && $j < $totSF; $j++) { $sP += $demEfect[$j]; }
+                        $nP = min($P, $totSF - $k);   // al final de la serie la ventana se acorta
+                        $demProtSem[$k] = ($nP > 0) ? $sP / $nP : 0.0;
                         if ($ssMetodo === 'clasico') {
                             $ssSem[$k] = $ssFijo;
                         } else {
-                            $nLt = min($L, $totSF - $k);   // al final de la serie la ventana se acorta
-                            $ssSem[$k] = (int) round($zSeg * $cvSeg * ($nLt > 0 ? $s / $nLt : 0) * sqrt($L));
+                            $ssSem[$k] = (int) round($zSeg * $cvSeg * $demProtSem[$k] * sqrt($P));
                         }
                     }
                     $ssHoy = $ssSem[0] ?? ($ssMetodo === 'clasico' ? $ssFijo : 0);   // SS de la semana actual (ficha)
@@ -471,6 +490,15 @@
                     $llegaPlan = [];   // recepción de los pedidos sugeridos, por índice de semana
                     $ordenar   = array_fill(0, max(1, $totSF), 0);   // sugerido a comprar en cada semana
                     $saldoAll  = [];   // saldo proyectado al cierre de cada semana (toda la serie)
+                    // Compra REGISTRADA pendiente (botón "Comprar", sin OC aún): es un pedido ya
+                    // decidido. Cuenta como pedido sugerido en camino que llega en hoy + LT (el lead
+                    // time empieza recién con la OC, así que la llegada se corre mientras no se
+                    // emita): se descuenta del sugerido y bloquea uno nuevo hasta que llegue.
+                    $compraPend = $comprasPend[$cod] ?? null;
+                    if ($compraPend) {
+                        $llegaPlan[$L] = (float) $compraPend['cantidad'];
+                        $planCamino    = (float) $compraPend['cantidad'];
+                    }
                     for ($i = 0; $i < $totSF; $i++) {
                         $saldo      += $entIdx[$i] + ($llegaPlan[$i] ?? 0);
                         $enCamino   -= $entIdx[$i];
@@ -533,6 +561,18 @@
                         // Origen del forecast: 'manual' (carga personalizada vigente, manda sobre
                         // Prophet) o 'prophet'. Para el badge "Manual" en la ficha del producto.
                         'origen'           => $b['origen'] ?? 'prophet',
+                        // Compra registrada pendiente (null si no hay): la ficha la muestra con sus
+                        // acciones "OC emitida" / "Anular" en vez del botón "Comprar".
+                        'compra'           => $compraPend ? [
+                            'id'          => (int) $compraPend['id'],
+                            'cantidad'    => (int) $compraPend['cantidad'],
+                            'sugerida'    => ($compraPend['cantidad_sugerida'] === null) ? null : (int) $compraPend['cantidad_sugerida'],
+                            'observacion' => $compraPend['observacion'],
+                            'fecha'       => $compraPend['fecha'],
+                            'dias'        => (int) $compraPend['dias'],
+                            'usuario'     => $compraPend['usuario'],
+                            'llegada'     => date('d/m/Y', strtotime($hoy . ' +' . $L . ' week')),
+                        ] : null,
                         'familia'          => $b['familia'],
                         'sub_familia'      => $b['sub_familia'],
                         'proveedor'        => $abast[$cod]['Proveedor'] ?? null,
@@ -551,7 +591,7 @@
                         'cv_origen'        => $cvOrigen,          // 'propio' | 'propio_corto' | 'grupo' | 'empresa' | null
                         'ratio_estacional' => round($ratioEst, 2),  // σ clásica / media (> 1,5 = estacional)
                         'cv_semanas_hist'  => $vp['n'],           // semanas de historia del producto
-                        'dem_prom_lt'      => round(($stockSegSem[0] ?? 0) / max(1, min($L, $totSF)), 1),
+                        'dem_prom_lt'      => round($demProtSem[0] ?? 0, 1),   // demanda promedio de las LT + X semanas (SS estacional)
                         'z_seguridad'      => $zSeg,
                         'semanas_cobertura' => $semCobertura,   // X: semanas que cubre cada pedido tras su llegada
                         'stock_wms'        => round($stock),
@@ -630,6 +670,86 @@
                     exit;
                 }
                 echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al construir el MRP.']);
+            }
+            exit;
+
+        case 'comprar':
+
+            // Registra la compra del producto en la semana actual (botón "Comprar"). Queda
+            // pendiente hasta que se marque "OC emitida" o se anule.
+            require_once __DIR__ . '/../includes/funciones_validacion.php';
+            $empresaId   = $_SESSION['empresa_id'] ?? null;
+            $codigo      = trim($_POST['producto_codigo'] ?? '');
+            $cantidadRaw = trim($_POST['cantidad'] ?? '');
+            $observacion = trim($_POST['observacion'] ?? '');
+            $sugeridaRaw = trim($_POST['cantidad_sugerida'] ?? '');
+            $leadRaw     = trim($_POST['lead_time'] ?? '');
+
+            $errores = [];
+            if (!preg_match('/^\d{1,9}$/', $cantidadRaw) || (int) $cantidadRaw < 1) {
+                $errores['cantidad'] = 'Ingrese una <b>cantidad</b> entera mayor a <b>0</b>.';
+            }
+            if (mb_strlen($observacion) > 255) {
+                $errores['observacion'] = 'La <b>observación</b> admite hasta <b>255</b> caracteres.';
+            }
+            if ($codigo === '' || mb_strlen($codigo) > 50 || !$empresaId) {
+                echo json_encode(['status' => 'error', 'message' => 'No se indicó el producto o la empresa.']);
+                exit;
+            }
+            enviarErrorCamposFormulario($errores);
+
+            try {
+                $compraModel = new MrpCompra($pdo);
+                if ($compraModel->tienePendiente($empresaId, $codigo)) {
+                    echo json_encode(['status' => 'error', 'message' => 'El producto ya tiene una compra pendiente. Márquela como <b>OC emitida</b> o anúlela antes de registrar otra.']);
+                    exit;
+                }
+                $compraModel->crear(
+                    $empresaId, $codigo,
+                    mb_substr(trim($_POST['producto_nombre'] ?? ''), 0, 200) ?: null,
+                    mb_substr(trim($_POST['proveedor'] ?? ''), 0, 200) ?: null,
+                    (int) $cantidadRaw,
+                    preg_match('/^\d{1,9}$/', $sugeridaRaw) ? (int) $sugeridaRaw : null,
+                    preg_match('/^\d{1,3}$/', $leadRaw) ? (int) $leadRaw : null,
+                    $observacion,
+                    $_SESSION['usuario_id'] ?? null
+                );
+                echo json_encode(['status' => 'success', 'message' => 'Compra registrada.']);
+            } catch (Throwable $e) {
+                error_log('[MRP][comprar] ' . $e->getMessage());
+                echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al registrar la compra.']);
+            }
+            exit;
+
+        case 'compra_oc_emitida':
+        case 'compra_anular':
+
+            // Cierre MANUAL de una compra pendiente: "OC emitida" (N° de OC opcional) o "Anular".
+            $empresaId = $_SESSION['empresa_id'] ?? null;
+            $id        = trim($_POST['id'] ?? '');
+            $numeroOc  = trim($_POST['numero_oc'] ?? '');
+            if (!ctype_digit($id) || !$empresaId) {
+                echo json_encode(['status' => 'error', 'message' => 'No se indicó la compra.']);
+                exit;
+            }
+            if ($action === 'compra_oc_emitida' && $numeroOc !== '' && !preg_match('/^[A-Za-z0-9\-\/]{1,30}$/', $numeroOc)) {
+                echo json_encode(['status' => 'error', 'type' => 'fields', 'message' => 'El formulario tiene un campo con error.',
+                                  'errors' => ['numero_oc' => 'El <b>N° de OC</b> admite hasta 30 letras, números, "-" o "/".']]);
+                exit;
+            }
+            try {
+                $ok = (new MrpCompra($pdo))->cerrar(
+                    $id, $empresaId,
+                    ($action === 'compra_oc_emitida') ? 'oc_emitida' : 'anulada',
+                    ($action === 'compra_oc_emitida') ? $numeroOc : '',
+                    $_SESSION['usuario_id'] ?? null
+                );
+                echo json_encode($ok
+                    ? ['status' => 'success', 'message' => ($action === 'compra_oc_emitida') ? 'Compra marcada como OC emitida.' : 'Compra anulada.']
+                    : ['status' => 'error', 'message' => 'La compra no existe o ya estaba cerrada.']);
+            } catch (Throwable $e) {
+                error_log('[MRP][' . $action . '] ' . $e->getMessage());
+                echo json_encode(['status' => 'error', 'message' => 'Ocurrió un error al actualizar la compra.']);
             }
             exit;
 

@@ -62,8 +62,10 @@
            dependiente del forecast (Demanda Proyectada en adelante). */
         .mrp-tabla th.mrp-sep-left,
         .mrp-tabla td.mrp-sep-left { border-left: 2px solid #94a3b8; }
-        /* Botón "Ver detalle" al pie de la ficha del producto. */
-        .mrp-acciones { margin-top: 8px; }
+        /* Botones "Ver detalle" / "Comprar" al pie de la ficha del producto. */
+        .mrp-acciones { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+        /* Compra registrada pendiente (sin OC) en la ficha. */
+        .mrp-compra { margin-top: 8px; padding: 4px 6px; border-radius: 4px; font-size: .74rem; line-height: 1.3; }
     </style>
 </head>
 <body>
@@ -86,8 +88,9 @@
         <div class="card-body">
             <div>
 
+                <!-- Fila 1: búsqueda y características del producto -->
                 <div class="row g-2 mb-2 mx-0">
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold small mb-1" for="consulta-mrp">Consulta</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
@@ -98,25 +101,29 @@
                                    placeholder="Nombre o código de producto">
                         </div>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold small mb-1" for="filtro-familia">Familia</label>
                         <select class="form-select form-select-sm" id="filtro-familia">
                             <option value="">Todas</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold small mb-1" for="filtro-sub-familia">Sub-Familia</label>
                         <select class="form-select form-select-sm" id="filtro-sub-familia">
                             <option value="">Todas</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold small mb-1" for="filtro-proveedor">Proveedor</label>
                         <select class="form-select form-select-sm" id="filtro-proveedor" title="Solo proveedores de productos con forecast">
                             <option value="">Todos</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+                </div>
+
+                <!-- Fila 2: estado del producto, horizonte de la vista y limpiar -->
+                <div class="row g-2 mb-2 mx-0">
+                    <div class="col-md-3">
                         <label class="form-label fw-bold small mb-1" for="filtro-quiebre">En Quiebre</label>
                         <select class="form-select form-select-sm" id="filtro-quiebre" title="Filtra los productos por su estado de quiebre en el horizonte de cálculo">
                             <option value="" selected>Ver Todo</option>
@@ -133,7 +140,15 @@
                             <option value="8+">Quiebre en 8 semanas o más</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small mb-1" for="filtro-compra">Estado Compra</label>
+                        <select class="form-select form-select-sm" id="filtro-compra" title="Filtra los productos por su compra registrada (botón Comprar, pendiente de OC)">
+                            <option value="" selected>Todos</option>
+                            <option value="sin">Sin Comprar</option>
+                            <option value="comprado">Comprado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label fw-bold small mb-1" for="mrp-horizonte">Horizonte</label>
                         <select class="form-select form-select-sm" id="mrp-horizonte" title="Cuántas semanas mostrar por producto (no recalcula: el plan se calcula sobre una ventana fija)">
                             <option value="1">1 Semana</option>
@@ -146,7 +161,7 @@
                             <option value="52">1 Año</option>
                         </select>
                     </div>
-                    <div class="col-md-auto ms-auto d-flex align-items-end">
+                    <div class="col-md-3 d-flex align-items-end justify-content-end">
                         <button type="button" class="btn btn-danger btn-sm" id="btn-limpiar-filtros">
                             <i class="bi bi-eraser me-1"></i> Limpiar
                         </button>
@@ -370,6 +385,8 @@
         </div>
     </div>
 </div>
+
+<?php include 'modals/modal_mrp_comprar.php'; ?>
 
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
